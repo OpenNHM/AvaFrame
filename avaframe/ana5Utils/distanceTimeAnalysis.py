@@ -559,7 +559,7 @@ def extractFrontAndMeanValuesTT(cfgRangeTime, flowF, demHeader, mtiInfo):
     return mtiInfo
 
 
-def initializeRangeTime(modName, cfg, dem, simHash):
+def initializeRangeTime(modName, cfg, dem, simHash, configDir):
     """ initialize generation of range-time diagram for visualizing simulation data
 
         Parameters
@@ -572,6 +572,8 @@ def initializeRangeTime(modName, cfg, dem, simHash):
             dictionary with DEM header and data
         simHash: str
             unique simulation ID
+        configDir: str or pathlib path
+            path to configuration directory - optional if not provided has to be empty string
 
         Returns
         --------
@@ -583,7 +585,7 @@ def initializeRangeTime(modName, cfg, dem, simHash):
     """
 
     # fetch configuration and add info
-    cfgRangeTime = cfgUtils.getModuleConfig(modName)
+    cfgRangeTime = cfgUtils.getModuleConfig(modName, configDir)
 
     cfgRangeTime['GENERAL']['tEnd'] = cfg['GENERAL']['tEnd']
     cfgRangeTime['GENERAL']['avalancheDir'] = cfg['GENERAL']['avalancheDir']

@@ -26,7 +26,7 @@ def plotContoursFromAsc(cfg, avalancheDir):
 
 if __name__ == "__main__":
     # Load configuration for runPlotContour
-    cfg = cfgUtils.getModuleConfig(rCon, fileOverride="", modInfo=False, toPrint=False, onlyDefault=False)
+    cfg = cfgUtils.getModuleConfig(rCon, '', fileOverride="", modInfo=False, toPrint=False, onlyDefault=False)
 
     # fetch input directory
     cfgMain = cfgUtils.getGeneralConfig()

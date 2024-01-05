@@ -95,7 +95,8 @@ def getGeneralConfig(nameFile=""):
     return cfg
 
 
-def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDefault=False):
+
+def getModuleConfig(module, configDir, fileOverride="", modInfo=False, toPrint=True, onlyDefault=False):
     """Returns the configuration for a given module
     returns a configParser object
 
@@ -107,6 +108,9 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
            from avaframe.com2AB import com2AB as c2
            leads to getModuleConfig(c2)
            OR: pathlib Path to module (python file)
+
+    configDir: pathlib Path or str
+        directory to local configuration files - if not provided has to be empty str!
 
     Str: fileOverride : allows for a completely different file location. However note:
         missing values from the default cfg will always be added!
@@ -133,11 +137,22 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
     else:
         modPath, modName = getModPathName(module)
 
+    if configDir != "":
+        if pathlib.Path(configDir).is_dir() is False:
+            message = "Provided configurationDir: %s is not a directory!" % str(configDir)
+            log.error(message)
+            raise NotADirectoryError(message)
+        else:
+            directoryFile = pathlib.Path(configDir, (("local_" + modName + "Cfg.ini")))
+    else:
+        directoryFile = None
+
     localFile = modPath / ("local_" + modName + "Cfg.ini")
     defaultFile = modPath / (modName + "Cfg.ini")
 
     log.debug("localFile: %s", localFile)
     log.debug("defaultFile: %s", defaultFile)
+    log.debug("directoryFile: %s", directoryFile)
 
     # Decide which one to take
     if fileOverride:
@@ -147,7 +162,9 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
             compare = True
         else:
             raise FileNotFoundError("Provided fileOverride does not exist: " + str(fileOverride))
-
+    elif (directoryFile is not None) and directoryFile.is_file():
+        iniFile = [defaultFile, directoryFile]
+        compare = True
     elif localFile.is_file() and not onlyDefault:
         iniFile = localFile
         iniFile = [defaultFile, localFile]
@@ -182,7 +199,6 @@ def getDefaultModuleConfig(module, toPrint=True):
 
     # get path to the module and its name
     modPath, modName = getModPathName(module)
-
     defaultFile = modPath / (modName + "Cfg.ini")
 
     log.info("Getting the default config for %s", modName)
@@ -1026,10 +1042,10 @@ def convertToCfgList(parameterList):
     parameterList: list
         list of parameter values
 
-    Returns
-    ---------
-    parameterString: str
-        str with parameter values separated by |
+        Returns
+        ---------
+        parameterString: str
+            str with parameter values separated by |
     """
 
     if len(parameterList) == 0:

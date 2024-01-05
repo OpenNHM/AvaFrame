@@ -299,7 +299,7 @@ def createSimDictFromCfgs(cfgMain, cfgPath, module=com1DFA):
     # loop over all cfgFiles and create simDict
     for index, cfgFile in enumerate(cfgFilesAll):
         # read configuration
-        cfgFromFile = cfgUtils.getModuleConfig(module, fileOverride=cfgFile, toPrint=False)
+        cfgFromFile = cfgUtils.getModuleConfig(module, "", fileOverride=cfgFile, toPrint=False)
 
         # create dictionary with one key for each simulation that shall be performed
         # NOTE: sims that are added don't need to be added to the simNameExisting list as

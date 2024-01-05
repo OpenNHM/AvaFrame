@@ -540,6 +540,11 @@ def rewriteLocalCfgs(cfgFull, avalancheDir, localCfgPath=''):
         optional - path to directory to store local_ cfg ini file to
         if not provided - local_ cfg ini file is saved to avalanche directory
 
+    Returns
+    --------
+    locFilePath: pathlib Path
+        path to directory where local configuration files are written to derived from override sections
+
     """
 
     # if a path is provided - save local cfg ini file there
@@ -576,6 +581,7 @@ def rewriteLocalCfgs(cfgFull, avalancheDir, localCfgPath=''):
 
         cfgModule = cfgUtils.getModuleConfig(
             cfgNamePath,
+            '',
             fileOverride="",
             modInfo=False,
             toPrint=False,
@@ -605,6 +611,8 @@ def rewriteLocalCfgs(cfgFull, avalancheDir, localCfgPath=''):
             cfgModule.write(configfile)
 
         log.info("%s CONFIGURATION wrote to %s" % (cfgName, str(cfgF)))
+
+    return locFilePath
 
 
 def _removeCfgItemsNotInOverride(cfgModule, overrideKeys):

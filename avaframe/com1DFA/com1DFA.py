@@ -99,7 +99,7 @@ def com1DFAPreprocess(cfgMain, typeCfgInfo, cfgInfo, module=com1DFA):
 
     # read initial configuration
     if typeCfgInfo in ["cfgFromFile", "cfgFromDefault"]:
-        cfgStart = cfgUtils.getModuleConfig(module, fileOverride=cfgInfo, toPrint=False)
+        cfgStart = cfgUtils.getModuleConfig(module, cfgMain['MAIN']['configurationDir'], fileOverride=cfgInfo, toPrint=False)
     elif typeCfgInfo == "cfgFromObject":
         cfgStart = cfgInfo
 
@@ -1994,7 +1994,7 @@ def initializeResistance(cfg, dem, simTypeActual, resLine, reportAreaInfo, thres
     return cResRaster, detRaster, reportAreaInfo
 
 
-def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, simHash=""):
+def DFAIterate(cfg, particles, fields, dem, inputSimLines, configDir, outDir, cuSimName, simHash=""):
     """Perform time loop for DFA simulation
      Save results at desired intervals
 
@@ -2013,6 +2013,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         dictionary with dem information
     inputSimLines : dict
         dictionary with input data dictionaries (releaseLine, entLine, ...)
+    configDir: str or pathlib Path
+        path to configuration directory - optional if not provided has to be empty string
 
     Returns
     -------
@@ -2143,7 +2145,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # check if range-time diagram should be performed, if yes - initialize
     if cfg["VISUALISATION"].getboolean("createRangeTimeDiagram"):
         demRT = dtAna.setDemOrigin(dem)
-        mtiInfo, dtRangeTime, cfgRangeTime = dtAna.initializeRangeTime(dtAna, cfg, demRT, simHash)
+        mtiInfo, dtRangeTime, cfgRangeTime = dtAna.initializeRangeTime(dtAna, cfg, demRT, simHash, configDir)
         # fetch initial time step too
         mtiInfo, dtRangeTime = dtAna.fetchRangeTimeInfo(
             cfgRangeTime, cfg, dtRangeTime, t, demRT["header"], fields, mtiInfo

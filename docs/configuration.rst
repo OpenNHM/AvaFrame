@@ -61,4 +61,14 @@ in the module **B** configuration file are used to update the configuration sett
 the configuration parameters used for one task in one configuration file.
 An example of this usage can be found in ``ana1Tests/energyLineTestCfg.ini``.
 
+Additionally, there is the option to write ``local_moduleNameCfg.ini`` configuration files for all modules
+where a corresponding *collectionName_moduleName_override* section is provided by using
+the function: :py:func:`in3Utils.cfgHandling.rewriteLocalCfgs`. These ``local_moduleNameCfg.ini`` files are
+saved to ``avalancheDir/Inputs/configurationsOverrides`` by default if no ``localCfgPath`` is provided as input.
+An example of this functionality is provided in :py:mod:`runScripts.runPlotContoursFromAsc.py` with the respective
+``runPlotContoursFromAscCfg.ini`` file.
+
+.. Note::
+   By using :py:func:`in3Utils.cfgHandling.rewriteLocalCfgs`, already existing ``local_moduleNameCfg.ini`` files in the
+   respective directory will be overwritten.
   

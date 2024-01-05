@@ -36,7 +36,7 @@ cfgFlags = cfgMain["FLAGS"]
 
 # Load all input Parameters from config file
 # get the configuration of an already imported module
-cfg = cfgUtils.getModuleConfig(plotUtils)
+cfg = cfgUtils.getModuleConfig(plotUtils, cfgMain['MAIN']['configurationDir'])
 cfgPlotUtils = cfg["UNITS"]
 cfgConstants = cfg["CONSTANTS"]
 cfg = cfg["MAIN"]
