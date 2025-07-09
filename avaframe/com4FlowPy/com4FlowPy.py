@@ -516,6 +516,7 @@ def mergeAndWriteResults(modelPaths, modelOptions):
     log.info("-------------------------")
 
     # Merge calculated tiles
+    affectedCells = SPAM.mergeRaster(modelPaths["tempDir"], "res_affected")
     zDelta = SPAM.mergeRaster(modelPaths["tempDir"], "res_z_delta")
     flux = SPAM.mergeRaster(modelPaths["tempDir"], "res_flux")
     cellCounts = SPAM.mergeRaster(modelPaths["tempDir"], "res_count", method="sum")
@@ -554,18 +555,23 @@ def mergeAndWriteResults(modelPaths, modelOptions):
         output = IOf.writeResultToRaster(outputHeader, flux,
                                          modelPaths["resDir"] / "com4_{}_{}_flux".format(_uid, _ts), flip=True)
     if 'zDelta' in _outputs:
+        defineNotAffectedCells(zDelta, affectedCells)
         output = IOf.writeResultToRaster(outputHeader, zDelta,
                                          modelPaths["resDir"] / "com4_{}_{}_zdelta".format(_uid, _ts), flip=True)
     if 'cellCounts' in _outputs:
+        defineNotAffectedCells(cellCounts, affectedCells)
         output = IOf.writeResultToRaster(outputHeader, cellCounts,
                                          modelPaths["resDir"] / "com4_{}_{}_cellCounts".format(_uid, _ts), flip=True)
     if 'zDeltaSum' in _outputs:
+        defineNotAffectedCells(zDeltaSum, affectedCells)
         output = IOf.writeResultToRaster(outputHeader, zDeltaSum,
                                          modelPaths["resDir"] / "com4_{}_{}_zDeltaSum".format(_uid, _ts), flip=True)
     if 'routFluxSum' in _outputs:
+        defineNotAffectedCells(routFluxSum, affectedCells)
         output = IOf.writeResultToRaster(outputHeader, routFluxSum,
                                          modelPaths["resDir"] / "com4_{}_{}_routFluxSum".format(_uid, _ts), flip=True)
     if 'depFluxSum' in _outputs:
+        defineNotAffectedCells(depFluxSum, affectedCells)
         output = IOf.writeResultToRaster(outputHeader, depFluxSum,
                                          modelPaths["resDir"] / "com4_{}_{}_depFluxSum".format(_uid, _ts), flip=True)
     if "fpTravelAngle" in _outputs or "fpTravelAngleMax" in _outputs:
@@ -701,3 +707,25 @@ def deleteTempFolder(tempFolderPath):
         log.info(" isDir:{} isTemp:{}}".format(isDir, validTemp))
 
     log.info("+++++++++++++++++++++++")
+
+
+def defineNotAffectedCells(raster, affectedCells, noDataValue=-9999):
+    """
+    define not affected cells as -9999
+
+    Parameters
+    -----------
+    raster: np.array
+        raster whose not affected cells are specified
+    affectedCells: np.array
+        mask for affected cells
+    noDataValue: float
+        value for not affected cells (default: -9999)
+
+    Returns
+    -----------
+    raster: np. array
+        raster with not affected cells have the value noDataValue
+    """
+    raster[affectedCells == 0] = noDataValue
+    return raster

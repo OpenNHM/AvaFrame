@@ -224,6 +224,7 @@ Output
 
 All outputs are written in *'.tif'* or in *'.asc'* raster format (controlable via the ``outputFileFormat`` option in ``(local_)com4FlowPyCfg.ini``, default is *'.tif'*) in the same resolution and extent as the input raster layers.
 You can customize which output rasters are written at the end of the model run by selecting the desired output files through the ``outputFiles`` option in ``(local_)com4FlowPyCfg.ini``.
+In the output rasters, the cells, that are not affected by the process, are specified by the value -9999.
 
 By default the following four output layers are written to disk at the end of the model run:
 

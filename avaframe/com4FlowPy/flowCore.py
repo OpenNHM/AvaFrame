@@ -273,6 +273,7 @@ def run(optTuple):
     slTravelAngleArray = np.ones_like(dem, dtype=np.float32) * -9999
     travelLengthMaxArray = np.ones_like(dem, dtype=np.float32) * -9999
     travelLengthMinArray = np.ones_like(dem, dtype=np.float32) * -9999
+    affectedCellsArray = np.zeros_like(dem, dtype=np.int32)
     if forestInteraction:
         forestIntArray = np.ones_like(dem, dtype=np.float32) * -9999
 
@@ -289,6 +290,7 @@ def run(optTuple):
     slTravelAngleList = []
     travelLengthMaxList = []
     travelLengthMinList = []
+    affectedCellsList = []
     if forestInteraction:
         forestIntList = []
 
@@ -308,11 +310,13 @@ def run(optTuple):
         fpTravelAngleMinList.append(res[9])
         routFluxSumList.append(res[10])
         depFluxSumList.append(res[11])
+        affectedCellsList.append(res[12])
         if forestInteraction:
-            forestIntList.append(res[12])
+            forestIntList.append(res[13])
 
     logging.info("Calculation finished, getting results.")
     for i in range(len(zDeltaList)):
+        affectedCellsArray = np.maximum(affectedCellsArray, affectedCellsList[i])
         zDeltaArray = np.maximum(zDeltaArray, zDeltaList[i])
         fluxArray = np.maximum(fluxArray, fluxList[i])
         countArray += ccList[i]
@@ -344,6 +348,7 @@ def run(optTuple):
                                     np.maximum(forestIntArray, forestIntList[i]))
 
     # Save Calculated tiles
+    np.save(tempDir / ("res_affected_%s_%s" % (optTuple[0], optTuple[1])), affectedCellsArray)
     np.save(tempDir / ("res_z_delta_%s_%s" % (optTuple[0], optTuple[1])), zDeltaArray)
     np.save(tempDir / ("res_z_delta_sum_%s_%s" % (optTuple[0], optTuple[1])), zDeltaSumArray)
     np.save(tempDir / ("res_rout_flux_sum_%s_%s" % (optTuple[0], optTuple[1])), routFluxSumArray)
@@ -480,6 +485,8 @@ def calculation(args):
     travelLengthMinArray = np.ones_like(dem, dtype=np.float32) * -9999
     travelLengthMaxArray = np.ones_like(dem, dtype=np.float32) * -9999
 
+    affectedCellsArray = np.zeros_like(dem, dtype=np.int32)
+
     if infraBool:
         backcalc = np.ones_like(dem, dtype=np.int32) * -9999
     else:
@@ -610,6 +617,7 @@ def calculation(args):
                             forestParams=forestParams,
                                      ))
 
+            affectedCellsArray[cell.rowindex, cell.colindex] = 1
             zDeltaArray[cell.rowindex, cell.colindex] = max(zDeltaArray[cell.rowindex, cell.colindex], cell.z_delta)
             fluxArray[cell.rowindex, cell.colindex] = max(fluxArray[cell.rowindex, cell.colindex], cell.flux)
             routFluxSumArray[cell.rowindex, cell.colindex] += cell.flux
@@ -698,6 +706,7 @@ def calculation(args):
             fpTravelAngleMinArray,
             routFluxSumArray,
             depFluxSumArray,
+            affectedCellsArray,
             forestIntArray,
         )
     else:
@@ -714,6 +723,7 @@ def calculation(args):
             fpTravelAngleMinArray,
             routFluxSumArray,
             depFluxSumArray,
+            affectedCellsArray,
         )
 
 
