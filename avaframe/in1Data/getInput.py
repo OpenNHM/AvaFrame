@@ -18,6 +18,7 @@ import avaframe.in2Trans.rasterUtils as IOf
 import avaframe.in2Trans.shpConversion as shpConv
 import avaframe.in3Utils.fileHandlerUtils as fU
 import avaframe.in3Utils.geoTrans as geoTrans
+import avaframe.com1DFA.debrisFunctions as debF
 
 # Local imports
 from avaframe.in3Utils import cfgUtils
