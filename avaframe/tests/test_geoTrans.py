@@ -510,6 +510,43 @@ def test_checkParticlesInRelease():
     assert particles2["nPart"] == 4
 
 
+def test_getParticlesInPolygon():
+    """test if particles are within release polygon"""
+    # setup required input
+    hydrographLine = {
+        "Name": ["testRel"],
+        "Start": np.asarray([0.0]),
+        "Length": np.asarray([5]),
+        "type": "Release",
+        "x": np.asarray([0, 10.0, 10.0, 0.0, 0.0]),
+        "y": np.asarray([0.0, 0.0, 10.0, 10.0, 0.0]),
+    }
+    demHeader = {}
+    demHeader["xllcenter"] = 0.0
+    demHeader["yllcenter"] = 0.0
+    demHeader["cellsize"] = 1.0
+    demHeader["noDataValue"] = -9999
+    demHeader["nrows"] = 5
+    demHeader["ncols"] = 5
+    hydrographLine["header"] = demHeader
+    particles = {
+        "x": np.asarray([2.4, 9.7, 10.02, 11.5]),
+        "y": np.asarray([2.4, 9.7, 10.2, 11.5]),
+        "nPart": 4,
+        "m": np.asarray([1.4, 1.7, 1.4, 1.8]),
+    }
+    radius = 0
+
+    MaskTest = np.array([True, True, False, False])
+    Mask = geoTrans.getParticlesInPolygon(particles, hydrographLine, radius)
+    assert np.array_equal(MaskTest, Mask)
+
+    radius = 0.5
+    MaskTest = np.array([True, True, True, False])
+    Mask = geoTrans.getParticlesInPolygon(particles, hydrographLine, radius)
+    assert np.array_equal(MaskTest, Mask)
+
+
 def test_remeshDEM(tmp_path):
     """test size of interpolated data onto new mesh"""
 
