@@ -285,8 +285,10 @@ def getThicknessValue(cfg, inputSimFiles, fName, thType):
 
     # if thickness should be read from shape file
     if cfg["GENERAL"].getboolean(thFlag):
+        if cfg["GENERAL"].getboolean("timeDependentRelease"):
+            cfg["INPUT"]["relThInfo"] = "timeDependent"
         # if at least one but not all features in a shapefile have a thickness value - error
-        if ("None" in thicknessList) and thType != "entTh":
+        elif ("None" in thicknessList) and thType != "entTh":
             message = (
                 "Not all features in shape file have a thickness value - check shape file attributes: %s"
                 % fName
@@ -424,6 +426,14 @@ def checkThicknessSettings(cfg, thName, inputSimFiles):
             )
             log.error(message)
             raise AssertionError(message)
+        if (cfg["GENERAL"].getboolean("timeDependentRelease") and inputSimFiles["entResInfo"]["relTh" + "FileType"] in [".asc", ".tif"]):
+            message = "When release is time dependent, release file needs to be provided as shape file"
+            log.error(message)
+            raise FileNotFoundError(message)
+        if (cfg["GENERAL"].getboolean("timeDependentRelease") and cfg["GENERAL"].getboolean("relThFromFile") is False):
+            message = "When release is time dependent, relThFromFile needs to be set to True"
+            log.error(message)
+            raise FileNotFoundError(message)
     else:
         message = "Check %s - needs to be True or False" % thFlag
         log.error(message)

@@ -403,7 +403,10 @@ def test_fetchReleaseFile(tmp_path):
     inputSimFiles = {"relFiles": [rel1, rel2]}
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "rel1"}
-    cfg["GENERAL"] = {"relThFromFile": False}
+    cfg["GENERAL"] = {
+        "relThFromFile": False,
+        "timeDependentRelease": "False",
+    }
     releaseScenario = "rel1"
     releaseList = ["rel1", "rel2"]
 
@@ -419,7 +422,10 @@ def test_fetchReleaseFile(tmp_path):
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "rel2"}
     inputSimFiles = {"relFiles": [rel1, rel2]}
-    cfg["GENERAL"] = {"relThFromFile": True}
+    cfg["GENERAL"] = {
+        "relThFromFile": True,
+        "timeDependentRelease": "False",
+    }
     cfg["INPUT"] = {
         "rel2_relThId": "0",
         "rel2_relThThickness": "2.",
@@ -1417,7 +1423,10 @@ def test_fetchReleaseFile_scenario_not_found():
     inputSimFiles = {"relFiles": [rel1, rel2]}
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "relNONEXISTENT"}
-    cfg["GENERAL"] = {"relThFromFile": "False"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "False",
+        "timeDependentRelease": "False",
+    }
     releaseScenario = "relNONEXISTENT"
     releaseList = ["rel1", "rel2"]
 
@@ -1448,7 +1457,10 @@ def test_fetchReleaseFile_multiple_files_same_name():
         "release2_relThThickness": "1.5",
         "release2_relThCi95": "None",
     }
-    cfg["GENERAL"] = {"relThFromFile": "True"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "True",
+        "timeDependentRelease": "False",
+    }
     releaseScenario = "release1"
     releaseList = ["release1", "release2"]
 
@@ -1478,7 +1490,10 @@ def test_fetchReleaseFile_no_matching_thickness_file():
         "release2_relThThickness": "1.5",
         "release2_relThCi95": "None",
     }
-    cfg["GENERAL"] = {"relThFromFile": "True"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "True",
+        "timeDependentRelease": "False",
+    }
     releaseScenario = "release2"
     releaseList = ["release2"]
 
@@ -1509,7 +1524,10 @@ def test_fetchReleaseFile_no_matching_thickness_file():
     inputSimFiles = {"relFiles": [rel1]}
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "release1"}
-    cfg["GENERAL"] = {"relThFromFile": "False"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "False",
+        "timeDependentRelease": "False",
+    }
     releaseScenario = "release1"
     releaseList = ["release1"]
 
@@ -1521,3 +1539,28 @@ def test_fetchReleaseFile_no_matching_thickness_file():
     # verify results
     assert releaseScenarioPath == rel1
     assert relThFile == rel1  # When relThFromFile is False, relThFile should still be returned
+
+
+def test_getTimeDepRelCsv():
+    dirName = pathlib.Path(__file__).parents[0]
+    avaDir = dirName / ".." / "data" / "avaParabolaTimeDep"
+    timeDepRelCsv = avaDir / "Inputs" / "REL" / "release1PF.csv"
+
+    timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
+
+    assert timeDepRelValuesTxt.shape == (3, 3)
+    assert np.all(timeDepRelValues["timeStep"] == np.array([0, 30, 60]))
+    assert np.all(timeDepRelValues["thickness"] == np.array([0.5, 1, 1]))
+    assert np.all(timeDepRelValues["velocity"] == np.array([5, 3, 0]))
+
+    testDir = pathlib.Path(__file__).parents[0]
+    timeDepRelCsv = testDir / "data" / "testTimeDepRel" / "rel.csv"
+
+    timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
+    assert np.all(timeDepRelValues["timeStep"] == np.array([0, 20, 50]))
+    assert np.all(timeDepRelValues["thickness"] == np.array([3, 1, 0]))
+
+    timeDepRelCsv = testDir / "data" / "testTimeDepRel" / "rel_notSorted.csv"
+    timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
+    assert np.all(timeDepRelValues["timeStep"] == np.array([0, 20, 50]))
+    assert np.all(timeDepRelValues["thickness"] == np.array([3, 1, 1]))

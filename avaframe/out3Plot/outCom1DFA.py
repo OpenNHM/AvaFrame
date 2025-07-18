@@ -828,3 +828,54 @@ def massPlot(infoDict, massDetrainedTotal, t, avaDir, logName):
     outDir = pathlib.Path(avaDir, "Outputs", "com1DFA", "reports")
     fU.makeADir(outDir)
     pU.saveAndOrPlot({"pathResult": outDir}, plotName, fig)
+
+
+def massSourcePlot(infoDict, massDetrainedTotal, t, avaDir, logName):
+    massEntrained = infoDict["massEntrained"]
+    massInitialized = infoDict["massInitialized"]
+    massTotal = infoDict["massTotal"]
+
+    # create figure
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(pU.figW, pU.figH))
+
+    l1 = ax.plot(t, (100.0 / massTotal[0]) * np.asarray(massTotal), "k-", label="total mass")
+    ax2 = ax.twinx()
+    l2 = ax2.plot(
+        t,
+        (100.0 / massTotal[0]) * np.asarray(massEntrained),
+        color="royalblue",
+        linestyle="--",
+        label="entrained mass",
+    )
+
+    l3 = ax.plot(
+        t,
+        (100.0 / massTotal[0]) * (np.asarray(massTotal) - massDetrainedTotal),
+        "r--",
+        label="total mass + detrained mass",
+    )
+
+    l4 = ax.plot(
+        t,
+        (100.0 / massTotal[0]) * np.asarray(massInitialized),
+        color="#7a378b",
+        linestyle=":",
+        label="initialized mass",
+    )
+
+    ax.set_xlabel("time [s]")
+    ax.set_ylabel("total/ initialized mass [% of initial mass]")
+    ax2.set_ylabel("entrained mass [% of initial mass]", color="royalblue")
+
+    ax2.spines["right"].set_color("royalblue")
+    ax2.tick_params(axis="y", colors="royalblue")
+
+    lns = l1 + l2 + l3 + l4
+    labs = [l.get_label() for l in lns]
+    plt.legend(lns, labs, fontsize=9)
+
+    # save and or plot
+    plotName = "massSource_%s" % (logName)
+    outDir = pathlib.Path(avaDir, "Outputs", "com1DFA", "reports")
+    fU.makeADir(outDir)
+    pU.saveAndOrPlot({"pathResult": outDir}, plotName, fig)

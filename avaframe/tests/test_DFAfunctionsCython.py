@@ -121,7 +121,6 @@ def test_computeDetMass(capfd):
 
     detCell = 10
     dmDet = DFAfunC.computeDetMass(dt, detCell, areaPart, uMag)
-    #    print(dmDet)
     assert dmDet == -0.1
 
 
@@ -785,6 +784,7 @@ def test_computeCohesionForceC():
     assert force["forceSPHY"][2] < 0
     assert force["forceSPHY"][1] == -force["forceSPHY"][2]
 
+
 def test_computeForceC():
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
@@ -808,7 +808,7 @@ def test_computeForceC():
         "reprojectionIterations": "5",
         "thresholdProjection": "0.001",
         "subgridMixingFactor": "100.00",
-        "viscOption": "0", # 0: no viscosity -> ux as defined below
+        "viscOption": "0",  # 0: no viscosity -> ux as defined below
         "enthRef": "20000",
         "musamosat": "0.155",
         "tau0samosat": "0",
@@ -858,39 +858,39 @@ def test_computeForceC():
     # set particles-parameters; dictionary at t - see 'com1DFA.DFAfunctionsCython.pyx.computeForceC()'
     # Minimal particles setup
     particles = {
-            "nPart": 1,
-            "x": np.array([0.0]),
-            "y": np.array([0.0]),
-            "z": np.array([0.0]),
-            "ux": np.array([1.0]),
-            "uy": np.array([0.0]),
-            "uz": np.array([0.0]),
-            "m": np.array([1.0]),
-            "h": np.array([1.0]),
-            "dt": 0.1,
-            "ID": np.array([1]),
-            "totalEnthalpy": np.array([0.0]),
-            "indXDEM": np.array([0], dtype=np.int32),
-            "indYDEM": np.array([0], dtype=np.int32),
+        "nPart": 1,
+        "x": np.array([0.0]),
+        "y": np.array([0.0]),
+        "z": np.array([0.0]),
+        "ux": np.array([1.0]),
+        "uy": np.array([0.0]),
+        "uz": np.array([0.0]),
+        "m": np.array([1.0]),
+        "h": np.array([1.0]),
+        "dt": 0.1,
+        "ID": np.array([1]),
+        "totalEnthalpy": np.array([0.0]),
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
     }
 
     # set dem-parameters; dictionary - see 'com1DFA.DFAfunctionsCython.pyx.computeForceC()'
     # Minimal dem setup
     dem = {
-            "header": {
-                "cellsize": 5,
-                "nrows": 2,
-                "ncols": 2,
-            },
-            "rasterData": np.ones((2, 2)),
-            # normal vectors of surface
-            "Nx": np.zeros((2, 2)),
-            "Ny": np.zeros((2, 2)),
-            "Nz": np.ones((2, 2)),
-            "areaRaster": np.ones((2, 2)), # Area of grid cells
-            "outOfDEM": np.zeros((4,), dtype=bool), # no data mask (used to find out of dem particles)
+        "header": {
+            "cellsize": 5,
+            "nrows": 2,
+            "ncols": 2,
+        },
+        "rasterData": np.ones((2, 2)),
+        # normal vectors of surface
+        "Nx": np.zeros((2, 2)),
+        "Ny": np.zeros((2, 2)),
+        "Nz": np.ones((2, 2)),
+        "areaRaster": np.ones((2, 2)),  # Area of grid cells
+        "outOfDEM": np.zeros((4,), dtype=bool),  # no data mask (used to find out of dem particles)
     }
-    #dem["headerNeighbourGrid"] = dem["header"]
+    # dem["headerNeighbourGrid"] = dem["header"]
 
     # set fields parameters; dictionary - see 'com1DFA.DFAfunctionsCython.pyx.computeForceC()'
     # Minimal fields setup
@@ -898,33 +898,34 @@ def test_computeForceC():
     ncols = dem["header"]["ncols"]
 
     fields = {
-            "Vx": np.zeros((nrows, ncols)),
-            "Vy": np.zeros((nrows, ncols)),
-            "Vz": np.zeros((nrows, ncols)),
-            "entrMassRaster": np.zeros((nrows, ncols)),
-            "entrEnthRaster": np.zeros((nrows, ncols)),
-            "muField": np.zeros((nrows, ncols)),
-            "xiField": np.zeros((nrows, ncols)),
-            "detRaster": np.zeros((nrows, ncols)),
-            "cResRaster": np.zeros((nrows, ncols)),
+        "Vx": np.zeros((nrows, ncols)),
+        "Vy": np.zeros((nrows, ncols)),
+        "Vz": np.zeros((nrows, ncols)),
+        "entrMassRaster": np.zeros((nrows, ncols)),
+        "entrEnthRaster": np.zeros((nrows, ncols)),
+        "muField": np.zeros((nrows, ncols)),
+        "xiField": np.zeros((nrows, ncols)),
+        "detRaster": np.zeros((nrows, ncols)),
+        "cResRaster": np.zeros((nrows, ncols)),
     }
 
-
     # initialize test array friction force
-    test_tauArray = np.zeros(3) # saving tau of the three models
-    test_forceFrict = np.zeros(particles['nPart'])
+    test_tauArray = np.zeros(3)  # saving tau of the three models
+    test_forceFrict = np.zeros(particles["nPart"])
 
     # resistanceType
-    resistanceType = 1 # default; since cResRaster = 0 there is no resistance
+    resistanceType = 1  # default; since cResRaster = 0 there is no resistance
 
     # apply function
     # looping over models
     forceFrictArray = np.zeros(3)
     # i = index of result in array, j = frictType
-    for i, j in enumerate(range(10,13)):
-        particles, force,*_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, j, resistanceType)
-        forceFrictArray[i] = force['forceFrict'][0]
-    
+    for i, j in enumerate(range(10, 13)):
+        particles, force, *_ = DFAfunC.computeForceC(
+            cfg["GENERAL"], particles, fields, dem, j, resistanceType
+        )
+        forceFrictArray[i] = force["forceFrict"][0]
+
     ## Check output types and some expected values
     assert "forceX" in force
     assert "forceY" in force
@@ -942,49 +943,71 @@ def test_computeForceC():
 
     ## Testing rheologcial models for given input parameters
     # substitution of shear rate gamma
-    test_uMag = DFAtlsC.norm(particles['ux'][0], particles['uy'][0], particles['uz'][0])
-    test_shearRate = 3 *  test_uMag / particles['h']
+    test_uMag = DFAtlsC.norm(particles["ux"][0], particles["uy"][0], particles["uz"][0])
+    test_shearRate = 3 * test_uMag / particles["h"]
 
     ## O'Brien & Julien
     # read input parameters
-    test_alpha1EtaObrienAndJulien = float(cfg['GENERAL']['alpha1EtaObrienAndJulien'])
-    test_beta1EtaObrienAndJulien = float(cfg['GENERAL']['beta1EtaObrienAndJulien'])
-    test_alpha2TauyObrienAndJulien = float(cfg['GENERAL']['alpha2TauyObrienAndJulien'])
-    test_beta2TauyObrienAndJulien = float(cfg['GENERAL']['beta2TauyObrienAndJulien'])
-    test_cvSediment = float(cfg['GENERAL']['cvSediment'])
-    test_cvMaxSediment = float(cfg['GENERAL']['cvMaxSediment'])
-    test_rho = float(cfg['GENERAL']['rho'])
-    test_alphaObrienAndJulien = float(cfg['GENERAL']['alphaObrienAndJulien'])
-    test_rhoSediment = float(cfg['GENERAL']['rhoSediment'])
-    test_sizeSediment = float(cfg['GENERAL']['sizeSediment'])
+    test_alpha1EtaObrienAndJulien = float(cfg["GENERAL"]["alpha1EtaObrienAndJulien"])
+    test_beta1EtaObrienAndJulien = float(cfg["GENERAL"]["beta1EtaObrienAndJulien"])
+    test_alpha2TauyObrienAndJulien = float(cfg["GENERAL"]["alpha2TauyObrienAndJulien"])
+    test_beta2TauyObrienAndJulien = float(cfg["GENERAL"]["beta2TauyObrienAndJulien"])
+    test_cvSediment = float(cfg["GENERAL"]["cvSediment"])
+    test_cvMaxSediment = float(cfg["GENERAL"]["cvMaxSediment"])
+    test_rho = float(cfg["GENERAL"]["rho"])
+    test_alphaObrienAndJulien = float(cfg["GENERAL"]["alphaObrienAndJulien"])
+    test_rhoSediment = float(cfg["GENERAL"]["rhoSediment"])
+    test_sizeSediment = float(cfg["GENERAL"]["sizeSediment"])
     # compute tau
-    test_etaObrienAndJulien = test_alpha1EtaObrienAndJulien * math.exp(test_beta1EtaObrienAndJulien * test_cvSediment)
-    test_tauyObrienAndJulien = test_alpha2TauyObrienAndJulien * math.exp(test_beta2TauyObrienAndJulien * test_cvSediment)
-    test_lmObrienAndJulien = 0.4 * particles['h']
-    test_lambdaBagnold = 1.0 / (math.pow(test_cvMaxSediment/test_cvSediment, 1.0 / 3.0) - 1.0)
-    test_cObrienAndJulien = test_rho * test_lmObrienAndJulien * test_lmObrienAndJulien + test_alphaObrienAndJulien * test_rhoSediment * test_lambdaBagnold * test_lambdaBagnold * test_sizeSediment * test_sizeSediment  
-    test_tauObrienAndJulien = test_tauyObrienAndJulien + test_etaObrienAndJulien * test_shearRate + test_cObrienAndJulien * (test_shearRate * test_shearRate)
+    test_etaObrienAndJulien = test_alpha1EtaObrienAndJulien * math.exp(
+        test_beta1EtaObrienAndJulien * test_cvSediment
+    )
+    test_tauyObrienAndJulien = test_alpha2TauyObrienAndJulien * math.exp(
+        test_beta2TauyObrienAndJulien * test_cvSediment
+    )
+    test_lmObrienAndJulien = 0.4 * particles["h"]
+    test_lambdaBagnold = 1.0 / (math.pow(test_cvMaxSediment / test_cvSediment, 1.0 / 3.0) - 1.0)
+    test_cObrienAndJulien = (
+            test_rho * test_lmObrienAndJulien * test_lmObrienAndJulien
+            + test_alphaObrienAndJulien
+            * test_rhoSediment
+            * test_lambdaBagnold
+            * test_lambdaBagnold
+            * test_sizeSediment
+            * test_sizeSediment
+    )
+    test_tauObrienAndJulien = (
+            test_tauyObrienAndJulien
+            + test_etaObrienAndJulien * test_shearRate
+            + test_cObrienAndJulien * (test_shearRate * test_shearRate)
+    )
     test_tauArray[0] = test_tauObrienAndJulien[0]
 
     ## Herschel and Bulkley
     # read input parameters
-    test_alpha1EtaHerschelAndBulkley = float(cfg['GENERAL']['alpha1EtaHerschelAndBulkley'])
-    test_beta1EtaHerschelAndBulkley = float(cfg['GENERAL']['beta1EtaHerschelAndBulkley'])
-    test_alpha2TauyHerschelAndBulkley = float(cfg['GENERAL']['alpha2TauyHerschelAndBulkley'])
-    test_beta2TauyHerschelAndBulkley = float(cfg['GENERAL']['beta2TauyHerschelAndBulkley'])
-    test_nHerschelAndBulkley = float(cfg['GENERAL']['nHerschelAndBulkley'])
+    test_alpha1EtaHerschelAndBulkley = float(cfg["GENERAL"]["alpha1EtaHerschelAndBulkley"])
+    test_beta1EtaHerschelAndBulkley = float(cfg["GENERAL"]["beta1EtaHerschelAndBulkley"])
+    test_alpha2TauyHerschelAndBulkley = float(cfg["GENERAL"]["alpha2TauyHerschelAndBulkley"])
+    test_beta2TauyHerschelAndBulkley = float(cfg["GENERAL"]["beta2TauyHerschelAndBulkley"])
+    test_nHerschelAndBulkley = float(cfg["GENERAL"]["nHerschelAndBulkley"])
     # compute tau
-    test_etaHerschelandBulkley = test_alpha1EtaHerschelAndBulkley * math.exp(test_beta1EtaHerschelAndBulkley * test_cvSediment)
-    test_tauyHerschelandBulkley = test_alpha2TauyHerschelAndBulkley * math.exp(test_beta2TauyHerschelAndBulkley * test_cvSediment)
-    test_tauHerschelAndBulkley = test_tauyHerschelandBulkley + test_etaHerschelandBulkley * math.pow(test_shearRate[0], test_nHerschelAndBulkley)
+    test_etaHerschelandBulkley = test_alpha1EtaHerschelAndBulkley * math.exp(
+        test_beta1EtaHerschelAndBulkley * test_cvSediment
+    )
+    test_tauyHerschelandBulkley = test_alpha2TauyHerschelAndBulkley * math.exp(
+        test_beta2TauyHerschelAndBulkley * test_cvSediment
+    )
+    test_tauHerschelAndBulkley = test_tauyHerschelandBulkley + test_etaHerschelandBulkley * math.pow(
+        test_shearRate[0], test_nHerschelAndBulkley
+    )
     test_tauArray[1] = test_tauHerschelAndBulkley
 
     ## Bingham
     # read input parameters
-    test_alpha1EtaBingham = float(cfg['GENERAL']['alpha1EtaBingham'])
-    test_beta1EtaBingham = float(cfg['GENERAL']['beta1EtaBingham'])
-    test_alpha2TauyBingham = float(cfg['GENERAL']['alpha2TauyBingham'])
-    test_beta2TauyBingham = float(cfg['GENERAL']['beta2TauyBingham'])
+    test_alpha1EtaBingham = float(cfg["GENERAL"]["alpha1EtaBingham"])
+    test_beta1EtaBingham = float(cfg["GENERAL"]["beta1EtaBingham"])
+    test_alpha2TauyBingham = float(cfg["GENERAL"]["alpha2TauyBingham"])
+    test_beta2TauyBingham = float(cfg["GENERAL"]["beta2TauyBingham"])
     # compute tau
     test_etaBingham = test_alpha1EtaBingham * math.exp(test_beta1EtaBingham * test_cvSediment)
     test_tauyBingham = test_alpha2TauyBingham * math.exp(test_beta2TauyBingham * test_cvSediment)
@@ -993,18 +1016,19 @@ def test_computeForceC():
 
     ## compute friction force
     # deduce area - see 'com1DFA.DFAfunctionsCython.pyx.computeForceC()'
-    test_areaPart = particles['m'] / (test_rho * particles['h'])
+    test_areaPart = particles["m"] / (test_rho * particles["h"])
     # adding bottom shear resistance contribution - see 'com1DFA.DFAfunctionsCython.pyx.computeForceC()'
-    test_forceBotTang = - test_areaPart * test_tauArray
+    test_forceBotTang = -test_areaPart * test_tauArray
     # explicit friction = 0
-    test_velMagMin = float(cfg['GENERAL']['velMagMin'])
+    test_velMagMin = float(cfg["GENERAL"]["velMagMin"])
     if test_uMag < test_velMagMin:
         test_uMagRes = test_velMagMin
     else:
         test_uMagRes = test_uMag
-    test_forceFrictArray = test_forceFrict - test_forceBotTang/test_uMagRes
+    test_forceFrictArray = test_forceFrict - test_forceBotTang / test_uMagRes
 
     assert (forceFrictArray == test_forceFrictArray).all()
+
 
 def test_updateInitialVelocity():
     particles = {

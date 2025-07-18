@@ -204,6 +204,7 @@ def getInputDataCom1DFA(avaDir):
         - entFile : str, full path to entrainment area .shp file
         - resFile : str, full path to resistance area .shp file
         - entResInfo : flag dict
+        - timeDepRelCsv : str, full path to time dependent release values .csv file
         flag if Yes entrainment and/or resistance areas found and used for simulation
         flag True if a Secondary Release file found and activated
 
@@ -214,8 +215,8 @@ def getInputDataCom1DFA(avaDir):
 
     # Set flag if there is an entrainment or resistance area
     entResInfo = {}
-
     releaseDir = inputDir / "REL"
+
     relFiles = sorted(
         list(releaseDir.glob("*.shp")) + list(releaseDir.glob("*.tif")) + list(releaseDir.glob("*.asc"))
     )
@@ -296,11 +297,8 @@ def getInputDataCom1DFA(avaDir):
     entResInfo["resRemeshed"] = "No"
     entResInfo["bhdRemeshed"] = "No"
 
-    hydrographFile, entResInfo["hydrograph"], _ = getAndCheckInputFiles(
-        inputDir, "HYDR", "Hydrograph", fileExt="shp"
-    )
-    hydrographCsv, entResInfo["hydrographCsv"], _ = getAndCheckInputFiles(
-        inputDir, "HYDR", "Hydrograph parameters (csv)", fileExt="csv"
+    timeDepRelCsv, entResInfo["timeDepRelCsv"], _ = getAndCheckInputFiles(
+        inputDir, "REL", "Time dependent release parameters (csv)", fileExt="csv"
     )
 
     # return DEM, first item of release, entrainment and resistance areas
@@ -317,8 +315,7 @@ def getInputDataCom1DFA(avaDir):
         "kFile": kFile,
         "tauCFile": tauCFile,
         "bhdFile": bhdFile,
-        "hydrographFile": hydrographFile,
-        "hydrographCsv": hydrographCsv,
+        "timeDepRelCsv": timeDepRelCsv,
     }
 
     for thFile in ["rel", "secondaryRel", "ent"]:
@@ -685,6 +682,7 @@ def fetchReleaseFile(inputSimFiles, releaseScenario, cfgSim, releaseList):
     """
 
     # fetch release files paths
+
     relFiles = inputSimFiles["relFiles"]
 
     foundScenario = False
@@ -706,7 +704,7 @@ def fetchReleaseFile(inputSimFiles, releaseScenario, cfgSim, releaseList):
         cfgSim["INPUT"]["relThFile"] = str(
             releaseScenarioPath.parts[-2] + "/" + releaseScenarioPath.parts[-1]
         )
-    elif cfgSim["GENERAL"]["relThFromFile"] == "True":
+    elif cfgSim["GENERAL"]["relThFromFile"] == "True" and cfgSim["GENERAL"]["timeDependentRelease"] == "False":
         # shapefile with thickness attributes - handle thickness/id/ci95 values
         for scenario in releaseList:
             if scenario == releaseScenario:
@@ -1143,37 +1141,34 @@ def deriveLineRaster(
     return rasterPath, lineDict
 
 
-def getHydrographCsv(hydrCsv):
+def getTimeDepRelCsv(timeDepRelCsv):
     """
-     get hydrograph values from the csv table
+     get time dependent release values from the csv table
      TODO: now the first column is defined as timestep, the second as thickness, third as velocity
      see DebrisFrame Issue #18
 
     Parameters
     -----------
-    hydrCsv: str
-        path to csv file containing hydrograph values
+    timeDepRelCsv: str
+        path to csv file containing time dependent release values
 
     Returns
     -----------
-    hydrographValues: dict
-        contains hydrograph values: timestep, thickness, velocity
+    timeDepRelValues: dict
+        contains time dependent release values: timestep, thickness, velocity
+    timeDepRelDF: dataframe
+        contains time dependent release values: timestep, thickness, velocity
     """
-    hydrParameters = np.genfromtxt(hydrCsv, delimiter=",", filling_values=0, skip_header=1)
+    timeDepRelDF = pd.read_csv(timeDepRelCsv, index_col=False)
+    timeDepRelDF = timeDepRelDF.fillna(0.0)
+    # delete empty spaces and write column names in low case
+    timeDepRelDF.columns = timeDepRelDF.columns.str.strip().str.lower()
 
-    if hydrParameters.ndim == 2:
-        # sort the columns according to the first column (timestep)
-        hydrParameters = hydrParameters[np.argsort(hydrParameters[:, 0])]
-        hydrographValues = {
-            "timeStep": hydrParameters[:, 0],
-            "thickness": hydrParameters[:, 1],
-            "velocity": hydrParameters[:, 2],
-        }
-    else:
-        hydrographValues = {
-            "timeStep": [hydrParameters[0]],
-            "thickness": [hydrParameters[1]],
-            "velocity": [hydrParameters[2]],
-        }
-
-    return hydrographValues
+    # sort the columns according to the first column (timestep)
+    timeDepRelDF = timeDepRelDF.sort_values(by="timestep")
+    timeDepRelValues = {
+        "timeStep": timeDepRelDF["timestep"].to_numpy(),
+        "thickness": timeDepRelDF["thickness"].to_numpy(),
+        "velocity": timeDepRelDF["velocity"].to_numpy(),
+    }
+    return timeDepRelValues, timeDepRelDF
