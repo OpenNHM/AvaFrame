@@ -168,6 +168,27 @@ input file (shape file or raster file) or 2) through the :py:mod:`com1DFA` confi
       1.$50$2`, ``referenceValue$+-percentage$numberOfSteps``, resulting in a
       variation of relTh from 0.5 to 1.5m in two steps.
 
+3. Via **time dependent release file (csv)**:
+
+    .. Note::
+        The time dependent release feature is still under development.
+        Various settings do not work yet.
+
+    - if the flag `timeDependentRelease` is True, in various provided time steps flowing mass is initialized
+      (`relThFromFile` is also set to True, currently the only option to read time dependent thickness is from csv file)
+    - additional to a .shp file (raster file does not work yet), a csv file is provided in the `REL` folder, that contains:
+
+        - a header (first line)
+        - the following columns with the respective column names:
+
+            - timestep values (column name: "timestep")
+            - thickness values (column name: "thickness")
+            - initial velocity values (column name: "velocity")
+        - the delimiter is: ","
+    - In each provided timestep, particles are initialized with the provided corresponding thickness
+      in the release area. If a velocity is provided, the particles have this initial velocity
+      in the direction of the steepest descent.
+
 
 Friction parameters
 ^^^^^^^^^^^^^^^^^^^

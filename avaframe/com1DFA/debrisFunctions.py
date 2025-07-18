@@ -13,26 +13,27 @@ import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.com1DFA as com1DFA
 import avaframe.in2Trans.shpConversion as shpConv
 from avaframe.in1Data import getInput as gI
+import avaframe.in3Utils.cfgUtils as cfgUtils
 
 # create local logger
 # change log level in calling module to DEBUG to see log messages
 log = logging.getLogger(__name__)
 
 
-def releaseHydrograph(cfg, inputSimLines, particles, fields, dem, zPartArray0, t, atol=1e-05):
+def initializeTimeDepRelease(cfg, inputSimLines, particles, fields, dem, zPartArray0, t, atol=1e-05):
     """
-    Update particles with "new" particles initialised by a hydrograph.
+    Update particles with "new" particles initialised by a time dependent release.
 
     Parameters
     ---------
     cfg: configparser
         configuration settings
     inputSimLines : dict
-        dictionary with input data dictionaries (releaseLine, hydrographAreaLine,...)
+        dictionary with input data dictionaries (releaseLine,...)
     particles : dict
-        particles dictionary at t that are in the flow already
+        particles dictionary at timestep t that are in the flow already
     fields: dict
-        fields dictionary at t
+        fields dictionary at timestep t
     dem: dict
         dictionary with info on DEM data
     zPartArray0: dict
@@ -45,28 +46,28 @@ def releaseHydrograph(cfg, inputSimLines, particles, fields, dem, zPartArray0, t
     Returns
     ---------
     particles: dict
-        particles dictionary at t including the hydrograph particles
+        particles dictionary at t including the new released particles
     fields: dict
-        updated fields dictionary at t including the hydrograph particles
+        updated fields dictionary at t including the new released particles
     zPartArray0: dict
         dictionary containing z - value of particles at timestep 0
     """
-    hydrValues = inputSimLines["hydrographAreaLine"]["values"]
-    if np.isclose(t, hydrValues["timeStep"], atol=atol, rtol=0).any():
-        iTup = np.where(np.isclose(t, hydrValues["timeStep"], atol=atol, rtol=0))
+    timeDepRelValues = inputSimLines["releaseLine"]["timeDepRelValues"]
+    if np.isclose(t, timeDepRelValues["timeStep"], atol=atol, rtol=0).any():
+        iTup = np.where(np.isclose(t, timeDepRelValues["timeStep"], atol=atol, rtol=0))
         # iTup is a tuple containing an array with one value in the first position, so we can extract the index:
         i = iTup[0].item()
         log.info(
-            "add hydrograph at timestep: %f s with thickness %s m and velocity %s m/s"
-            % (t, hydrValues["thickness"][i], hydrValues["velocity"][i])
+            "add release at timestep: %.2f s with thickness %s m and velocity %s m/s"
+            % (t, timeDepRelValues["thickness"][i], timeDepRelValues["velocity"][i])
         )
         # similar workflow to secondary release!
-        particles, zPartArray0 = addHydrographParticles(
+        particles, zPartArray0 = addReleaseParticles(
             cfg,
             particles,
             inputSimLines,
-            hydrValues["thickness"][i],
-            hydrValues["velocity"][i],
+            timeDepRelValues["thickness"][i],
+            timeDepRelValues["velocity"][i],
             dem,
             zPartArray0,
         )
@@ -79,9 +80,9 @@ def releaseHydrograph(cfg, inputSimLines, particles, fields, dem, zPartArray0, t
     return particles, fields, zPartArray0
 
 
-def addHydrographParticles(cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0):
+def addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0):
     """
-    add new particles initialized by a hydrograph to particles that are in the flow already
+    add new particles initialized by a time dependent release to particles that are in the flow already
 
     Parameters
     ---------
@@ -90,11 +91,11 @@ def addHydrographParticles(cfg, particles, inputSimLines, thickness, velocityMag
     particles : dict
         particles dictionary at t that are in the flow already
     inputSimLines : dict
-        dictionary with input data dictionaries (releaseLine, hydrographAreaLine,...)
+        dictionary with input data dictionaries (releaseLine,...)
     thickness: float
-        thickness of incoming hydrograph
+        thickness of current release
     velocityMag: float
-        velocity of incoming hydrograph
+        velocity of current release
     dem: dict
         dictionary with info on DEM data
     zPartArray0: numpy array
@@ -103,14 +104,14 @@ def addHydrographParticles(cfg, particles, inputSimLines, thickness, velocityMag
     Returns
     ---------
     particles: dict
-        particles dictionary at t including the hydrograph particles
+        particles dictionary at t including the current released particles
     zPartArray0: dict
         dictionary containing z - value of particles at timestep 0
     """
-    hydrLine = inputSimLines["hydrographAreaLine"]
-    hydrLine["header"] = dem["originalHeader"].copy()
-    hydrLine = geoTrans.prepareArea(
-        hydrLine,
+    relLine = inputSimLines["releaseLine"]
+    relLine["header"] = dem["originalHeader"].copy()
+    relLine = geoTrans.prepareArea(
+        relLine,
         dem,
         np.sqrt(2),
         thList=[thickness],
@@ -118,81 +119,99 @@ def addHydrographParticles(cfg, particles, inputSimLines, thickness, velocityMag
         checkOverlap=False,
     )
 
-    # check if already existing particles are within the hydrograph polygon
+    # check if already existing particles are within the release polygon
     # it's possible that there are still a few particles in the polygon with low velocities
     # TODO: could think of a threshold of number of particles that are still allowed in the polygons?
-    mask = geoTrans.getParticlesInPolygon(
-        particles, hydrLine, cfg["GENERAL"].getfloat("thresholdPointInHydr")
-    )
+    mask = geoTrans.getParticlesInPolygon(particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel"))
     if np.sum(mask) > 0:
         # if there is at least one particle within the polygon (including the buffer):
         message = (
-            "Already existing particles are within the hydrograph polygon, which can cause numerical instabilities (at timestep: %02f s)"
+            "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
             % (particles["t"] + particles["dt"])
         )
         # timestep in particles is not updated yet
         log.error(message)
         raise ValueError(message)
 
-    particlesHydrograph = com1DFA.initializeParticles(
+    particlesRelease = com1DFA.initializeParticles(
         cfg["GENERAL"],
-        hydrLine,
+        relLine,
         dem,
     )
-    particlesHydrograph = DFAfunC.updateInitialVelocity(
-        cfg["GENERAL"], particlesHydrograph, dem, velocityMag
-    )
-
-    particles = particleTools.mergeParticleDict(particles, particlesHydrograph)
+    particlesRelease = DFAfunC.updateInitialVelocity(cfg["GENERAL"], particlesRelease, dem, velocityMag)
+    particles = particleTools.mergeParticleDict(particles, particlesRelease)
     # save initial z position for travel angle computation
-    zPartArray0 = np.append(zPartArray0, copy.deepcopy(particlesHydrograph["z"]))
+    zPartArray0 = np.append(zPartArray0, copy.deepcopy(particlesRelease["z"]))
     return particles, zPartArray0
 
 
-def checkHydrograph(hydrographValues, hydrCsv):
+def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
     """
-    check if hydrograph satisfied the following requirements:
-    - hydrograph-timesteps are unique
-    - provided release-thickness is larger than zero
-    - the hydrograph-timesteps are not too close (that the particle density becomes too high)
+    check if time dependent release values satisfy the following requirements:
+    - release - timesteps are unique
+    - the release - timesteps are not too close (that the particle density becomes too high)
+    - provided release - thickness is larger than zero
+    - provided velocity is zero or larger.
 
     Parameters
     -----------
-    hydrCsv: str
-        directory to csv table containing hydrograph values
-    hydrographValues: dict
-        contains hydrograph values: timestep, thickness, velocity
+    timeDepRelCsv: str
+        directory to csv table containing time dependent release values
+    timeDepRelValues: dict
+        contains time dependent release values: timestep, thickness, velocity
     """
     # check if timesteps are unique
-    timeStepUnique = np.unique(hydrographValues["timeStep"])
+    timeStepUnique = np.unique(timeDepRelValues["timeStep"])
     if timeStepUnique.ndim == 0:
-        if timeStepUnique != hydrographValues["timeStep"]:
-            message = "The provided hydrograph time steps in %s are not unique" % (hydrCsv)
+        if timeStepUnique != timeDepRelValues["timeStep"]:
+            message = "The provided time dependent release time steps in %s are not unique" % (timeDepRelCsv)
             log.error(message)
             raise ValueError(message)
-    elif len(timeStepUnique) != len(hydrographValues["timeStep"]):
-        message = "The provided hydrograph timesteps in %s are not unique" % (hydrCsv)
+    elif len(timeStepUnique) != len(timeDepRelValues["timeStep"]):
+        message = "The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)
         log.error(message)
         raise ValueError(message)
 
-    # check that hydrograph thickness > 0
-    for th in hydrographValues["thickness"]:
+    # check if a timestep = 0 is provided
+    if 0 not in timeStepUnique:
+        message = (
+            "If release is time dependent, a thickness needs to be provided for  time step 0 s in %s"
+            % (timeDepRelCsv)
+        )
+        log.error(message)
+        raise ValueError(message)
+
+    # check that release thickness > 0
+    for th in timeDepRelValues["thickness"]:
         if th <= 0:
-            message = "For every release time step a thickness > 0 needs to be provided in %s" % (hydrCsv)
+            message = "For every release time step a thickness > 0 needs to be provided in %s" % (
+                timeDepRelCsv
+            )
+            log.error(message)
+            raise ValueError(message)
+
+    for vel in timeDepRelValues["velocity"]:
+        if vel < 0:
+            message = "The initial velocity provided in %s can not be negative." % (timeDepRelCsv)
             log.error(message)
             raise ValueError(message)
 
 
-def preparehydrographAreaLine(inputSimFiles, demOri, cfg):
+def prepareTimeDepRelLine(inputSimFiles, releaseLine, cfg):
     """
-    read hydrograph polygon and values
+    read time dependent release values and return them as a dictionary containing:
+    - timestep
+    - thickness
+    - velocity
+    additionally, the values are saved into the configurationFiles folder
 
     Parameters
     ----------
     inputSimFiles : dict
         dictionary containing
-        - hydrographFile: str, path to hydrograph polygon file
-        - hydrographCsv: str, path to hydrograph values (csv-)file
+        - timeDepRelCsv: str, path to time dependent release values (csv-)file
+    releaseLine: dict
+        contains information of release line
     cfg: configparser object
         configuration for simType
     demOri : dict
@@ -200,62 +219,50 @@ def preparehydrographAreaLine(inputSimFiles, demOri, cfg):
 
     Returns
     -------
-    hydrLine: dict
-        contains hydrograph outline and values, among other things:
-        - x, y, z
-        - values: timeStep, thickness, velocity
+    releaseLine: dict
+        added time dependent release values: timeStep, thickness, velocity
     """
-    try:
-        hydrFile = inputSimFiles["hydrographFile"]
-        hydrLine = shpConv.readLine(hydrFile, "", demOri)
-        hydrLine["fileName"] = hydrFile
-        hydrLine["type"] = "Hydrograph"
-        gI.checkForMultiplePartsShpArea(
-            cfg["GENERAL"]["avalancheDir"], hydrLine, "com1DFA", type="hydrograph"
-        )
-    except:
-        message = "No hydrograph shp file found"
-        log.error(message)
-        raise FileNotFoundError(message)
 
     try:
-        hydrLine["values"] = gI.getHydrographCsv(inputSimFiles["hydrographCsv"])
-        hydrLine["thicknessSource"] = ["csv file"]
+        releaseLine["values"], timeDepRelValuesDF = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
+        releaseLine["thicknessSource"] = ["csv file"]
     except:
-        message = "No hydrograph csv file found"
+        message = "No time dependent release csv file found"
         log.error(message)
         raise FileNotFoundError(message)
+    # check if some criterias are satisfied in the csv file
+    checkTimeDepRelease(releaseLine["values"], inputSimFiles["timeDepRelCsv"])
+    # write the time dependent values into configurationFiles folder
+    cfgUtils.writeReleaseCsvFile(cfg, timeDepRelValuesDF)
 
-    checkHydrograph(hydrLine["values"], inputSimFiles["hydrographCsv"])
-
-    return hydrLine
+    return releaseLine
 
 
-def checkTravelledDistance(cfgGen, hydrographValues, hydrCsv):
+def checkTravelledDistance(cfgGen, timeDepRelValues, timeDepRelCsv):
     """
     not used at the moment (related to timeStepDistance in the configuration file)!
-    check if time steps of hydrograph are not to close that the particle density becomes too high
-    check that particles moved out of hydrograph area before new particles are initialized
-    time between hydrograph time steps
+    check if time steps of time dependent release are not too close so that the particle density cannot become too high
+    check that particles moved out of release area before new particles are initialized
+    time between release time steps
     first timestep is skipped since this is always ok.
 
     Parameters
     -----------
-    hydrCsv: str
-        directory to csv table containing hydrograph values
     cfgGen: configparser
         configuration settings, section "GENERAL"
-    hydrographValues: dict
-        contains hydrograph values: timestep, thickness, velocity
+    timeDepRelValues: dict
+        contains time dependent release values: timestep, thickness, velocity
+    timeDepRelCsv: str
+        directory to csv table containing time dependent release values
     """
-    timeStepUnique = np.unique(hydrographValues["timeStep"])
+    timeStepUnique = np.unique(timeDepRelValues["timeStep"])
     if timeStepUnique.ndim > 0:
-        hydrDT = np.append(hydrographValues["timeStep"], 0) - np.append(0, hydrographValues["timeStep"])
-        vel = np.where(np.array(hydrographValues["velocity"]) > 0, np.array(hydrographValues["velocity"]), 1)
-        distance = vel[:-1] * hydrDT[1:-1]
+        relDT = np.append(timeDepRelValues["timeStep"], 0) - np.append(0, timeDepRelValues["timeStep"])
+        vel = np.where(np.array(timeDepRelValues["velocity"]) > 0, np.array(timeDepRelValues["velocity"]), 1)
+        distance = vel[:-1] * relDT[1:-1]
 
         if np.any(distance < cfgGen.getfloat("timeStepDistance")):
-            message = "Please select timesteps with greater spacing in %s." % (hydrCsv)
+            message = "Please select timesteps with greater spacing in %s." % (timeDepRelCsv)
             # TODO: error or warning?
             log.error(message)
             raise ValueError(message)

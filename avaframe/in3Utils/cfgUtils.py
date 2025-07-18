@@ -398,6 +398,34 @@ def writeCfgFile(avaDir, module, cfg, fileName="", filePath=""):
     return pathToFile
 
 
+def writeReleaseCsvFile(cfg, releaseData, modName="com1DFA"):
+    """
+    When release is time dependent, save time dependent release values in
+    Outputs/configurationFiles. The filename contains the current simulation hash id.
+
+    Parameters
+    ----------
+    cfg: configparser object
+        configuration settings
+    releaseData: numpy array
+        time dependent release data
+    modName: str
+        module name (default: com1DFA)
+    """
+    avaDir = cfg["GENERAL"]["avalancheDir"]
+
+    simHash = cfgHash(cfg)
+    relScenario = cfg["INPUT"]["releaseScenario"]
+
+    outDir = pathlib.Path(avaDir, "Outputs", modName, "configurationFiles")
+    fU.makeADir(outDir)
+    fileName = "timeDepRelValues_%s_%s" % (relScenario, simHash)
+    pathToFile = pathlib.Path(outDir, "%s.txt" % (fileName))
+
+    header = "timestep, thickness, velocity"
+    np.savetxt(pathToFile, releaseData, delimiter=",", header=header, fmt="%.3e")
+
+
 def readCfgFile(avaDir, module="", fileName=""):
     """Read configuration from ini file, if module is provided, module configuration is read from Ouputs,
     if fileName is provided configuration is read from fileName

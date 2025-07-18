@@ -1,0 +1,49 @@
+{
+  "TAGS": [
+    "null",
+    "standardTest",
+    "idealized",
+    "timeDependentRelease"
+  ],
+  "DESCRIPTION": " this is my null test",
+  "TYPE": [
+    "2DPeak"
+  ],
+  "FILES": [
+    "release1PF_a89ab7a9b9_com1_C_S_null_dfa_pft",
+    "release1PF_a89ab7a9b9_com1_C_S_null_dfa_ppr",
+    "release1PF_a89ab7a9b9_com1_C_S_null_dfa_pfv",
+    "mass_release1PF_a89ab7a9b9_com1_C_S_null_dfa"
+  ],
+  "AVANAME": "avaParabolaTimeDep",
+  "AVADIR": "data/avaParabolaTimeDep",
+  "simNameRef": "release1PF_a89ab7a9b9_com1_C_S_null_dfa",
+  "NAME": "avaParabolaTimeDepRelNullTest",
+  "Test Info": {
+    "type": "text",
+    "Test Info": "This test runs the Parabola time dependent release test."
+  },
+  "simType": "null",
+  "simName": {
+    "type": "simName",
+    "name": "release1PF_a89ab7a9b9_com1_C_S_null_dfa"
+  },
+  "Simulation Parameters": {
+    "type": "list",
+    "Program version": "2.0",
+    "Parameter set": "Changed",
+    "Release Area Scenario": "release1PF",
+    "Entrainment": "No",
+    "Resistance": "No",
+    "Secondary release area": "No",
+    "Density [kgm-3]": "200",
+    "Friction model": "samosATsmall",
+    "Initial mass [kg]": "1710541.37",
+    "Final mass [kg]": "8511880.38",
+    "Entrained mass [kg]": "0.00",
+    "Entrained volume [m3]": "0.00",
+    "Stop criterion": "1.00 percent of PKE",
+    "Avalanche run time [s]": "365.00",
+    "Computation time [s]": "153.3"
+  }
+}

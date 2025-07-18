@@ -137,6 +137,10 @@ There are then different ways to place the particles in the cells. This is decid
                 (``cohesion`` activated).
                 The behavior in the standard case (``cohesion`` deactivated) has not been tested.
 
+If the release is time dependent, particles are initialized in provided timesteps. If an initial velocity is provided,
+the particles have this initial velocity (magnitude) in direction of the steepest descent,
+it is computed in the following function: :py:func:`com1DFA.DFAfunctionsCython.updateInitialVelocity`.
+
 
 Particle properties
 ^^^^^^^^^^^^^^^^^^^^

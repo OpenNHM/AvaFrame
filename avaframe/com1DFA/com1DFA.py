@@ -480,7 +480,12 @@ def prepareReleaseEntrainment(cfg, rel, inputSimLines):
         )
 
     # set release thickness
-    if cfg["INPUT"]["relThFile"] == "":
+    if cfg["GENERAL"].getboolean("timeDependentRelease"):
+        # when release is time dependent: release thickness is used from csv file
+        # then thickness is already in releaseLine dictionary
+        inputSimLines["releaseLine"]["thicknessSource"] = ["csv file"]
+    elif cfg["INPUT"]["relThFile"] == "":
+        # otherwise release thickness is read from ini or shape file
         releaseLine = setThickness(cfg, inputSimLines["releaseLine"], "relTh")
         inputSimLines["releaseLine"] = releaseLine
     log.debug("Release area scenario: %s - perform simulations" % (relName))
@@ -534,6 +539,8 @@ def setThickness(cfg, lineTh, typeTh):
     if cfg["GENERAL"].getboolean(thFlag):
         if cfg["INPUT"]["thFromIni"] != "" and typeTh in cfg["INPUT"]["thFromIni"]:
             lineTh["thicknessSource"] = ["ini file"] * len(lineTh["thickness"])
+        elif cfg["GENERAL"].getboolean("timeDependentRelease"):
+            lineTh["thicknessSource"] = ["csv file"] * len(lineTh["thickness"])
         else:
             lineTh["thicknessSource"] = ["shp file"] * len(lineTh["thickness"])
     else:
@@ -541,7 +548,10 @@ def setThickness(cfg, lineTh, typeTh):
 
     # set thickness value info read from ini file that has been updated from shp or ini previously
     for count, id in enumerate(lineTh["id"]):
-        if cfg["GENERAL"].getboolean(thFlag):
+        if cfg["GENERAL"].getboolean("timeDependentRelease"):
+            lineTh["thickness"][count] = float(lineTh["thickness"][count])
+
+        elif cfg["GENERAL"].getboolean(thFlag):
             thName = typeTh + id
             lineTh["thickness"][count] = cfg["GENERAL"].getfloat(thName)
 
@@ -565,8 +575,7 @@ def prepareInputData(inputSimFiles, cfg):
         - secondaryRelFile : str, path to secondaryRelease file
         - entFiles : str, path to entrainment file
         - resFile : str, path to resistance file
-        - hydrographFile: str, path to hydrograph polygon file
-        - hydrographCsv: str, path to hydrograph values (csv-)file
+        - timeDepRelCsv: str, path to time dependent release values (csv-)file
         - entResInfo : flag dict
         flag if Yes entrainment and/or resistance areas found and used for simulation
         flag True if a Secondary Release file found and activated
@@ -590,7 +599,6 @@ def prepareInputData(inputSimFiles, cfg):
         - resLine : dict, resistance line dictionary
         - entrainmentArea : str, entrainment file name
         - resistanceArea : str, resistance file name
-        - hydrographAreaLine: dict, hydrograph line dictionary
         - entResInfo : flag dict
         flag if Yes entrainment and/or resistance areas found and used for simulation
         flag True if a Secondary Release file found and activated
@@ -633,6 +641,14 @@ def prepareInputData(inputSimFiles, cfg):
         releaseLine["Name"] = "from raster"
         releaseLine["thickness"] = "from raster"
         log.info("Set %s for relThField" % relRasterPath)
+    # get line from release area polygon
+    if cfg["GENERAL"].getboolean("timeDependentRelease"):
+        releaseLine["type"] = "time dependent Release"
+        timeDepRelValues, _ = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
+        releaseLine["thickness"] = [timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0]]
+        releaseLine["thicknessSource"] = ["csv file"]
+        releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
+        releaseLine["timeDepRelValues"] = timeDepRelValues
 
     # get line from secondary release area polygon
     if cfg["GENERAL"].getboolean("secRelArea"):
@@ -749,10 +765,8 @@ def prepareInputData(inputSimFiles, cfg):
     else:
         damLine = None
 
-    if cfg["GENERAL"].getboolean("hydrograph"):
-        hydrLine = debF.preparehydrographAreaLine(inputSimFiles, demOri, cfg)
-    else:
-        hydrLine = None
+    if cfg["GENERAL"].getboolean("timeDependentRelease"):
+        releaseLine = debF.prepareTimeDepRelLine(inputSimFiles, releaseLine, cfg)
 
     inputSimLines = {
         "releaseLine": releaseLine,
@@ -769,7 +783,6 @@ def prepareInputData(inputSimFiles, cfg):
         "xiFile": inputSimFiles["xiFile"],
         "kFile": inputSimFiles["kFile"],
         "tauCFile": inputSimFiles["tauCFile"],
-        "hydrographAreaLine": hydrLine,
     }
 
     return demOri, inputSimLines
@@ -1218,6 +1231,9 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
         logName=logName,
         relThField=relThField,
     )
+
+    if cfgGen.getboolean("timeDependentRelease") and releaseLine["velocity"] != 0:
+        particles = DFAfunC.updateInitialVelocity(cfgGen, particles, dem, releaseLine["velocity"])
     particles, fields = initializeFields(cfg, dem, particles, releaseLine)
 
     reportAreaInfo["Release area info"]["Model release volume [m3]"] = "%.2f" % (
@@ -1547,7 +1563,9 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
     particles["nExitedParticles"] = 0.0
     particles["dmDet"] = np.zeros(np.shape(hPartArray))
     particles["dmEnt"] = np.zeros(np.shape(hPartArray))
-
+    particles["massEntrained"] = 0.0
+    particles["massDetrained"] = 0.0
+    particles["massStopped"] = 0.0
     # remove particles that might lay outside of the release polygon
     if (
         not cfg.getboolean("iniStep")
@@ -1574,9 +1592,9 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
     # initialize time
     t = 0
     particles["t"] = t
-
     relCells = np.size(indRelY)
     partPerCell = particles["nPart"] / relCells
+    particles["massInitialized"] = np.sum(particles["m"])
 
     if massPerParticleDeterminationMethod != "MPPKR":
         # we need to set the nPPK
@@ -1630,7 +1648,7 @@ def getRelThFromPart(cfg, releaseLine, relThField, thName):
 
     if len(relThField) != 0:
         relThForPart = np.amax(relThField)
-    elif releaseLine["type"] == "Hydrograph":
+    elif cfg.getboolean("timeDependentRelease"):
         relThForPart = releaseLine["thickness"]
     elif cfg.getboolean("%sThFromFile" % thName):
         relThForPart = np.amax(np.asarray(releaseLine["thickness"], dtype=float))
@@ -2083,12 +2101,13 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
 
     # Initialise Lists to save fields and add initial time step
     contourDictXY = None
-    timeM = []
-    massEntrained = []
-    massDetrained = []
-    massStopped = []
-    massTotal = []
-    pfvTimeMax = []
+    timeM = [particles["t"]]
+    massEntrained = [particles["massEntrained"]]
+    massDetrained = [particles["massDetrained"]]
+    massStopped = [particles["massStopped"]]
+    massInitialized = [particles["massInitialized"]]
+    massTotal = [particles["mTot"]]
+    pfvTimeMax = [np.nanmax(fields["FV"])]
 
     # setup a result fields info data frame to save max values of fields and avalanche front
     resultsDF = setupresultsDF(resTypes, cfg["VISUALISATION"].getboolean("createRangeTimeDiagram"))
@@ -2170,9 +2189,9 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     while t <= tEnd * (1.0 + 1.0e-13) and particles["iterate"]:
         startTime = time.time()
         log.debug("Computing time step t = %f s, dt = %f s" % (t, dt))
-
-        if cfgGen.getboolean("hydrograph"):
-            particles, fields, zPartArray0 = debF.releaseHydrograph(
+        particles["massInitialized"] = 0.0
+        if cfgGen.getboolean("timeDependentRelease"):
+            particles, fields, zPartArray0 = debF.initializeTimeDepRelease(
                 cfg, inputSimLines, particles, fields, dem, zPartArray0, t
             )
         # Perform computations
@@ -2201,6 +2220,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         massEntrained.append(particles["massEntrained"])
         massDetrained.append(particles["massDetrained"])
         massStopped.append(particles["massStopped"])
+        massInitialized.append(particles["massInitialized"])
         massTotal.append(particles["mTot"])
         timeM.append(t)
         pfvTimeMax.append(np.nanmax(fields["FV"]))
@@ -2322,6 +2342,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         "detrained mass": np.sum(massDetrained),
         "entrained volume": (np.sum(massEntrained) / cfgGen.getfloat("rhoEnt")),
         "pfvTimeMax": pfvTimeMax,
+        "massInitialized": massInitialized,
     }
 
     # determine if stop criterion is reached or end time
@@ -2548,21 +2569,22 @@ def writeMBFile(infoDict, avaDir, logName):
     massDetrained = infoDict["massDetrained"]
     massStopped = infoDict["massStopped"]
     massTotal = infoDict["massTotal"]
+    massInitialized = infoDict["massInitialized"]
     massDetrainedTotal = np.zeros(len(massDetrained))
     for m in range(1, len(massDetrained)):
         massDetrainedTotal[m] = massDetrainedTotal[m - 1] + massDetrained[m]
 
-    # create mass plot
+    # create mass plots
     outCom1DFA.massPlot(infoDict, massDetrainedTotal, t, avaDir, logName)
-
+    outCom1DFA.massSourcePlot(infoDict, massDetrainedTotal, t, avaDir, logName)
     # write mass balance info to log file
     massDir = pathlib.Path(avaDir, "Outputs", "com1DFA")
     fU.makeADir(massDir)
     with open(massDir / ("mass_%s.txt" % logName), "w") as mFile:
-        mFile.write("time, current, entrained, detrained, detrainedTotal, stopped\n")
+        mFile.write("time, current, entrained, detrained, detrainedTotal, stopped, initialized\n")
         for m in range(len(t)):
             mFile.write(
-                "%.02f,    %.06f,    %.06f,   %.06f,    %.06f,    %.06f\n"
+                "%.02f,    %.06f,    %.06f,   %.06f,    %.06f,    %.06f,    %.06f\n"
                 % (
                     t[m],
                     massTotal[m],
@@ -2570,6 +2592,7 @@ def writeMBFile(infoDict, avaDir, logName):
                     massDetrained[m],
                     massDetrainedTotal[m],
                     massStopped[m],
+                    massInitialized[m],
                 )
             )
 
@@ -2638,7 +2661,6 @@ def computeEulerTimeStep(
     particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, resistanceType)
     tCPUForce = time.time() - startTime
     tCPU["timeForce"] = tCPU["timeForce"] + tCPUForce
-
     # compute lateral force (SPH component of the calculation)
     startTime = time.time()
     if cfg.getint("sphOption") == 0:
@@ -3152,7 +3174,7 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
     Returns
     -------
     simDict: dict
-        dicionary with info on simHash, releaseScenario, release area file path,
+        dictionary with info on simHash, releaseScenario, release area file path,
         simType and contains full configuration configparser object for simulation run
     """
 
@@ -3360,7 +3382,13 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
         if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
             # if frictModel is samosATAuto compute release vol
             if cfgSim["GENERAL"]["frictModel"].lower() == "samosatauto":
-                relVolume = fetchRelVolume(rel, cfgSim, pathToDemFull, inputSimFiles["secondaryRelFile"])
+                relVolume = fetchRelVolume(
+                    rel,
+                    cfgSim,
+                    pathToDemFull,
+                    inputSimFiles["secondaryRelFile"],
+                    timeDepRelFile=inputSimFiles["timeDepRelCsv"],
+                )
             else:
                 relVolume = ""
 
@@ -3541,7 +3569,7 @@ def runOrLoadCom1DFA(avalancheDir, cfgMain, runDFAModule=True, cfgFile="", delet
     return dem, simDF, resTypeList
 
 
-def fetchRelVolume(releaseFile, cfg, pathToDem, secondaryReleaseFile, radius=0.01):
+def fetchRelVolume(releaseFile, cfg, pathToDem, secondaryReleaseFile, radius=0.01, timeDepRelFile=""):
     """compute release area volume using release line and thickness info and dem
     if in config settings secRelArea is True - also include secondary release area in
     release volume estimate
@@ -3554,10 +3582,12 @@ def fetchRelVolume(releaseFile, cfg, pathToDem, secondaryReleaseFile, radius=0.0
         config settings of current sim
     pathToDem: pathlib path
         path to dem file used for current sim
-    releaseFile: pathlib path, None
+    secondaryReleaseFile: pathlib path, None
         path to secondary release area shp file or None if not available
     radius : float
         include all cells which center is in the release line or close enough
+    timeDepRelFile: str
+        path to time dependent release values csv file
 
     Returns
     ---------
@@ -3578,8 +3608,13 @@ def fetchRelVolume(releaseFile, cfg, pathToDem, secondaryReleaseFile, radius=0.0
     demVol = geoTrans.getNormalMesh(demVol, num=methodMeshNormal)
     demVol = DFAtls.getAreaMesh(demVol, methodMeshNormal)
 
-    # compute volume of release area
-    relVolume = initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary")
+    if cfg["GENERAL"].getboolean("timeDependentRelease"):
+        relVolume = initializeRelVol(
+            cfg, demVol, releaseFile, radius, releaseType="timeDepRel", timeDepRelFile=timeDepRelFile
+        )
+    else:
+        # compute volume of release area
+        relVolume = initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary")
 
     if cfg["GENERAL"]["secRelArea"] == "True":
         # compute volume of secondary release area
@@ -3602,7 +3637,7 @@ def fetchRelVolume(releaseFile, cfg, pathToDem, secondaryReleaseFile, radius=0.0
     return relVolume
 
 
-def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
+def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary", timeDepRelFile=""):
     """initialize release line and apply thickness to compute release volume
 
     Parameters
@@ -3616,6 +3651,8 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
         include all cells which center is in the release line or close enough
     releaseType: str
         name of release area type, e.g. primary, secondary
+    timeDepRelFile: str
+        path to time dependent release values csv file
 
     Returns
     ---------
@@ -3624,7 +3661,7 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
     """
 
-    if releaseType == "primary":
+    if releaseType in ["primary", "timeDepRel"]:
         typeTh = "relTh"
     else:
         typeTh = "secondaryRelTh"
@@ -3645,6 +3682,9 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
         # create release line
         releaseLine = {}
         releaseLine = shpConv.readLine(releaseFile, "release1", demVol)
+        if releaseType == "timeDepRel":
+            timeDepRelValues, _ = gI.getTimeDepRelCsv(timeDepRelFile)
+            releaseLine["thickness"] = [timeDepRelValues["thickness"][0]]
         # check if release features overlap between features
         thresholdPointInPoly = cfg["GENERAL"].getfloat("thresholdPointInPoly")
         geoTrans.prepareArea(releaseLine, demVol, thresholdPointInPoly, combine=True, checkOverlap=True)
@@ -3663,7 +3703,6 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
         # compute release volume using raster and dem area
         relVolume = np.nansum(releaseLine["rasterData"] * demVol["areaRaster"])
-
     return relVolume
 
 

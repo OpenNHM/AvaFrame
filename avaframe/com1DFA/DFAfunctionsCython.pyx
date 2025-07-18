@@ -2356,7 +2356,6 @@ def updateInitialVelocity(cfg, particles, dem, float velocityMag):
     uxArray[k] = tangentialTopoXNorm * velocityMag
     uyArray[k] = tangentialTopoYNorm * velocityMag
     uzArray[k] = tangentialTopoZNorm * velocityMag
-
     velocityMagArray[k] = DFAtlsC.norm(uxArray[k], uyArray[k], uzArray[k])
   particles['ux'] = np.asarray(uxArray)
   particles['uy'] = np.asarray(uyArray)
