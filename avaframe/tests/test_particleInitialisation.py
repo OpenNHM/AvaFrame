@@ -163,6 +163,7 @@ def test_getIniPosition(tmp_path):
             "header": demOri["header"],
             "y": np.asarray([5.0, 5.0, 10.0, 10.0, 5.0]),
             "rasterData": relRaster,
+            "type": "Release",
         }
     }
 
