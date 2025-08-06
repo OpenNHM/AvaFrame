@@ -111,6 +111,7 @@ def main(avalancheDir=''):
         cfgPath["uid"] = uid
         cfgPath["timeString"] = timeString
         cfgPath["outputFiles"] = cfgCustomPaths["outputFiles"]
+        cfgPath["outputNoDataValue"] = cfgCustomPaths["outputNoDataValue"]
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
 
@@ -169,6 +170,7 @@ def main(avalancheDir=''):
         cfgPath["deleteTemp"] = cfgCustomPaths["deleteTempFolder"]
         cfgPath["outputFileFormat"] = cfgCustomPaths["outputFileFormat"]
         cfgPath["outputFiles"] = cfgCustomPaths["outputFiles"]
+        cfgPath["outputNoDataValue"] = cfgCustomPaths.getfloat("outputNoDataValue")
 
         cfgSetup["cpuCount"] = str(cfgUtils.getNumberOfProcesses(cfgMain, 9999))
         cfgPath["customDirs"] = cfgCustomPaths["useCustomPaths"]
