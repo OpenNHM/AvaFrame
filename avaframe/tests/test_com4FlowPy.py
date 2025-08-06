@@ -32,7 +32,7 @@ def test_reverseTopology():
                       4: [],
                       5: [6],
                       6: []}
-    
+
     testGraphReverse = {0: [],
                         1: [0],
                         2: [0,1,3],
@@ -40,7 +40,7 @@ def test_reverseTopology():
                         4: [2,1],
                         5: [2],
                         6: [5]}
-    
+
     reverseGraphCalc = flowCore.reverseTopology(testGraph)
 
     for key, item in reverseGraphCalc.items():
@@ -48,7 +48,7 @@ def test_reverseTopology():
         setTestChildren = set(item)
         setCalcChildren = set(testGraphReverse[key])
         assert setTestChildren == setCalcChildren
-    
+
     testGraph = {0:[1,2,3],
                  1:[4],
                  2:[5,6],
@@ -62,7 +62,7 @@ def test_reverseTopology():
                  10:[12],
                  11:[],
                  12:[]}
-    
+
     testGraphReverse = {0:[],
                         1:[0],
                         2:[0],
@@ -76,7 +76,7 @@ def test_reverseTopology():
                         10:[5,6],
                         11:[7],
                         12:[10]}
-    
+
     reverseGraphCalc = flowCore.reverseTopology(testGraph)
 
     for key, item in reverseGraphCalc.items():
@@ -84,7 +84,7 @@ def test_reverseTopology():
         setTestChildren = set(item)
         setCalcChildren = set(testGraphReverse[key])
         assert setTestChildren == setCalcChildren
-    
+
 
 def test_backTracking():
     '''

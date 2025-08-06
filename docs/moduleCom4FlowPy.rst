@@ -162,7 +162,8 @@ If the model extent (i.e. number of cells and/or rows in the input layers) is la
 will automatically split the input layers into different tiles (these are pickled to ``.npy`` files inside ``\temp`` folder). 
 Each (quadratic) tile will then be consecutively calculated using all CPUs as defined by ``nCPU`` in ``avaframeCfg.ini``. The 
 ``tileOverlap`` option defines by which margins the tiles overlap; in overlapping parts of the model domain the outputs
-of the single tiles are combined (maximum, sum - depending on output variable).
+of the single tiles are combined (maximum, sum - depending on output variable). Note that if a single tile does not cover
+the entire process path, the path will be cut off, leading to incorrect results.
 
 The default settings provide reasonable performance on standard machines/model domains - however for special applications (e.g. modeling
 over large areas or on HPC hardware, **different raster resolution**) tweaking parameters might improve model performance.
@@ -224,7 +225,7 @@ Output
 
 All outputs are written in *'.tif'* or in *'.asc'* raster format (controlable via the ``outputFileFormat`` option in ``(local_)com4FlowPyCfg.ini``, default is *'.tif'*) in the same resolution and extent as the input raster layers.
 You can customize which output rasters are written at the end of the model run by selecting the desired output files through the ``outputFiles`` option in ``(local_)com4FlowPyCfg.ini``.
-In the output rasters, the cells, that are not affected by the process, are specified by the value -9999.
+In the output rasters, the cells, that are not affected by the process, are specified by ``outputNoDataValue`` (default is -9999).
 
 By default the following four output layers are written to disk at the end of the model run:
 
