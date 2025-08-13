@@ -478,7 +478,11 @@ def prepareReleaseEntrainment(cfg, rel, inputSimLines):
         )
 
     # set release thickness
-    if cfg["INPUT"]["relThFile"] == "":
+    
+    if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
+        inputSimLines["hydrographLine"]["thicknessSource"] = ["csv file"]
+        log.info("Release scenario with hydrograph and without REL area.")
+    elif cfg["INPUT"]["relThFile"] == "":
         releaseLine = setThickness(cfg, inputSimLines["releaseLine"], "relTh")
         inputSimLines["releaseLine"] = releaseLine
     log.debug("Release area scenario: %s - perform simulations" % (relName))
@@ -631,6 +635,15 @@ def prepareInputData(inputSimFiles, cfg):
         releaseLine["Name"] = "from raster"
         releaseLine["thickness"] = "from raster"
         log.info("Set %s for relThField" % relRasterPath)
+    # get line from release area polygon
+    if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
+        releaseLine["type"] = "Hydrograph"
+        hydrValues = gI.getHydrographCsv(inputSimFiles["hydrographCsv"], cfg["GENERAL"])
+        releaseLine["thickness"] = [hydrValues["thickness"][hydrValues["timeStep"] == 0]]
+        releaseLine["thicknessSource"] = ["csv file"]
+        gI.checkForMultiplePartsShpArea(
+            cfg["GENERAL"]["avalancheDir"], releaseLine, "com1DFA", type="release"
+        )
 
     # get line from secondary release area polygon
     if cfg["GENERAL"].getboolean("secRelArea"):
@@ -1567,7 +1580,6 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
     # initialize time
     t = 0
     particles["t"] = t
-
     relCells = np.size(indRelY)
     partPerCell = particles["nPart"] / relCells
 
@@ -3049,7 +3061,7 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
     Returns
     -------
     simDict: dict
-        dicionary with info on simHash, releaseScenario, release area file path,
+        dictionary with info on simHash, releaseScenario, release area file path,
         simType and contains full configuration configparser object for simulation run
     """
 
@@ -3474,8 +3486,11 @@ def fetchRelVolume(releaseFile, cfg, pathToDem, secondaryReleaseFile, radius=0.0
     demVol = geoTrans.getNormalMesh(demVol, num=methodMeshNormal)
     demVol = DFAtls.getAreaMesh(demVol, methodMeshNormal)
 
-    # compute volume of release area
-    relVolume = initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary")
+    if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
+        relVolume = initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="hydrograph")
+    else:
+        # compute volume of release area
+        relVolume = initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary")
 
     if cfg["GENERAL"]["secRelArea"] == "True":
         # compute volume of secondary release area
@@ -3522,6 +3537,8 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
     if releaseType == "primary":
         typeTh = "relTh"
+    elif releaseType == "hydrograph":
+        typeTh = "hydr"
     else:
         typeTh = "secondaryRelTh"
 
@@ -3559,7 +3576,19 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
         # compute release volume using raster and dem area
         relVolume = np.nansum(releaseLine["rasterData"] * demVol["areaRaster"])
+    """
+    if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
+        hydrLine = geoTrans.prepareArea(
+            releaseLine,
+            demVol,
+            radius,
+            # thList=releaseLine["thickness"],
+            combine=True,
+            checkOverlap=False,
+        )
 
+        relVolume = np.nansum(hydrLine["rasterData"] * demVol["areaRaster"])
+    """
     return relVolume
 
 

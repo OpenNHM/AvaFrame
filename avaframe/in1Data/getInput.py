@@ -318,7 +318,7 @@ def getInputDataCom1DFA(avaDir):
         "kFile": kFile,
         "tauCFile": tauCFile,
         "bhdFile": bhdFile,
-        "hydrographFile": hydrographFile,
+        "hydrographFile": [hydrographFile],
         "hydrographCsv": hydrographCsv,
     }
 
@@ -506,7 +506,12 @@ def updateThicknessCfg(inputSimFiles, cfgInitial):
     # initialize release scenario list
     releaseScenarioIni = cfgInitial["INPUT"]["releaseScenario"]
     if releaseScenarioIni == "":
-        releaseScenarioList = inputSimFiles["releaseScenarioList"]
+        if cfgInitial["GENERAL"]["hydrograph"] == "True" and cfgInitial["GENERAL"]["noRelArea"] == "True":
+            releaseScenarioList = []
+            for hydrA in inputSimFiles["hydrographFile"]:
+                releaseScenarioList.append(hydrA.stem)
+        else:
+            releaseScenarioList = inputSimFiles["releaseScenarioList"]
     else:
         releaseScenarioList = cfgInitial["INPUT"]["releaseScenario"].split("|")
 
@@ -651,10 +656,15 @@ def selectReleaseFile(inputSimFiles, releaseScenario):
     """
 
     # fetch release file path for scenario
+    releaseScenarioPath = ""
     relFiles = inputSimFiles["relFiles"]
     for relF in relFiles:
         if relF.stem == releaseScenario:
             releaseScenarioPath = relF
+    if releaseScenarioPath == "":
+        for hydrF in inputSimFiles["hydrographFile"]:
+            if hydrF.stem == releaseScenario:
+                releaseScenarioPath = hydrF
 
     inputSimFiles["releaseScenario"] = releaseScenarioPath
 
@@ -686,7 +696,11 @@ def fetchReleaseFile(inputSimFiles, releaseScenario, cfgSim, releaseList):
     """
 
     # fetch release files paths
-    relFiles = inputSimFiles["relFiles"]
+    if cfgSim["GENERAL"]["hydrograph"] == "True" and cfgSim["GENERAL"]["noRelArea"] == "True":
+        relFiles = inputSimFiles["hydrographFile"]
+        cfgSim["GENERAL"]["relThFromShp"] = "False"
+    else:
+        relFiles = inputSimFiles["relFiles"]
 
     foundScenario = False
     for relF in relFiles:

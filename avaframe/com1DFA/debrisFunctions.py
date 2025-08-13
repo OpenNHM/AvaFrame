@@ -181,6 +181,16 @@ def checkHydrograph(hydrographValues, hydrCsv):
             message = "For every release time step a thickness > 0 needs to be provided in %s" % (hydrCsv)
             log.error(message)
             raise ValueError(message)
+        
+    # check if a timestep = 0 is provided, when no REL area is used
+    if cfgGen.getboolean("hydrograph") and cfgGen.getboolean("noRelArea"):
+        if 0 not in timeStepUnique:
+            message = (
+                "If no release area is released, a thickness needs to be provided for  time step 0 s in %s"
+                % (hydrCsv)
+            )
+            log.error(message)
+            raise ValueError(message)
 
 
 def preparehydrographAreaLine(inputSimFiles, demOri, cfg):
