@@ -1184,7 +1184,14 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     if cfg["EXPORTS"].getboolean("exportRasters"):
         outDir = pathlib.Path(cfgGen["avalancheDir"], "Outputs", "internalRasters")
         fU.makeADir(outDir)
-        IOf.writeResultToRaster(dem["originalHeader"], relRaster, (outDir / "releaseRaster"), flip=True)
+        useCompression = cfg["EXPORTS"].getboolean("useCompression")
+        IOf.writeResultToRaster(
+            dem["originalHeader"],
+            relRaster,
+            (outDir / "releaseRaster"),
+            flip=True,
+            useCompression=useCompression,
+        )
         log.info(
             "Release area raster derived from %s saved to %s"
             % (releaseLine["initializedFrom"], str(outDir / "releaseRaster"))
@@ -1268,11 +1275,13 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
             # export secondary release raster used for computations (after cutting potential overlap with release)
             if cfg["EXPORTS"].getboolean("exportRasters"):
                 outDir = pathlib.Path(cfg["GENERAL"]["avalancheDir"], "Outputs", "internalRasters")
+                useCompression = cfg["EXPORTS"].getboolean("useCompression")
                 IOf.writeResultToRaster(
                     dem["originalHeader"],
                     secRelRaster,
                     (outDir / ("secondaryReleaseRaster_%d" % secIndex)),
                     flip=True,
+                    useCompression=useCompression,
                 )
                 log.info(
                     "SecondaryRelease area raster derived from %s saved to %s"
@@ -1284,11 +1293,13 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     # export entrainment raster used for computations (after cutting potential overlap with release or secondary release)
     if cfg["EXPORTS"].getboolean("exportRasters"):
         outDir = pathlib.Path(cfg["GENERAL"]["avalancheDir"], "Outputs", "internalRasters")
+        useCompression = cfg["EXPORTS"].getboolean("useCompression")
         IOf.writeResultToRaster(
             dem["originalHeader"],
             entrMassRaster / cfg["GENERAL"].getfloat("rhoEnt"),
             (outDir / "entrainmentRaster"),
             flip=True,
+            useCompression=useCompression,
         )
         log.info(
             "Entrainment area raster derived from %s saved to %s"
@@ -2017,8 +2028,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # make sure to save all desiered resuts for first and last time step for
     # the report
     resTypesReport = fU.splitIniValueToArraySteps(cfg["REPORT"]["plotFields"])
-    # always add particles to first and last time step
-    resTypesLast = list(set(resTypes + resTypesReport + ["particles"]))
+    resTypesLast = list(set(resTypes + resTypesReport))
     # derive friction type
     # turn friction model into integer
     frictModelsList = [
@@ -2059,7 +2069,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # setup a result fields info data frame to save max values of fields and avalanche front
     resultsDF = setupresultsDF(resTypesLast, cfg["VISUALISATION"].getboolean("createRangeTimeDiagram"))
 
-    # TODO: add here different time stepping options
+    # Add different time stepping options here
     log.debug("Use standard time stepping")
     # Initialize time and counters
     nSave = 1
@@ -2074,6 +2084,12 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # export initial time step
     if cfg["EXPORTS"].getboolean("exportData"):
         exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="initial")
+
+        if "particles" in resTypes:
+            outDirData = outDir / "particles"
+            fU.makeADir(outDirData)
+            savePartToPickle(particles, outDirData, cuSimName)
+
     # export particles properties for visulation
     if cfg["VISUALISATION"].getboolean("writePartToCSV"):
         particleTools.savePartToCsv(
@@ -2085,10 +2101,6 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         countParticleCsv = countParticleCsv + 1
 
     # export particles dictionaries of saving time steps
-    # (if particles is not in resType, only first and last time step are saved)
-    outDirData = outDir / "particles"
-    fU.makeADir(outDirData)
-    savePartToPickle(particles, outDirData, cuSimName)
 
     zPartArray0 = copy.deepcopy(particles["z"])
 
@@ -2187,7 +2199,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
                 exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="intermediate")
 
                 # export particles dictionaries of saving time steps
-                savePartToPickle(particles, outDirData, cuSimName)
+                if "particles" in resTypes:
+                    savePartToPickle(particles, outDirData, cuSimName)
 
             # export particles properties for visulation
             if cfg["VISUALISATION"].getboolean("writePartToCSV"):
@@ -2315,7 +2328,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="final")
 
         # export particles dictionaries of saving time steps
-        savePartToPickle(particles, outDirData, cuSimName)
+        if "particles" in resTypes:
+            savePartToPickle(particles, outDirData, cuSimName)
     else:
         # fetch contourline info
         contourDictXY = outCom1DFA.fetchContCoors(
@@ -2371,7 +2385,7 @@ def setupresultsDF(resTypes, cfgRangeTime):
     resultsDF: dataframe
         data frame with on line for iniital time step and max and mean values of fields
     """
-
+    # TODO catch empty resTypes
     resDict = {"timeStep": [0.0]}
     for resT in resTypes:
         if resT != "particles" and resT != "FTDet":
@@ -2566,7 +2580,7 @@ def computeEulerTimeStep(
         cfg["ResistanceModel"].lower() == "default" and cfg.getboolean("detrainment")
     ):
         # update resistance area fields using thresholds
-        fields = com1DFATools.updateResCoeffFields(fields, cfg, float(particles["t"]), dem)
+        fields = com1DFATools.updateResCoeffFields(fields, cfg)
         if debugPlot:
             outCom1DFA.plotResFields(fields, cfg, particles["tPlot"], dem, particles["mTot"])
 
@@ -2603,7 +2617,6 @@ def computeEulerTimeStep(
     particles = DFAfunC.updatePositionC(cfg, particles, dem, force, fields, typeStop=0)
     tCPUPos = time.time() - startTime
     tCPU["timePos"] = tCPU["timePos"] + tCPUPos
-
     # Split particles
     if cfg.getint("splitOption") == 0:
         # split particles with too much mass
@@ -2968,12 +2981,21 @@ def exportFields(
             # convert from J/cell to kJ/m²
             # (by dividing the peak kinetic energy per cell by the real area of the cell)
             resField = resField * 0.001 / dem["areaRaster"]
+
         dataName = cuSimName + "_" + resType + "_" + "t%.2f" % (timeStep)
         # create directory
         outDirPeak = outDir / "peakFiles" / "timeSteps"
         fU.makeADir(outDirPeak)
         outFile = outDirPeak / dataName
-        IOf.writeResultToRaster(dem["originalHeader"], resField, outFile, flip=True)
+        useCompression = cfg["EXPORTS"].getboolean("useCompression")
+        IOf.writeResultToRaster(
+            dem["originalHeader"], resField, outFile, flip=True, useCompression=useCompression
+        )
+        log.debug(
+            "Results parameter: %s has been exported to Outputs/peakFiles for time step: %.2f "
+            % (resType, timeStep)
+        )
+
         if TSave == "final":
             log.debug(
                 "Results parameter: %s exported to Outputs/peakFiles for time step: %.2f - FINAL time step "
@@ -2984,11 +3006,9 @@ def exportFields(
             outDirPeakAll = outDir / "peakFiles"
             fU.makeADir(outDirPeakAll)
             outFile = outDirPeakAll / dataName
-            IOf.writeResultToRaster(dem["originalHeader"], resField, outFile, flip=True)
-        else:
-            log.debug(
-                "Results parameter: %s has been exported to Outputs/peakFiles for time step: %.2f "
-                % (resType, timeStep)
+            useCompression = cfg["EXPORTS"].getboolean("useCompression")
+            IOf.writeResultToRaster(
+                dem["originalHeader"], resField, outFile, flip=True, useCompression=useCompression
             )
 
 

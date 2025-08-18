@@ -608,6 +608,7 @@ def test_checkExtentAndCellSize(tmp_path):
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {"resizeThreshold": 3.0, "meshCellSize": 1.0, "meshCellSizeThreshold": 0.0001}
     cfg["GENERAL"]["avalancheDir"] = str(testDir)
+    cfg["EXPORTS"] = {"useCompression": "True"}
     inDir = testDir / "Inputs"
     inDirR = inDir / "RASTERS"
     fU.makeADir(inDirR)
