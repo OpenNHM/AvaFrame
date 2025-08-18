@@ -399,7 +399,7 @@ def checkCfgInfoType(cfgInfo):
     return typeCfgInfo
 
 
-def updateResCoeffFields(fields, cfg, t, dem):
+def updateResCoeffFields(fields, cfg):
     """update fields of cRes and detK, coefficients of resistance parameter and detrainment parameter
     according to the thresholds of FV and FT
     if FV OR FT below min thresholds -> apply detrainment in that area
@@ -412,10 +412,6 @@ def updateResCoeffFields(fields, cfg, t, dem):
         dictionary with cResRasterOrig, cResRaster and detRasterOrig, detRaster fields
     cfg: configparser object
         configuration of com1DFA, thresholds
-    t: float
-        time step
-    dem: dict
-        dictionary with info on DEM
 
     Returns
     ------------
@@ -453,10 +449,6 @@ def updateResCoeffFields(fields, cfg, t, dem):
             "Resistance area removed %d cells because FV or FT exceeded %.2f ms-1, %.2f m"
             % (lTh, vMax, thMax)
         )
-        outFileRes = pathlib.Path(
-            cfg["avalancheDir"], "Outputs", "com1DFA", "reports", ("resArea_t%.2f" % t)
-        )
-        IOf.writeResultToRaster(dem["originalHeader"], fields["cResRasterOrig"], outFileRes, flip=True)
 
     # update fields dictionary
     fields["cResRaster"] = cResRaster

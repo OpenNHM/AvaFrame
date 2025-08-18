@@ -1746,6 +1746,7 @@ def test_exportFields(tmp_path):
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {"resType": "ppr|pft|FT"}
     cfg["REPORT"] = {"plotFields": "ppr|pft|pfv|pke"}
+    cfg["EXPORTS"] = {"useCompression": "True"}
     Tsave = [0, 10, 15, 25, 40]
     demHeader = {}
     demHeader["cellsize"] = 1

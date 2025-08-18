@@ -368,7 +368,7 @@ def splitTimeValueToArrayInterval(cfgValues, endTime):
     Returns
     --------
     items : 1D numpy array
-        time step values as 1D numpy array
+        sorted time step values as 1D numpy array
     """
 
     if ":" in cfgValues:

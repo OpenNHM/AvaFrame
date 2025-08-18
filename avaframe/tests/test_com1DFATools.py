@@ -119,7 +119,7 @@ def test_updateResCoeffFields(tmp_path):
     dem["originalHeader"]["transform"] = transform
     dem["originalHeader"]["crs"] = rasterio.crs.CRS()
 
-    fields = com1DFATools.updateResCoeffFields(fields, cfg["GENERAL"], 0.0, dem)
+    fields = com1DFATools.updateResCoeffFields(fields, cfg["GENERAL"])
 
     assert fields["cResRaster"].any() == False
 
@@ -135,7 +135,7 @@ def test_updateResCoeffFields(tmp_path):
         "FT": FT,
     }
 
-    fields = com1DFATools.updateResCoeffFields(fields, cfg["GENERAL"], 0.0, dem)
+    fields = com1DFATools.updateResCoeffFields(fields, cfg["GENERAL"])
 
     assert fields["cResRaster"].any() == True
     assert fields["cResRaster"][0, 4] == 1
