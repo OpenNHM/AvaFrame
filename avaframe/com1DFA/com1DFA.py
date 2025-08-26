@@ -641,6 +641,7 @@ def prepareInputData(inputSimFiles, cfg):
         hydrValues = gI.getHydrographCsv(inputSimFiles["hydrographCsv"], cfg["GENERAL"])
         releaseLine["thickness"] = [hydrValues["thickness"][hydrValues["timeStep"] == 0]]
         releaseLine["thicknessSource"] = ["csv file"]
+        releaseLine["velocity"] = hydrValues["velocity"][hydrValues["timeStep"] == 0]
         gI.checkForMultiplePartsShpArea(
             cfg["GENERAL"]["avalancheDir"], releaseLine, "com1DFA", type="release"
         )
@@ -1227,6 +1228,8 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
         logName=logName,
         relThField=relThField,
     )
+    if cfgGen.getboolean("hydrograph") and cfgGen.getboolean("noRelArea"):
+        particles = DFAfunC.updateInitialVelocity(cfgGen, particles, dem, releaseLine["velocity"])
     particles, fields = initializeFields(cfg, dem, particles, releaseLine)
 
     reportAreaInfo["Release area info"]["Model release volume [m3]"] = "%.2f" % (
@@ -2620,7 +2623,6 @@ def computeEulerTimeStep(
     particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, resistanceType)
     tCPUForce = time.time() - startTime
     tCPU["timeForce"] = tCPU["timeForce"] + tCPUForce
-
     # compute lateral force (SPH component of the calculation)
     startTime = time.time()
     if cfg.getint("sphOption") == 0:
