@@ -3,6 +3,7 @@ import numpy as np
 import math
 import configparser
 import pytest
+import copy
 
 # Local imports
 import avaframe.ana5Utils.DFAPathGeneration as DFAPathGeneration
@@ -66,7 +67,7 @@ def test_extendDFAPath():
     cfg['PATH'] = {'nCellsResample': '1', 'extTopOption': '1', 'nCellsMinExtend': '1',
                    'nCellsMaxExtend': '2', 'factBottomExt': 0.2,
                    'maxIterationExtBot': 10, 'nBottomExtPrecision': 10,
-                   'uInterval': '1000'}
+                   'uInterval': '1000', 'kResample': '3'}
 
     # TODO if k=3 for spline needs at least 4 pointsin path
     avaProfile = {'x': np.array([1, 2, 3, 8]), 'y': np.array([1, 2, 3, 8]), 'z': np.array([40, 30, 20, 0])
@@ -101,7 +102,8 @@ def test_extendDFAPath():
     # now use the highest point method
     cfg = configparser.ConfigParser()
     cfg['PATH'] = {'nCellsResample': '5', 'extTopOption': '0', 'nCellsMinExtend': '1',
-                   'nCellsMaxExtend': '2', 'factBottomExt': 0.2, 'maxIterationExtBot': 10, 'nBottomExtPrecision': 10}
+                   'nCellsMaxExtend': '2', 'factBottomExt': 0.2, 'maxIterationExtBot': 10, 'nBottomExtPrecision': 10,
+                   'kResample': '3'}
     avaProfile = {'x': np.array([10, 20, 30]), 'y': np.array([10, 20, 30]), 'z': np.array([40, 30, 20])}
     particlesIni = {'x': np.array([7., 6.9]),
                     'y': np.array([10, 20])}
@@ -123,7 +125,8 @@ def test_extendDFAPath():
     # now If we extend too 1
     cfg = configparser.ConfigParser()
     cfg['PATH'] = {'nCellsResample': '5', 'extTopOption': '0', 'nCellsMinExtend': '2',
-                   'nCellsMaxExtend': '30', 'factBottomExt': 1, 'maxIterationExtBot': 10, 'nBottomExtPrecision': 1}
+                   'nCellsMaxExtend': '30', 'factBottomExt': 1, 'maxIterationExtBot': 10, 'nBottomExtPrecision': 1,
+                   'kResample': '3'}
     avaProfile = {'x': np.array([10, 20, 30, 70]), 'y': np.array([10, 20, 30, 70]), 'z': np.array([40, 30, 20, 0])}
 
     avaProfileExt = DFAPathGeneration.extendDFAPath(cfg['PATH'], avaProfile, dem, particlesIni)
@@ -198,7 +201,7 @@ def test_extendProfileToFront():
                    'nCellsMinExtend': '1', 'nCellsMaxExtend': '20', 'factBottomExt': 0.2,
                    'maxIterationExtBot': 10, 'nBottomExtPrecision': 10,
                    'ftThreshold': 0.01, 'lowFrontFraction': 0.05,
-                   'upSlopePenalty': 10., 'flowDistPenalty': 5.}
+                   'upSlopePenalty': 10., 'flowDistPenalty': 5., 'kResample': '3'}
 
     dem = {'header': {'xllcenter': 0, 'yllcenter': 0, 'cellsize': 2, 'nrows': 10, 'ncols': 11},
            'rasterData': np.tile(np.array([50., 40., 30., 20., 10., 0., 0., 0., 0., 0., 0.]), (10, 1))}
@@ -266,7 +269,7 @@ def test_resamplePath():
     """"""
     # setup required inputs
     cfg = configparser.ConfigParser()
-    cfg['PATH'] = {'nCellsResample': '1', 'uInterval': '1000'}
+    cfg['PATH'] = {'nCellsResample': '1', 'uInterval': '1000', "kResample": "3"}
     avaProfile = {'x': np.array([5, 15, 20, 25, 30, 35]), 'y': np.array([5, 15, 20, 25, 30, 35]),
                   'z': np.array([40, 30, 20, 10, 0, 0]),
                   's': np.array([0, math.sqrt(200), math.sqrt(450), math.sqrt(800), math.sqrt(1250), math.sqrt(1800)]),
@@ -465,3 +468,227 @@ def test_getMassAvgPathFromFields_noVelocity():
 
     # Should have one time step
     assert len(result['x']) == 1
+
+
+def test_extendProfileTop_option0():
+    """ test extending profile at top towards highest point in release (extTopOption = 0) """
+    particlesIni = {
+        "x": np.array([10.0, 20.0, 30.0]),
+        "y": np.array([5.0, 15.0, 25.0]),
+        "z": np.array([100.0, 150.0, 120.0]),
+    }
+    profile = {
+        "x": np.array([30.0, 40.0, 50.0]),
+        "y": np.array([25.0, 35.0, 45.0]),
+        "z": np.array([120.0, 90.0, 60.0]),
+        "s": np.array([0.0, 14.14, 28.28]),
+    }
+
+    result = DFAPathGeneration.extendProfileTop(0, particlesIni, copy.deepcopy(profile), dem=None, cfg=None)
+
+    # highest particle is index 1 (z=150)
+    xExtTop = 20.0
+    yExtTop = 15.0
+    zExtTop = 150.0
+    dx = xExtTop - 30.0
+    dy = yExtTop - 25.0
+    dsExpected = np.sqrt(dx ** 2 + dy ** 2)
+
+    assert result["x"][0] == xExtTop
+    assert result["y"][0] == yExtTop
+    assert result["z"][0] == zExtTop
+    assert result["s"][0] == 0.0
+    assert result["s"][1] == dsExpected
+    # rest of profile is preserved, shifted by ds
+    assert result["x"][1] == 30.0
+    assert result["s"][-1] == pytest.approx(profile["s"][-1] + dsExpected)
+    assert len(result["x"]) == len(profile["x"]) + 1
+
+
+def test_extendProfileTop_option1():
+    """ test extending profile at top towards point giving longest runout (extTopOption = 1) """
+    particlesIni = {
+        "x": np.array([10.0, 20.0, 30.0]),
+        "y": np.array([5.0, 15.0, 25.0]),
+        "z": np.array([100.0, 200.0, 120.0]),
+    }
+    profile = {
+        "x": np.array([30.0, 40.0, 50.0]),
+        "y": np.array([25.0, 35.0, 45.0]),
+        "z": np.array([120.0, 90.0, 60.0]),
+        "s": np.array([0.0, 14.14, 28.28]),
+    }
+
+    result = DFAPathGeneration.extendProfileTop(1, particlesIni, copy.deepcopy(profile), dem=None, cfg=None)
+
+    xFirst, yFirst, zFirst = profile["x"][0], profile["y"][0], profile["z"][0]
+    sLast, zLast = profile["s"][-1], profile["z"][-1]
+    tanAngle = (zFirst - zLast) / sLast
+
+    dx = particlesIni["x"] - xFirst
+    dy = particlesIni["y"] - yFirst
+    ds = np.sqrt(dx ** 2 + dy ** 2)
+    dz = particlesIni["z"] - zFirst
+    dz1 = dz - tanAngle * ds
+    indTop = np.argmax(dz1)
+
+    assert result["x"][0] == particlesIni["x"][indTop]
+    assert result["y"][0] == particlesIni["y"][indTop]
+    assert result["z"][0] == particlesIni["z"][indTop]
+    assert result["s"][0] == 0.0
+    assert result["s"][1] == pytest.approx(ds[indTop] + 0.0)
+    assert len(result["x"]) == len(profile["x"]) + 1
+
+
+def test_extendProfileTop_option2():
+    """ test extending profile at top in thalweg direction, projected on a flat DEM (extTopOption = 2) """
+    cellsize = 1.0
+    nrows, ncols = 100, 100
+    zRaster = np.zeros((nrows, ncols))
+    header = {
+        "cellsize": cellsize,
+        "nrows": nrows,
+        "ncols": ncols,
+        "xllcenter": 0.0,
+        "yllcenter": 0.0,
+    }
+    dem = {"rasterData": zRaster, "header": header}
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {}
+    cfg = cfg["GENERAL"]
+    cfg["nCellsMinExtend"] = "1"
+    cfg["nCellsMaxExtend"] = "20"
+    cfg["factBottomExt"] = "0.1"
+    cfg["maxIterationExtBot"] = "10"
+    cfg["nBottomExtPrecision"] = "1"
+
+    # profile running roughly along the x axis, starting well inside the DEM
+    profile = {
+        "x": np.array([50.0, 55.0, 60.0, 65.0]),
+        "y": np.array([50.0, 50.0, 50.0, 50.0]),
+        "z": np.array([0.0, 0.0, 0.0, 0.0]),
+        "s": np.array([0.0, 5.0, 10.0, 15.0]),
+    }
+
+    result = DFAPathGeneration.extendProfileTop(2, None, copy.deepcopy(profile), dem=dem, cfg=cfg, considerLLC=False)
+
+    # a point should have been prepended, extending "backwards" (towards lower x)
+    assert len(result["x"]) == len(profile["x"]) + 1
+    assert result["x"][0] < profile["x"][0]
+    assert result["s"][0] == 0.0
+    # the rest of the s values should be shifted by the added segment length
+    ds = result["s"][1]
+    assert result["s"][1] == pytest.approx(ds)
+    assert result["s"][2] == pytest.approx(profile["s"][1] + ds)
+
+
+def test_extendProfileTop_option2_singlePointProfile():
+    """ test that a one-point profile is returned unchanged for extTopOption = 2 """
+    profile = {
+        "x": np.array([50.0]),
+        "y": np.array([50.0]),
+        "z": np.array([0.0]),
+        "s": np.array([0.0]),
+    }
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {}
+    dem = {"rasterData": np.zeros((10, 10)), "header": {"cellsize": 1.0, "xllcenter": 0.0, "yllcenter": 0.0}}
+
+    result = DFAPathGeneration.extendProfileTop(2, None, copy.deepcopy(profile), dem=dem, cfg=cfg["GENERAL"])
+
+    for key in result:
+        assert result[key] == profile[key]
+    assert len(result["x"]) == 1
+
+
+def test_extendProfileTop_option2_missingDemOrCfg():
+    """ test that missing dem or cfg raises ValueError for extTopOption = 2 """
+    profile = {
+        "x": np.array([50.0, 55.0]),
+        "y": np.array([50.0, 50.0]),
+        "z": np.array([0.0, 0.0]),
+        "s": np.array([0.0, 5.0]),
+    }
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {}
+
+    with pytest.raises(ValueError):
+        DFAPathGeneration.extendProfileTop(2, None, profile, dem=None, cfg=cfg["GENERAL"])
+
+    dem = {"rasterData": np.zeros((10, 10)), "header": {"cellsize": 1.0, "xllcenter": 0.0, "yllcenter": 0.0}}
+    with pytest.raises(ValueError):
+        DFAPathGeneration.extendProfileTop(2, None, profile, dem=dem, cfg=None)
+
+
+def test_extendProfileTop_invalidOption():
+    """ test that an invalid extTopOption raises ValueError """
+    particlesIni = {"x": np.array([10.0]), "y": np.array([5.0]), "z": np.array([100.0])}
+    profile = {
+        "x": np.array([30.0, 40.0]),
+        "y": np.array([25.0, 35.0]),
+        "z": np.array([120.0, 90.0]),
+        "s": np.array([0.0, 14.14]),
+    }
+
+    with pytest.raises(ValueError):
+        DFAPathGeneration.extendProfileTop(99, particlesIni, profile)
+
+
+def test_extendProfileTop_option2_exactValues():
+    """ test extending profile at top for extTopOption = 2
+
+    Uses a profile perfectly aligned along the x-axis so the averaged extension
+    direction is unambiguously (-1, 0), and a flat DEM large enough that the
+    extension point is found inside the domain on the first try (no dichotomy
+    iterations needed).
+    """
+    cellsize = 1.0
+    nrows, ncols = 100, 100
+    zRaster = np.zeros((nrows, ncols))
+    header = {
+        "cellsize": cellsize,
+        "nrows": nrows,
+        "ncols": ncols,
+        "xllcenter": 0.0,
+        "yllcenter": 0.0,
+    }
+    dem = {"rasterData": zRaster, "header": header}
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {}
+    cfg = cfg["GENERAL"]
+    cfg["nCellsMinExtend"] = "1"
+    cfg["nCellsMaxExtend"] = "20"
+    cfg["factBottomExt"] = "0.1"
+    cfg["maxIterationExtBot"] = "10"
+    cfg["nBottomExtPrecision"] = "1"
+
+    # profile running exactly along the x axis, starting well inside the DEM
+    profile = {
+        "x": np.array([50.0, 55.0, 60.0, 65.0]),
+        "y": np.array([50.0, 50.0, 50.0, 50.0]),
+        "z": np.array([0.0, 0.0, 0.0, 0.0]),
+        "s": np.array([0.0, 5.0, 10.0, 15.0]),
+    }
+
+    result = DFAPathGeneration.extendProfileTop(2, None, copy.deepcopy(profile), dem=dem, cfg=cfg, considerLLC=False)
+
+    # hand-computed expected values:
+    # xFirst=50, yFirst=50, sTotal=15
+    # points of interest (1 < r < 20): x=[55,60,65], y=[50,50,50]
+    # -> averaged direction is exactly (1, 0) since all vectors point along +x
+    # factExt = 0.1, vNorm = 1 -> gamma = 0.1 * 15 / 1 = 1.5
+    # xExtTop = 50 - 1.5*1 = 48.5, yExtTop = 50 - 1.5*0 = 50
+    # zExtTop = 0 (flat raster), so ds = sqrt((48.5-50)^2 + 0^2) = 1.5
+    assert result["x"][0] == pytest.approx(50 - 1.5 * 1)
+    assert result["y"][0] == pytest.approx(50.0)
+    assert result["z"][0] == pytest.approx(0.0)
+    assert result["s"][0] == 0.0
+    assert result["s"][1] == pytest.approx(1.5)
+
+    # rest of the profile is preserved, each s-value shifted by ds = 1.5
+    np.testing.assert_allclose(result["x"][1:], profile["x"])
+    np.testing.assert_allclose(result["y"][1:], profile["y"])
+    np.testing.assert_allclose(result["z"][1:], profile["z"])
+    np.testing.assert_allclose(result["s"][1:], profile["s"] + 1.5)

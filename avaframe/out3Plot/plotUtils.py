@@ -903,6 +903,7 @@ def addHillShadeContours(
         else:
             extentPlot = extent
 
+        # TODO: restore changes and rebase master!
         hs = ls.hillshade(data, vert_exag=vertExag, dx=data.shape[1], dy=data.shape[0])
         # normalize hillshade and increase the contrast
         if np.nanmin(hs) != np.nanmax(hs):

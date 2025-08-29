@@ -239,7 +239,7 @@ def addParticles2Plot(particles, ax, dem, whatS="m", whatC="h", colBarResType=""
     return ax, cb
 
 
-def addDem2Plot(ax, dem, what="slope", extent="", origHeader=False):
+def addDem2Plot(ax, dem, what="slope", extent="", origHeader=False, cmap=None):
     """Add dem to the background of a plot
 
     Parameters
@@ -255,6 +255,8 @@ def addDem2Plot(ax, dem, what="slope", extent="", origHeader=False):
         optional: extent of NonUnifIm plot corresponding coordinates to dem data array at center locations
     origHeader: bool
         if True use originalHeader and not header
+    cmap: matplotlib colormap
+        colormap for DEM plot
     """
     if origHeader:
         header = dem["originalHeader"]
@@ -267,8 +269,10 @@ def addDem2Plot(ax, dem, what="slope", extent="", origHeader=False):
     csz = header["cellsize"]
     xArray = np.linspace(xllc, xllc + (ncols - 1) * csz, ncols)
     yArray = np.linspace(yllc, yllc + (nrows - 1) * csz, nrows)
-    cmap = pU.cmapGreys
-    cmap.set_bad(color="white")
+
+    if cmap is None:
+        cmap = pU.cmapGreys
+        cmap.set_bad(color="white")
 
     if what == "slope":
         value = dem["Nz"] / DFAtls.norm(dem["Nx"], dem["Ny"], dem["Nz"])

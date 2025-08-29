@@ -159,3 +159,44 @@ def scalProd(ux, uy, uz, vx, vy, vz):
     scal = ux*vx + uy*vy + uz*vz
 
     return scal
+
+
+def getAveragedDirection(vDirX, vDirY, vDirZ=None):
+    """
+    Compute a single averaged unit direction vector from multiple 2D direction vectors.
+
+    Parameters
+    ----------
+    vDirX: numpy array
+        x components of the direction vectors to average
+    vDirY: numpy array
+        y components of the direction vectors to average
+    vDirZ: numpy array, optional
+        z components of the direction vectors to average. If None (default), the
+        vectors are treated as 2D and z is set to 0.
+
+    Returns
+    -------
+    vDirX: float
+        x component of the normalized, averaged direction vector
+    vDirY: float
+        y component of the normalized, averaged direction vector
+    vDirZ: float
+        z component of the normalized, averaged direction vector (0 if input is 2D)
+    """
+    if vDirZ is None:
+        vDirZ = 0 * np.array([vDirY])
+    else:
+        vDirZ = np.array([vDirZ])
+
+    vDirX, vDirY, vDirZ = normalize(
+        np.array([vDirX]), np.array([vDirY]), vDirZ)
+
+    # summed / averaged direction
+    vDirX = np.sum(vDirX)
+    vDirY = np.sum(vDirY)
+    vDirZ = np.sum(vDirZ)
+    # get unit vector
+    vDirX, vDirY, vDirZ = normalize(np.array([vDirX]), np.array([vDirY]), np.array([vDirZ]))
+
+    return vDirX, vDirY, vDirZ
