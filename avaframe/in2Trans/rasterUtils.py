@@ -163,7 +163,7 @@ def writeResultToRaster(header, resultArray, outFileName, flip=False, useCompres
         yllcenter, nodata_value, driver, transfrom, crs
     resultArray : 2D numpy array
         2D numpy array of values that shall be written to file
-    outFileName : str
+    outFileName : pathlib path
         path incl. name of file to be written
     flip: boolean
         if True, flip the rows of the resultArray when writing. AF considers the first line in a data array to be the
