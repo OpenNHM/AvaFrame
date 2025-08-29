@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-    Functions to handle the raster tiles.
-     Tiling is intended to manage processing of large(r) computational domains.
+Functions to handle the raster tiles.
+ Tiling is intended to manage processing of large(r) computational domains.
 """
 
 import logging
@@ -11,6 +11,9 @@ import pickle
 import gc
 import numpy as np
 import avaframe.in2Trans.rasterUtils as IOf
+import shapely
+import shapely.ops
+import geopandas as gpd
 
 # create local logger
 log = logging.getLogger(__name__)
@@ -22,11 +25,11 @@ def tileRaster(fNameIn, fNameOut, dirName, xDim, yDim, U, isInit=False):
 
     Parameters
     -----------
-    fNameIn : str
+    fNameIn : pathlib path
         path to raster that is tiled
     fNameOut: str
         name of saved raster file
-    dirName: str
+    dirName: pathlib path
         path to folder, where tiled raster is saved (temp - folder)
     xDim: int
         size of one tile in x dimension (number of raster columns)
@@ -176,14 +179,14 @@ def tileRaster(fNameIn, fNameOut, dirName, xDim, yDim, U, isInit=False):
     # return largeRaster
 
 
-def mergeRaster(inDirPath, fName, method='max'):
+def mergeRaster(inDirPath, fName, method="max"):
     """
     Merges the results for each tile to one array using the
     method provided through the function parameters
 
     Parameters
     ----------
-    inDirPath: str
+    inDirPath: pathlib path
         Path to the temporary files, that are results for each tile
     fName : str
         file name of the parameter which should be merged from tile-results
@@ -207,7 +210,7 @@ def mergeRaster(inDirPath, fName, method='max'):
 
     mergedRas = np.zeros((extL[0], extL[1]))
     # create Raster with original size
-    if method != 'sum':
+    if method != "sum":
         mergedRas[:, :] = np.nan
 
     for i in range(nTiles[0] + 1):
@@ -217,19 +220,134 @@ def mergeRaster(inDirPath, fName, method='max'):
             pos = pickle.load(open(inDirPath / ("ext_%i_%i" % (i, j)), "rb"))
             # print pos
 
-            if method == 'max':
-                mergedRas[pos[0][0]: pos[0][1], pos[1][0]: pos[1][1]] = np.fmax(
-                    mergedRas[pos[0][0]: pos[0][1], pos[1][0]: pos[1][1]], smallRas
+            if method == "max":
+                mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]] = np.fmax(
+                    mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]], smallRas
                 )
-            elif method == 'min':
-                mergedRas[pos[0][0]:pos[0][1], pos[1][0]:pos[1][1]] =\
-                    np.where((mergedRas[pos[0][0]:pos[0][1], pos[1][0]:pos[1][1]] >= 0) & (smallRas >= 0),
-                    np.fmin(mergedRas[pos[0][0]:pos[0][1], pos[1][0]:pos[1][1]], smallRas),
-                    np.fmax(mergedRas[pos[0][0]:pos[0][1], pos[1][0]:pos[1][1]], smallRas))
-            if method == 'sum':
-                mergedRas[pos[0][0]: pos[0][1], pos[1][0]: pos[1][1]] = np.add(
-                    mergedRas[pos[0][0]: pos[0][1], pos[1][0]: pos[1][1]], smallRas
+            elif method == "min":
+                mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]] = np.where(
+                    (mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]] >= 0) & (smallRas >= 0),
+                    np.fmin(mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]], smallRas),
+                    np.fmax(mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]], smallRas),
+                )
+            if method == "sum":
+                mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]] = np.add(
+                    mergedRas[pos[0][0] : pos[0][1], pos[1][0] : pos[1][1]], smallRas
                 )
             del smallRas
             log.info("appended result %s_%i_%i", fName, i, j)
     return mergedRas
+
+
+def mergeDict(inDirPath, fName):
+    """
+    Merges the dictionary-results for each tile to one dictionary
+
+    Parameters
+    ----------
+    inDirPath: pathlib path
+        Path to the temporary files, that are results for each tile
+    fName : str
+        file name of the parameter which should be merged from tile-results
+
+    Returns
+    -------
+    mergedDict: dict
+        contains all
+    """
+    nTiles = pickle.load(open(inDirPath / "nTiles", "rb"))
+    mergedDict = {}
+
+    for i in range(nTiles[0] + 1):
+        for j in range(nTiles[1] + 1):
+            pos = pickle.load(open(inDirPath / ("ext_%i_%i" % (i, j)), "rb"))
+            with open(inDirPath / ("%s_%i_%i.pickle" % (fName, i, j)), "rb") as file:
+                smallDict = pickle.load(file)
+                if bool(smallDict):
+                    for cellindSmall in smallDict:
+                        cellind = (cellindSmall[0] + pos[0][0], cellindSmall[1] + pos[1][0])
+                        if cellind in mergedDict:
+                            mergedDict[cellind] = np.append(smallDict[cellindSmall], mergedDict[cellind])
+                        else:
+                            mergedDict[cellind] = smallDict[cellindSmall]
+                        mergedDict[cellind] = np.unique(mergedDict[cellind])
+                    log.info("appended result %s_%i_%i", fName, i, j)
+    return mergedDict
+
+
+def mergeDictToRaster(inDirPath, fName):
+    """
+    Merges the dictionary-results for each tile to one array using
+    the length of the array assigned to each cell
+
+    Parameters
+    ----------
+    inDirPath: str
+        Path to the temporary files, that are results for each tile
+    fName : str
+        file name of the parameter which should be merged from tile-results
+
+    Returns
+    -------
+    mergedRas : numpy array
+        merged raster
+    """
+    extL = pickle.load(open(inDirPath / "extentLarge", "rb"))
+    mergedRas = np.zeros((extL[0], extL[1]))
+
+    mergedDict = mergeDict(inDirPath, fName)
+    for cellind in mergedDict:
+        mergedRas[cellind] = len(np.unique(mergedDict[cellind]))
+    del mergedDict
+    return mergedRas
+
+
+def mergeDictToPolygon(inDirPath, fName, demHeader):
+    """
+    Merges the dictionary-results for each tile to polygons for every path per PRA ID
+
+    Parameters
+    ----------
+    inDirPath: str
+        Path to the temporary files, that are results for each tile
+    fName : str
+        file name of the parameter which should be merged from tile-results
+    demHeader: dict
+        header of DEM raster
+
+    Returns
+    -------
+    gdfPathPolygons: GeoDataFrame
+        polygons per path for every PRA ID
+    """
+    # get path polygons for every PRA ID
+    mergedDict = mergeDict(inDirPath, fName)
+    cellsize = demHeader["cellsize"]
+    pathPolygons = {}
+
+    for (row, col), praIds in mergedDict.items():
+        # get a polygon around every cell contained in mergedDict
+        xmin = col * cellsize + demHeader["xllcenter"] - cellsize / 2
+        ymin = row * cellsize + demHeader["yllcenter"] - cellsize / 2
+        xmax = xmin + cellsize
+        ymax = ymin + cellsize
+        cellsPoly = shapely.geometry.box(xmin, ymin, xmax, ymax)
+
+        # reorder the dictionary: keys: PRA ID, values: list of polygons around every cell
+        for pid in praIds:
+            if pid not in pathPolygons:
+                pathPolygons[pid] = []
+            pathPolygons[pid].append(cellsPoly)
+    del mergedDict
+
+    for pid, polys in pathPolygons.items():
+        # merge all polygons belonging to a PRA ID
+        pathPolygons[pid] = shapely.ops.unary_union(polys)
+
+    gdfPathPolygons = gpd.GeoDataFrame(
+        {"PRA_id": list(pathPolygons.keys())},
+        geometry=list(pathPolygons.values()),
+        crs=demHeader["crs"],
+    )
+    del pathPolygons
+    return gdfPathPolygons

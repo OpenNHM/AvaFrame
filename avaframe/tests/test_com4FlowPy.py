@@ -1,45 +1,49 @@
 """
-    Pytest for module com4FlowPy
+Pytest for module com4FlowPy
 """
 
 #  Load modules
 import numpy as np
+import pathlib
 import pytest
-from numpy.ma.core import ones_like
-
+import pickle
+import os
+import rasterio
+import geopandas as gpd
 from avaframe.com4FlowPy import flowClass
 import avaframe.com4FlowPy.flowCore as flowCore
+import avaframe.com4FlowPy.splitAndMerge as SPAM
+import avaframe.in2Trans.rasterUtils as IOf
+
 
 def test_add_os():
-    cell = flowClass.Cell(1,1,
-                          np.array([[10,10,10], [10,10,10], [10,10,10]]), 10,
-                          1,0, None,
-                          20, 8, 3e-4, 270,
-                          startcell=True)
+    cell = flowClass.Cell(
+        1,
+        1,
+        np.array([[10, 10, 10], [10, 10, 10], [10, 10, 10]]),
+        10,
+        1,
+        0,
+        None,
+        20,
+        8,
+        3e-4,
+        270,
+        startcell=True,
+    )
     cell.add_os(0.2)
     assert cell.flux == 1.2
 
+
 def test_reverseTopology():
-    '''
+    """
     testing flowCore.reverseTopology() for different
     examples of dir graphs
-    '''
+    """
 
-    testGraph = {0: [1,2,3],
-                      1: [2,4],
-                      2: [4,5],
-                      3: [2],
-                      4: [],
-                      5: [6],
-                      6: []}
+    testGraph = {0: [1, 2, 3], 1: [2, 4], 2: [4, 5], 3: [2], 4: [], 5: [6], 6: []}
 
-    testGraphReverse = {0: [],
-                        1: [0],
-                        2: [0,1,3],
-                        3: [0],
-                        4: [2,1],
-                        5: [2],
-                        6: [5]}
+    testGraphReverse = {0: [], 1: [0], 2: [0, 1, 3], 3: [0], 4: [2, 1], 5: [2], 6: [5]}
 
     reverseGraphCalc = flowCore.reverseTopology(testGraph)
 
@@ -49,33 +53,37 @@ def test_reverseTopology():
         setCalcChildren = set(testGraphReverse[key])
         assert setTestChildren == setCalcChildren
 
-    testGraph = {0:[1,2,3],
-                 1:[4],
-                 2:[5,6],
-                 3:[7,8],
-                 4:[9],
-                 5:[9,10],
-                 6:[10],
-                 7:[11],
-                 8:[],
-                 9:[],
-                 10:[12],
-                 11:[],
-                 12:[]}
+    testGraph = {
+        0: [1, 2, 3],
+        1: [4],
+        2: [5, 6],
+        3: [7, 8],
+        4: [9],
+        5: [9, 10],
+        6: [10],
+        7: [11],
+        8: [],
+        9: [],
+        10: [12],
+        11: [],
+        12: [],
+    }
 
-    testGraphReverse = {0:[],
-                        1:[0],
-                        2:[0],
-                        3:[0],
-                        4:[1],
-                        5:[2],
-                        6:[2],
-                        7:[3],
-                        8:[3],
-                        9:[4,5],
-                        10:[5,6],
-                        11:[7],
-                        12:[10]}
+    testGraphReverse = {
+        0: [],
+        1: [0],
+        2: [0],
+        3: [0],
+        4: [1],
+        5: [2],
+        6: [2],
+        7: [3],
+        8: [3],
+        9: [4, 5],
+        10: [5, 6],
+        11: [7],
+        12: [10],
+    }
 
     reverseGraphCalc = flowCore.reverseTopology(testGraph)
 
@@ -87,93 +95,60 @@ def test_reverseTopology():
 
 
 def test_backTracking():
-    '''
+    """
     testing flowCore.backTracking() for different
     examples of dir graphs - basic graphs are the same as
     in test_reverseTopology() with added 'infra' values
     as valueDicts
-    '''
-    
-    testGraph = {0: [1,2,3],
-                 1: [2,4],
-                 2: [4,5],
-                 3: [2],
-                 4: [],
-                 5: [6],
-                 6: []}
-    
-    testValsIn = {0: 0,
-                  1: 0,
-                  2: 0,
-                  3: 0,
-                  4: 3,
-                  5: 0,
-                  6: 2}
-    
-    testValsBT = {0: 3,
-                  1: 3,
-                  2: 3,
-                  3: 3,
-                  4: 3,
-                  5: 2,
-                  6: 2}
-    
+    """
+
+    testGraph = {0: [1, 2, 3], 1: [2, 4], 2: [4, 5], 3: [2], 4: [], 5: [6], 6: []}
+
+    testValsIn = {0: 0, 1: 0, 2: 0, 3: 0, 4: 3, 5: 0, 6: 2}
+
+    testValsBT = {0: 3, 1: 3, 2: 3, 3: 3, 4: 3, 5: 2, 6: 2}
+
     calcValsBT = flowCore.backTracking(testGraph, testValsIn)
 
-    for key,item in calcValsBT.items():
+    for key, item in calcValsBT.items():
         assert calcValsBT[key] == testValsBT[key]
-    
-    testGraph = {0:[1,2,3],
-                 1:[4],
-                 2:[5,6],
-                 3:[7,8],
-                 4:[9],
-                 5:[9,10],
-                 6:[10],
-                 7:[11],
-                 8:[],
-                 9:[],
-                 10:[12],
-                 11:[],
-                 12:[]}
-    
-    testValsIn = {0:0,
-                  1:0,
-                  2:0,
-                  3:0,
-                  4:0,
-                  5:0,
-                  6:0,
-                  7:0,
-                  8:0,
-                  9:1,
-                  10:0,
-                  11:3,
-                  12:2}
-    
-    testValsBT = {0:3,
-                  1:1,
-                  2:2,
-                  3:3,
-                  4:1,
-                  5:2,
-                  6:2,
-                  7:3,
-                  8:0,
-                  9:1,
-                  10:2,
-                  11:3,
-                  12:2}
-    
+
+    testGraph = {
+        0: [1, 2, 3],
+        1: [4],
+        2: [5, 6],
+        3: [7, 8],
+        4: [9],
+        5: [9, 10],
+        6: [10],
+        7: [11],
+        8: [],
+        9: [],
+        10: [12],
+        11: [],
+        12: [],
+    }
+
+    testValsIn = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 1, 10: 0, 11: 3, 12: 2}
+
+    testValsBT = {0: 3, 1: 1, 2: 2, 3: 3, 4: 1, 5: 2, 6: 2, 7: 3, 8: 0, 9: 1, 10: 2, 11: 3, 12: 2}
+
     calcValsBT = flowCore.backTracking(testGraph, testValsIn)
 
-    for key,item in calcValsBT.items():
+    for key, item in calcValsBT.items():
         assert calcValsBT[key] == testValsBT[key]
 
 
 def test_calculation():
     dem = np.array(
-        [[40, 40, 40, 40, 40], [30, 30, 30, 30, 30], [20, 20, 20, 20, 20], [10, 10, 10, 10, 10], [0, 0, 0, 0, 0]])
+        [
+            [40, 40, 40, 40, 40],
+            [30, 30, 30, 30, 30],
+            [20, 20, 20, 20, 20],
+            [10, 10, 10, 10, 10],
+            [0, 0, 0, 0, 0],
+        ]
+    )
     infra = None
     pra = np.array([[0, 0, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
     alpha = 10
@@ -194,32 +169,354 @@ def test_calculation():
     }
     fluxDistOldVersionBool = False
     previewMode = False
-    outputs = ['travelLengthMin', 'flux']
+    outputs = ["travelLengthMin", "flux"]
     forestArray = None
     forestParams = None
-    args = [dem, infra, pra, alpha, exp, fluxTh, zDeltaMax, nodata, cellsize, infraBool, forestBool, variableParameters,
-            fluxDistOldVersionBool, previewMode, forestArray, forestParams, outputs]
+    relOutputParams = {
+        "relIdBool": False,
+        "relIdArray": None,
+        "relVolBool": False,
+        "relVolArray": None,
+    }
+    args = [
+        dem,
+        infra,
+        pra,
+        alpha,
+        exp,
+        fluxTh,
+        zDeltaMax,
+        nodata,
+        cellsize,
+        infraBool,
+        forestBool,
+        variableParameters,
+        fluxDistOldVersionBool,
+        previewMode,
+        forestArray,
+        forestParams,
+        outputs,
+        relOutputParams,
+    ]
 
-    flux = ones_like(dem) * -9999.
+    flux = np.ones_like(dem) * -9999.0
     flux[[1, 2, 3], [2, 2, 2]] = 1
     depFluxSum = np.zeros_like(dem)
-    routFluxSum = np.where(flux == 1, 1., 0.)
-    travelLengthMin = ones_like(dem) * -9999.
+    routFluxSum = np.where(flux == 1, 1.0, 0.0)
+    travelLengthMin = np.ones_like(dem) * -9999.0
     travelLengthMin[1, 2] = 0
-    travelLengthMin[2, 2] = np.sqrt(cellsize ** 2)
-    travelLengthMin[3, 2] = 2 * np.sqrt(cellsize ** 2)
+    travelLengthMin[2, 2] = np.sqrt(cellsize**2)
+    travelLengthMin[3, 2] = 2 * np.sqrt(cellsize**2)
     results = flowCore.calculation(args)
 
-    assert len(results) == 12
+    assert len(results) == 16
     assert np.all(results[1] == flux)
     assert np.all(results[10] == routFluxSum)
     assert np.all(results[11] == depFluxSum)
     assert np.all(results[8] == travelLengthMin)
-    assert np.all(results[7] == np.ones_like(flux) * -9999)
+    assert results[7] == None
 
 
-if __name__=='__main__':
+def createTestRaster(pathTestFolder, rasterName):
+
+    # first create test raster and save in test folder
+    testRaster = np.zeros((10, 10))
+
+    testRaster[2:5, 2:5] = 1
+    testRaster[6:9, 5:9] = 2
+    testRaster[5, 5:8] = 2
+    testRaster[0, 0] = 3
+    cellsize = 10
+    nrows, ncols = testRaster.shape
+
+    header = {
+        "cellsize": cellsize,
+        "nrows": nrows,
+        "ncols": ncols,
+        "xllcenter": 0,
+        "yllcenter": 0,
+        "nodata_value": -9999,
+        "driver": "GTiff",
+        "crs": "EPSG:4326",
+    }
+    # convert lower-left center to upper-left corner
+    x_ul = header["xllcenter"] - cellsize / 2
+    y_ul = header["yllcenter"] + nrows * cellsize - cellsize / 2
+
+    transform = rasterio.transform.from_origin(x_ul, y_ul, cellsize, cellsize)
+    header["transform"] = transform
+
+    # write flipped raster, the read raster function does also flip the raster
+    IOf.writeResultToRaster(header, testRaster, pathTestFolder / rasterName, useCompression=False, flip=True)
+    del testRaster
+    return header
+
+
+def test_tileRaster():
+    pathTestFolder = pathlib.Path("avaframe/tests/data/testCom4")
+    rasterName = "testRaster"
+    ext = ".tif"
+
+    tileName = "testTile"
+    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+    xDim = 4
+    yDim = 4
+    U = 1
+    if os.path.exists(pathTempFolder) is False:
+        os.makedirs(pathTempFolder)
+
+    createTestRaster(pathTestFolder, rasterName)
+
+    SPAM.tileRaster(pathTestFolder / f"{rasterName}{ext}", tileName, pathTempFolder, xDim, yDim, U)
+    mergedRaster = SPAM.mergeRaster(pathTempFolder, tileName)
+
+    testData = IOf.readRaster(pathTestFolder / f"{rasterName}{ext}", noDataToNan=False)
+    testRaster = testData["rasterData"]
+
+    nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
+    ext00 = pickle.load(open(pathTempFolder / "ext_0_0", "rb"))
+    ext03 = pickle.load(open(pathTempFolder / "ext_0_3", "rb"))
+    ext10 = pickle.load(open(pathTempFolder / "ext_1_0", "rb"))
+    ext21 = pickle.load(open(pathTempFolder / "ext_2_1", "rb"))
+
+    tile00 = np.load(pathTempFolder / "testTile_0_0.npy")
+    tile03 = np.load(pathTempFolder / "testTile_0_3.npy")
+    tile03Test = testRaster[0:yDim, 2 * xDim - 2 * U : 3 * xDim - 2 * U]
+    tile00Test = testRaster[0:xDim, 0:yDim]
+
+    assert np.all(testRaster == mergedRaster)
+    assert nTiles == (3, 3)
+    assert tile00.shape == (4, 4)
+    assert np.all(tile00 == tile00Test)
+    assert np.all(tile03 == tile03Test)
+    assert ext00 == ((0, xDim), (0, yDim))
+    assert ext03 == ((0, xDim), (2 * yDim - 2 * U, 3 * yDim - 2 * U))
+    assert ext10 == ((xDim - 2 * U, 2 * xDim - 2 * U), (0, yDim))
+    assert ext21 == ((2 * xDim - 4 * U, 3 * xDim - 4 * U), (yDim - 2 * U, 2 * yDim - 2 * U))
+
+
+def test_mergeDict():
+    pathTestFolder = pathlib.Path("avaframe/tests/data/testCom4")
+    rasterName = "testRaster"
+    ext = ".tif"
+    pathRaster = pathTestFolder / (rasterName + ext)
+    tileName = "testTile"
+    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+    xDim = 4
+    yDim = 4
+    U = 1
+    if os.path.exists(pathTempFolder) is False:
+        os.makedirs(pathTempFolder)
+
+    createTestRaster(pathTestFolder, rasterName)
+
+    dictName = "testDict"
+
+    SPAM.tileRaster(pathRaster, tileName, pathTempFolder, xDim, yDim, U)
+    nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
+
+    for i in range(nTiles[0] + 1):
+        for j in range(nTiles[1] + 1):
+            tile = np.load(pathTempFolder / f"{tileName}_{i}_{j}.npy")
+            rows, cols = np.where(tile > 0)
+            dictSmallTile = {(r, c): tile[r, c] for r, c in zip(rows, cols)}
+            saveDict = open(pathTempFolder / ("%s_%s_%s.pickle" % (dictName, i, j)), "wb")
+            pickle.dump(dictSmallTile, saveDict)
+            saveDict.close()
+
+    mergedDict = SPAM.mergeDict(pathTempFolder, dictName)
+
+    mergedDictRef = {
+        (0, 0): 3,
+        (2, 2): 1,
+        (2, 3): 1,
+        (2, 4): 1,
+        (3, 2): 1,
+        (3, 3): 1,
+        (3, 4): 1,
+        (4, 2): 1,
+        (4, 3): 1,
+        (4, 4): 1,
+        (6, 5): 2,
+        (6, 6): 2,
+        (6, 7): 2,
+        (6, 8): 2,
+        (7, 5): 2,
+        (7, 6): 2,
+        (7, 7): 2,
+        (7, 8): 2,
+        (8, 5): 2,
+        (8, 6): 2,
+        (8, 7): 2,
+        (8, 8): 2,
+        (5, 5): 2,
+        (5, 6): 2,
+        (5, 7): 2,
+    }
+
+    assert mergedDict.keys() == mergedDictRef.keys()
+    for k in mergedDict:
+        assert np.all(mergedDict[k] == mergedDictRef[k])
+
+    # manipulate dictionaries that they overlap
+
+    for i in range(nTiles[0] + 1):
+        for j in range(nTiles[1] + 1):
+            tile = np.load(pathTempFolder / f"{tileName}_{i}_{j}.npy")
+            rows, cols = np.where(tile > 0)
+            dictSmallTile = {(r, c): tile[r, c] for r, c in zip(rows, cols)}
+            if i == 2 and j == 1:
+                dictSmallTile[(1, 2)] = [1, 2]
+                dictSmallTile[(1, 1)] = [1, 2]
+            saveDict = open(pathTempFolder / ("%s_%s_%s.pickle" % (dictName, i, j)), "wb")
+            pickle.dump(dictSmallTile, saveDict)
+            saveDict.close()
+
+    mergedDict = SPAM.mergeDict(pathTempFolder, dictName)
+
+    mergedDictRef = {
+        (5, 4): [1, 2],
+        (5, 3): [1, 2],
+        (0, 0): 3,
+        (2, 2): 1,
+        (2, 3): 1,
+        (2, 4): 1,
+        (3, 2): 1,
+        (3, 3): 1,
+        (3, 4): 1,
+        (4, 2): 1,
+        (4, 3): 1,
+        (4, 4): 1,
+        (6, 5): 2,
+        (6, 6): 2,
+        (6, 7): 2,
+        (6, 8): 2,
+        (7, 5): 2,
+        (7, 6): 2,
+        (7, 7): 2,
+        (7, 8): 2,
+        (8, 5): 2,
+        (8, 6): 2,
+        (8, 7): 2,
+        (8, 8): 2,
+        (5, 5): 2,
+        (5, 6): 2,
+        (5, 7): 2,
+    }
+    assert mergedDict.keys() == mergedDictRef.keys()
+    for k in mergedDict:
+        assert np.all(mergedDict[k] == mergedDictRef[k])
+
+
+def test_mergeDictToRaster():
+    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+    tileName = "testTile"
+    dictName = "testDict"
+
+    nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
+
+    for i in range(nTiles[0] + 1):
+        for j in range(nTiles[1] + 1):
+            tile = np.load(pathTempFolder / f"{tileName}_{i}_{j}.npy")
+            rows, cols = np.where(tile > 0)
+            dictSmallTile = {(r, c): tile[r, c] for r, c in zip(rows, cols)}
+            saveDict = open(pathTempFolder / ("%s_%s_%s.pickle" % (dictName, i, j)), "wb")
+            pickle.dump(dictSmallTile, saveDict)
+            saveDict.close()
+
+    mergedRaster = SPAM.mergeDictToRaster(pathTempFolder, dictName)
+
+    testData = IOf.readRaster(pathlib.Path("avaframe/tests/data/testCom4/testRaster.tif"))
+    testRaster = testData["rasterData"]
+    # due to no overlap:
+    testRaster[testRaster > 0] = 1
+    assert np.all(mergedRaster == testRaster)
+
+    # manipulate dictionaries that they overlap
+
+    for i in range(nTiles[0] + 1):
+        for j in range(nTiles[1] + 1):
+            tile = np.load(pathTempFolder / f"{tileName}_{i}_{j}.npy")
+            rows, cols = np.where(tile > 0)
+            dictSmallTile = {(r, c): tile[r, c] for r, c in zip(rows, cols)}
+            if i == 2 and j == 1:
+                dictSmallTile[(1, 2)] = [1, 2]
+                dictSmallTile[(1, 1)] = [1, 2]
+            saveDict = open(pathTempFolder / ("%s_%s_%s.pickle" % (dictName, i, j)), "wb")
+            pickle.dump(dictSmallTile, saveDict)
+            saveDict.close()
+
+    mergedRaster = SPAM.mergeDictToRaster(pathTempFolder, dictName)
+    testRaster[5, 4] = 2
+    testRaster[5, 3] = 2
+
+    assert np.all(mergedRaster == testRaster)
+
+
+def test_mergeDictToPolygon():
+    pathTestFolder = pathlib.Path("avaframe/tests/data/testCom4")
+    rasterName = "testRaster"
+    ext = ".tif"
+    pathRaster = pathTestFolder / (rasterName + ext)
+    tileName = "testTile"
+    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+    xDim = 4
+    yDim = 4
+    U = 1
+    if os.path.exists(pathTempFolder) is False:
+        os.makedirs(pathTempFolder)
+
+    rasterHeader = createTestRaster(pathTestFolder, rasterName)
+
+    dictName = "testDict"
+
+    SPAM.tileRaster(pathRaster, tileName, pathTempFolder, xDim, yDim, U)
+    nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
+
+    for i in range(nTiles[0] + 1):
+        for j in range(nTiles[1] + 1):
+            tile = np.load(pathTempFolder / f"{tileName}_{i}_{j}.npy")
+            rows, cols = np.where(tile > 0)
+            dictSmallTile = {(r, c): tile[r, c] for r, c in zip(rows, cols)}
+            saveDict = open(pathTempFolder / ("%s_%s_%s.pickle" % (dictName, i, j)), "wb")
+            pickle.dump(dictSmallTile, saveDict)
+            saveDict.close()
+
+    gdfPathPolygons = SPAM.mergeDictToPolygon(pathTempFolder, dictName, rasterHeader)
+    refPolygons = gpd.read_file(pathTestFolder / "refPolygon.geojson")
+
+    assert len(gdfPathPolygons) == 3
+    assert np.all(gdfPathPolygons["PRA_id"] == refPolygons["PRA_id"])
+    assert np.all(gdfPathPolygons == refPolygons)
+
+    # manipulate dictionaries that the polygons overlap
+
+    for i in range(nTiles[0] + 1):
+        for j in range(nTiles[1] + 1):
+            tile = np.load(pathTempFolder / f"{tileName}_{i}_{j}.npy")
+            rows, cols = np.where(tile > 0)
+            dictSmallTile = {(r, c): tile[r, c] for r, c in zip(rows, cols)}
+            if i == 2 and j == 1:
+                dictSmallTile[(1, 2)] = [1, 2]
+                dictSmallTile[(1, 1)] = [1, 2]
+            saveDict = open(pathTempFolder / ("%s_%s_%s.pickle" % (dictName, i, j)), "wb")
+            pickle.dump(dictSmallTile, saveDict)
+            saveDict.close()
+
+    gdfPathPolygons = SPAM.mergeDictToPolygon(pathTempFolder, dictName, rasterHeader)
+    refPolygons = gpd.read_file(pathTestFolder / "refPolygon_manipulated.geojson")
+
+    assert len(gdfPathPolygons) == 3
+    assert np.all(gdfPathPolygons["PRA_id"] == refPolygons["PRA_id"])
+    assert np.all(gdfPathPolygons.geometry.geom_equals(refPolygons.geometry))
+
+
+if __name__ == "__main__":
     test_add_os()
     test_reverseTopology()
     test_backTracking()
     test_calculation()
+    test_tileRaster()
+    test_mergeDict()
+    test_mergeDictToRaster()
+    test_mergeDictToPolygon()
