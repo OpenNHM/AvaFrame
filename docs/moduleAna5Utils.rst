@@ -118,6 +118,15 @@ There are two options available to extend the mass-averaged path profile in the 
    line. :math:`\Delta z` and :math:`\Delta s` represent the vertical and horizontal
    distance between a point in the release and the first point of the mass-averaged
    path profile.
+2. Extend the path in the direction of the thalweg, upwards. The extension direction is
+   found from the points of the profile lying between ``nCellsMinExtend`` * cellSize and
+   ``nCellsMaxExtend`` * cellSize of the first point (same logic as used for the bottom extension,
+   ``extBottomOption = 0``). The path is then extended upwards, opposite to this direction, by a
+   length of ``factBottomExt`` * :math:`s_{total}`, where :math:`s_{total}` is the total length of the
+   profile, and the new point is projected onto the DEM. If this point falls outside the DEM, a
+   bisection search (up to ``maxIterationExtBot`` iterations, with a precision of
+   ``nBottomExtPrecision`` * cellSize) is used to find the furthest point along the extension
+   direction that still lies within the DEM.
 
 We also extend the path at the bottom, to have some buffer in the runout area. Two options exist
 (``extBottomOption``):
@@ -166,6 +175,40 @@ profile.
 
 This parabolic fit determines the split point location. It is the first point for which the slope is
 lower than the ``slopeSplitPoint`` angle. This point is then projected on the avalanche path profile.
+
+Path preparation from given x, y coordinates
+==============================================
+In addition to generating a path from a DFA simulation, it is also possible to prepare a path
+starting from a simple set of x, y coordinates (for example a thalweg digitized by hand or
+imported from another source). This is handled by :py:func:`ana5Utils.preparePathGeneral.preparePathGeneralMain`,
+which brings a raw x, y profile through the same steps used for the mass-averaged path:
+
+1.  **Compute z and s:** for every x, y point, the elevation is read from the DEM and the horizontal
+    distance travelled along the profile is computed, giving a complete (x, y, s, z) profile
+    (:py:func:`ana5Utils.preparePathGeneral.updateSZProfile`).
+
+2.  **Extend to top and bottom:** the profile is lengthened using the same
+    :py:func:`ana5Utils.DFAPathGeneration.extendProfileTop` and
+    :py:func:`ana5Utils.DFAPathGeneration.extendProfileBottom` functions used for the mass-averaged
+    path (see :ref:`moduleAna5Utils:Path extension`), via :py:func:`ana5Utils.preparePathGeneral.pathExtension`.
+    At present, only ``extTopOption = 2`` is supported for this top extension; other values raise an
+    error. After extension, z and s values are recomputed for the new points.
+
+3.  **Resample:** the extended profile is resampled at an approximate spacing of
+    ``nCellsResample`` * cellSize using :py:func:`ana5Utils.DFAPathGeneration.resamplePath`
+    (see :ref:`moduleAna5Utils:Resampling`).
+
+The function returns two profiles:
+
+* ``profileAveraged``: the original x, y coordinates with z and s added, left otherwise unmodified.
+* ``profileExtended``: the extended and resampled version of the path, ready to be used as input
+  for modules such as :ref:`moduleCom2AB:com2AB: Alpha Beta Model` or :ref:`moduleAna3AIMEC:ana3AIMEC: Aimec`.
+
+
+.. Note::
+    This entry point is useful when a path profile already exists (e.g. from manual digitization)
+    and only the extension and resampling steps of the automated path generation are needed,
+    without running a DFA simulation to derive a mass-averaged path.
 
 Distance-Time Analysis
 ----------------------
