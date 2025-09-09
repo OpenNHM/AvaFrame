@@ -149,7 +149,7 @@ def addHydrographParticles(cfg, particles, inputSimLines, thickness, velocityMag
     return particles, zPartArray0
 
 
-def checkHydrograph(hydrographValues, hydrCsv):
+def checkHydrograph(hydrographValues, hydrCsv, cfgGen):
     """
     check if hydrograph satisfied the following requirements:
     - hydrograph-timesteps are unique
@@ -162,6 +162,8 @@ def checkHydrograph(hydrographValues, hydrCsv):
         directory to csv table containing hydrograph values
     hydrographValues: dict
         contains hydrograph values: timestep, thickness, velocity
+    cfgGen: configparser Object
+        GENERAL part of the configuration file
     """
     # check if timesteps are unique
     timeStepUnique = np.unique(hydrographValues["timeStep"])
@@ -216,7 +218,7 @@ def preparehydrographAreaLine(inputSimFiles, demOri, cfg):
         - values: timeStep, thickness, velocity
     """
     try:
-        hydrFile = inputSimFiles["hydrographFile"]
+        hydrFile = inputSimFiles["hydrographFile"][0]
         hydrLine = shpConv.readLine(hydrFile, "", demOri)
         hydrLine["fileName"] = hydrFile
         hydrLine["type"] = "Hydrograph"
@@ -236,7 +238,7 @@ def preparehydrographAreaLine(inputSimFiles, demOri, cfg):
         log.error(message)
         raise FileNotFoundError(message)
 
-    checkHydrograph(hydrLine["values"], inputSimFiles["hydrographCsv"])
+    checkHydrograph(hydrLine["values"], inputSimFiles["hydrographCsv"], cfg["GENERAL"])
 
     return hydrLine
 

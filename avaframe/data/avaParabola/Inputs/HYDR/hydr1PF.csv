@@ -1,0 +1,5 @@
+timestep,thickness,velocity
+0,1,5
+20,1,5
+35,2,10
+50,5,10
