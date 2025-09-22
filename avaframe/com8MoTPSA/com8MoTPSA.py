@@ -88,42 +88,30 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
         # TODO: functionize it
         # Copy ppr files
         pprFiles = list(workDir.glob("*p?_max*"))
-        targetFiles = [
-            pathlib.Path(str(f.name).replace("%s_psa_p1_max" % simType, "%s_dfa_ppr" % simType))
-            for f in pprFiles
-        ]
-        targetFiles = [
-            pathlib.Path(str(f).replace("%s_psa_p2_max" % simType, "%s_psa_ppr" % simType))
-            for f in targetFiles
-        ]
+
+        targetFiles = [pathlib.Path(str(f.name).replace("null_p1_max", "null_ppr_L1")) for f in pprFiles]
+        targetFiles = [pathlib.Path(str(f).replace("null_p2_max", "null_ppr_L2")) for f in targetFiles]
+
         targetFiles = [outputDirPeakFile / f for f in targetFiles]
         for source, target in zip(pprFiles, targetFiles):
             shutil.copy2(source, target)
 
         # Copy pfd files
         pfdFiles = list(workDir.glob("*h?_max*"))
-        targetFiles = [
-            pathlib.Path(str(f.name).replace("%s_psa_h1_max" % simType, "%s_dfa_pfd" % simType))
-            for f in pfdFiles
-        ]
-        targetFiles = [
-            pathlib.Path(str(f).replace("%s_psa_h2_max" % simType, "%s_psa_pfd" % simType))
-            for f in targetFiles
-        ]
+
+        targetFiles = [pathlib.Path(str(f.name).replace("null_h1_max", "null_pfd_L1")) for f in pfdFiles]
+        targetFiles = [pathlib.Path(str(f).replace("null_h2_max", "null_pfd_L2")) for f in targetFiles]
+
         targetFiles = [outputDirPeakFile / f for f in targetFiles]
         for source, target in zip(pfdFiles, targetFiles):
             shutil.copy2(source, target)
 
         # Copy pfv files
         pfvFiles = list(workDir.glob("*s?_max*"))
-        targetFiles = [
-            pathlib.Path(str(f.name).replace("%s_psa_s1_max" % simType, "%s_dfa_pfv" % simType))
-            for f in pfvFiles
-        ]
-        targetFiles = [
-            pathlib.Path(str(f).replace("%s_psa_s2_max" % simType, "%s_psa_pfv" % simType))
-            for f in targetFiles
-        ]
+
+        targetFiles = [pathlib.Path(str(f.name).replace("null_s1_max", "null_pfv_L1")) for f in pfvFiles]
+        targetFiles = [pathlib.Path(str(f).replace("null_s2_max", "null_pfv_L2")) for f in targetFiles]
+
         targetFiles = [outputDirPeakFile / f for f in targetFiles]
         for source, target in zip(pfvFiles, targetFiles):
             shutil.copy2(source, target)

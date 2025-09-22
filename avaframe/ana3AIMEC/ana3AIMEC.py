@@ -56,14 +56,24 @@ def fullAimecAnalysis(avalancheDir, cfg, inputDir='', demFileName=''):
     anaMod = cfgSetup['anaMod']
 
     # Setup input from computational module
-    inputsDF, resTypeList = dfa2Aimec.mainDfa2Aimec(avalancheDir, anaMod, cfg, inputDir=inputDir)
+    inputsDF, resTypeList, resTypeAndLayerTypeList, layerTypeList = dfa2Aimec.mainDfa2Aimec(
+        avalancheDir, anaMod, cfg, inputDir=inputDir
+    )
 
     # define reference simulation
     refSimRowHash, refSimName, inputsDF, colorParameter, valRef = aimecTools.fetchReferenceSimNo(avalancheDir, inputsDF, anaMod,
                                                                                          cfg, inputDir=inputDir)
-    pathDict = {'refSimRowHash': refSimRowHash, 'refSimName': refSimName, 'compType': ['singleModule', anaMod],
-                'colorParameter': colorParameter, 'resTypeList': resTypeList, 'valRef': valRef,
-                'demFileName': demFileName}
+    pathDict = {
+        "refSimRowHash": refSimRowHash,
+        "refSimName": refSimName,
+        "compType": ["singleModule", anaMod],
+        "colorParameter": colorParameter,
+        "resTypeList": resTypeList,
+        "valRef": valRef,
+        "demFileName": demFileName,
+        "layerTypeList": layerTypeList,
+        "resTypeAndLayerTypeList": resTypeAndLayerTypeList,
+    }
     pathDict = aimecTools.readAIMECinputs(avalancheDir, pathDict, cfgSetup.getboolean('defineRunoutArea'),
                                           dirName=anaMod)
     pathDict = aimecTools.checkAIMECinputs(cfgSetup, pathDict)
@@ -117,7 +127,9 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     # get hash of the reference
     refSimRowHash = pathDict['refSimRowHash']
     # read reference file and raster and config
-    refResultSource = inputsDF.loc[refSimRowHash, cfgSetup['runoutResType']]
+    refResultSource = inputsDF.loc[
+        refSimRowHash, cfgSetup["runoutResType"] + "_" + cfgSetup["referenceSimLayer"]
+    ]
     refRaster = IOf.readRaster(refResultSource)
     refRasterData = refRaster['rasterData']
     refHeader = refRaster['header']
@@ -147,7 +159,8 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     contourDict = {}
     timeMass = None
     # add fields that will be filled in analysis
-    resAnalysisDF = aimecTools.addFieldsToDF(inputsDF)
+    resAnalysisDF = aimecTools.addFieldsToDF(inputsDF, pathDict["layerTypeList"])
+
     # if includeReference add reference data to resAnalysisDF
     if cfgSetup.getboolean('includeReference'):
         referenceDF = aimecTools.createReferenceDF(pathDict)
@@ -178,7 +191,7 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     if sorted(pathDict['resTypeList']) == sorted(['ppr', 'pft', 'pfv']) and cfgPlots.getboolean('extraPlots'):
         outAimec.visuSimple(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, pathDict)
     if len(resAnalysisDF.index) == 2 and sorted(pathDict['resTypeList']) == sorted(['ppr', 'pft', 'pfv']):
-            plotName = outAimec.visuRunoutComp(rasterTransfo, resAnalysisDF, cfgSetup, pathDict)
+        plotName = outAimec.visuRunoutComp(rasterTransfo, resAnalysisDF, cfgSetup, pathDict)
 
     plotName = outAimec.visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup, pathDict)
 
@@ -327,11 +340,12 @@ def postProcessAIMEC(cfg, rasterTransfo, pathDict, resAnalysisDF, newRasters, ti
     flagMass = cfgFlags.getboolean('flagMass')
     refSimRowHash = pathDict['refSimRowHash']
     resTypeList = pathDict['resTypeList']
+    layerTypeList = pathDict["layerTypeList"]
+    resTypeAndLayerTypeList = pathDict["resTypeAndLayerTypeList"]
 
     # apply domain transformation
     log.info('Analyzing data in path coordinate system')
-
-    for resType in resTypeList:
+    for resType in resTypeAndLayerTypeList:
         log.debug("Assigning %s data to deskewed raster" % resType)
         inputFiles = resAnalysisDF.loc[simRowHash, resType]
         if isinstance(inputFiles, pathlib.PurePath):

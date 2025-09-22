@@ -2922,6 +2922,7 @@ def exportFields(
     cuSimName,
     TSave="intermediate",
     resTypesForced=[],
+    layerIndicator="L1",
 ):
     """export result fields to Outputs directory according to result parameters and time step
     that can be specified in the configuration file
@@ -2945,6 +2946,8 @@ def exportFields(
         indicator if time step is initial, intermediate or final - to decide which resTypes shall be exported
     resTypesForced: list
         list of resTypes that overwrite info from configuration regarding resTypes to be exported
+    layerIndicator: str
+        indicates for which layer this result variable has been computed; com1DFA only one layer: L1
 
     Returns
     --------
@@ -2981,8 +2984,8 @@ def exportFields(
             # convert from J/cell to kJ/m²
             # (by dividing the peak kinetic energy per cell by the real area of the cell)
             resField = resField * 0.001 / dem["areaRaster"]
+        dataName = cuSimName + "_" + resType + "_" + layerIndicator + "_" + "t%.2f" % (timeStep)
 
-        dataName = cuSimName + "_" + resType + "_" + "t%.2f" % (timeStep)
         # create directory
         outDirPeak = outDir / "peakFiles" / "timeSteps"
         fU.makeADir(outDirPeak)
@@ -3001,7 +3004,7 @@ def exportFields(
                 "Results parameter: %s exported to Outputs/peakFiles for time step: %.2f - FINAL time step "
                 % (resType, timeStep)
             )
-            dataName = cuSimName + "_" + resType
+            dataName = cuSimName + "_" + resType + "_" + layerIndicator
             # create directory
             outDirPeakAll = outDir / "peakFiles"
             fU.makeADir(outDirPeakAll)
@@ -3267,14 +3270,7 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
         simName = "_".join(
             filter(
                 None,
-                [
-                    relNameSim,
-                    simHash,
-                    defID,
-                    frictIndi or volIndi,
-                    row._asdict()["simTypeList"],
-                    cfgSim["GENERAL"]["modelType"],
-                ],
+                [relNameSim, simHash, modName, defID, frictIndi or volIndi, row._asdict()["simTypeList"]],
             )
         )
 

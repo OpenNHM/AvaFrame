@@ -284,11 +284,13 @@ def mainDfa2Aimec(avaDir, comModule, cfg, inputDir=''):
     """
 
     # create data frame that lists all available simulations and path to their result type result files
-    inputsDF, resTypeList = fU.makeSimFromResDF(avaDir, comModule, inputDir=inputDir)
+    inputsDF, resTypeList, resTypeAndLayerTypeList, layerTypesList = fU.makeSimFromResDF(
+        avaDir, comModule, inputDir=inputDir
+    )
 
     # check if mass analysis shall be performed
     if cfg['FLAGS'].getboolean('flagMass'):
         # Add path to mb info file to dataframe
         inputsDF = getMassInfoInDF(avaDir, inputsDF, comModule, sim='', testName='')
 
-    return inputsDF, resTypeList
+    return inputsDF, resTypeList, resTypeAndLayerTypeList, layerTypesList

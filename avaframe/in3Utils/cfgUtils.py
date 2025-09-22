@@ -985,3 +985,48 @@ def cfgToRcf(cfg, fileName):
                 key = key.strip()
                 f.write(f"{key:<40}{value}\n")
             f.write("#\n")
+
+
+def getGeneralResType(resType):
+    """get general resType for resType with layer info and check if in available options
+
+    Parameters
+    --------------
+    resType: string
+        result type including layer info: e.g. pprL1
+
+    Returns
+    ---------
+    resTypeGeneral: string
+        general result type so for pprL1 this is ppr
+
+    """
+
+    generalResType = resType.split("L")[0]
+
+    availableResTypes = [
+        "ppr",
+        "pft",
+        "pfd",
+        "pfv",
+        "pta",
+        "FT",
+        "FD",
+        "FV",
+        "P",
+        "FM",
+        "Vx",
+        "Vy",
+        "Vz",
+        "TA",
+        "dmDet",
+        "sfcChange",
+        "demAdapted",
+    ]
+
+    if generalResType not in availableResTypes:
+        log.error(
+            "General result type %s is not available; derived from resType %s" % (generalResType, resType)
+        )
+
+    return generalResType

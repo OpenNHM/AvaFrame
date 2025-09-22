@@ -181,7 +181,7 @@ def fetchReferenceSimNo(avaDir, inputsDF, comModule, cfg, inputDir=''):
         # load dataFrame for all configurations
         configurationDF = cfgUtils.createConfigurationInfo(avaDir, comModule=comModule)
         # Merge inputsDF with the configurationDF. Make sure to keep the indexing from inputs and to merge on 'simName'
-        inputsDF = inputsDF.reset_index().merge(configurationDF, on=['simName', 'modelType']).set_index('index')
+        inputsDF = inputsDF.reset_index().merge(configurationDF, on=["simName"]).set_index("index")
         configFound = True
     except (NotADirectoryError, FileNotFoundError) as e:
         if cfgSetup['varParList'] != '' and (any(item in inputsDF.columns.tolist() for item in cfgSetup['varParList'].split('|')) == False):
@@ -391,12 +391,15 @@ def checkAIMECinputs(cfgSetup, pathDict):
     # if not, raise an error
     # what we have for all simulations
     resTypeList = pathDict['resTypeList']
+
+    print("resType")
     # what we need for all simulations
     if cfgSetup['resTypes'] != '':
         # required res types
         resTypesWanted = cfgSetup['resTypes'].split('|')
     else:
         resTypesWanted = copy.deepcopy(pathDict['resTypeList'])
+
     # add the runout res type to what we need
     resTypesWanted.append(cfgSetup['runoutResType'])
     resTypesWanted = set(resTypesWanted)
@@ -1568,35 +1571,59 @@ def findStartOfRunoutArea(dem, rasterTransfo, cfgSetup, splitPoint):
     return rasterTransfo
 
 
-def addFieldsToDF(inputsDF):
-    """ add fields that will be added in aimec analysis to dataframe
+def addFieldsToDF(inputsDF, layerTypesList):
+    """add fields that will be added in aimec analysis to dataframe
 
-        Parameters
-        -----------
-        inputsDF: pandas DataFrame
-            DataFrame where fields should be added as empty columns
-            fields are:
-        cfgSetup: configparser object
-            configuration settings, here used: includeReference if inputs from Inputs/REFDATA shall be included and
-            used to compare sim results to
-
-        Returns
-        ---------
-        inputsDF: pandas DataFrame
-            updated DataFrame
+    Parameters
+    -----------
+    inputsDF: pandas DataFrame
+        DataFrame where fields should be added as empty columns
+        fields are:
+    cfgSetup: configparser object
+        configuration settings, here used: includeReference if inputs from Inputs/REFDATA shall be included and
+        used to compare sim results to
+    layerTypesList: list
+        list of available layer types in simulations to be analysed
+    Returns
+    ---------
+    inputsDF: pandas DataFrame
+        updated DataFrame
 
     """
-    nanFields = ['sRunout', 'lRunout', 'xRunout', 'yRunout', 'deltaSXY', 'runoutAngle', 'zRelease', 'zRunout',
-                 'sMeanRunout', 'xMeanRunout', 'yMeanRunout', 'elevRel', 'deltaZ', 'refSim_Diff_sRunout',
-                 'refSim_Diff_lRunout', 'dataType', 'runoutLineDiff_line_RMSE', 'runoutLineDiff_poly_RMSE']
+    nanFieldsNames = [
+        "sRunout",
+        "lRunout",
+        "xRunout",
+        "yRunout",
+        "deltaSXY",
+        "runoutAngle",
+        "zRelease",
+        "zRunout",
+        "sMeanRunout",
+        "xMeanRunout",
+        "yMeanRunout",
+        "elevRel",
+        "deltaZ",
+        "refSim_Diff_sRunout",
+        "refSim_Diff_lRunout",
+        "dataType",
+        "runoutLineDiff_line_RMSE",
+        "runoutLineDiff_poly_RMSE",
+    ]
 
-    emptyStrFields = [
+    emptyStrFieldsNames = [
         "runoutLineDiff_line_pointsNotFoundInSim",
         "runoutLineDiff_line_pointsNotFoundInRef",
         "runoutLineDiff_poly_pointsNotFoundInSim",
         "runoutLineDiff_poly_pointsNotFoundInRef",
         "runoutFound",
     ]
+
+    nanFields = []
+    emptyStrFields = []
+    for layerType in layerTypesList:
+        nanFields = [nanF + "_" + layerType for nanF in nanFieldsNames]
+        emptyStrFields = [emptySF + "_" + layerType for emptySF in emptyStrFieldsNames]
 
     for item in nanFields:
         inputsDF = pd.concat([inputsDF, pd.DataFrame({item: np.nan}, index=inputsDF.index)], axis=1).copy()

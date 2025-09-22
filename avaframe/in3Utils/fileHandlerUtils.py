@@ -586,7 +586,7 @@ def makeSimDF(inputDir, avaDir="", simID="simID"):
         "isDefault": [],
         "frictCalib": [],
         "simName": [],
-        "modelType": [],
+        "modelName": [],
         "releaseArea": [],
         "cellSize": [],
         simID: [],
@@ -617,6 +617,7 @@ def makeSimDF(inputDir, avaDir="", simID="simID"):
 
         data["releaseArea"].append(relNameSim)
         data[simID].append(infoParts[0])
+        data["modelName"].append(infoParts[1])
 
         indiStr = ["_C_", "_D_"]
         if any(x in name for x in indiStr):
@@ -630,8 +631,7 @@ def makeSimDF(inputDir, avaDir="", simID="simID"):
                 data["frictCalib"].append(None)
                 j = 0
 
-            data["simType"].append(infoParts[2 + j])
-            data["modelType"].append(infoParts[3 + j])
+            data["simType"].append(infoParts[3 + j])
             data["resType"].append(infoParts[4 + j])
             data["simName"].append(fNamePart + "_" + ("_".join(infoParts[0 : (4 + j)])))
 
@@ -647,8 +647,7 @@ def makeSimDF(inputDir, avaDir="", simID="simID"):
         else:
             data["isDefault"].append(None)
             data["frictCalib"].append(None)
-            data["simType"].append(infoParts[1])
-            data["modelType"].append(infoParts[2])
+            data["simType"].append(infoParts[2])
             data["resType"].append(infoParts[3])
             data["simName"].append(fNamePart + "_" + ("_".join(infoParts[0:3])))
 
@@ -725,11 +724,16 @@ def makeSimFromResDF(avaDir, comModule, inputDir="", simName=""):
         "simHash",
         "simModified",
         "simType",
-        "modelType",
+        "modelName",
         "cellSize",
+        "resTypeList",
+        "resTypeAndLayerList",
+        "layerTypeList",
     ] + resTypeListFromFiles
     dataDF = pd.DataFrame(columns=columnsList)
     resTypeListOne = []
+    resTypeAndLayerListOne = []
+    layerTypeListOne = []
 
     for file in datafiles:
         name = file.stem
@@ -738,59 +742,83 @@ def makeSimFromResDF(avaDir, comModule, inputDir="", simName=""):
             fNamePart = nameParts[0] + "_AF"
             relNameSim = nameParts[0]
             infoParts = nameParts[1].split("_")
-            resType = infoParts[-1]
 
         else:
             nameParts = name.split("_")
             fNamePart = nameParts[0]
             relNameSim = nameParts[0]
             infoParts = nameParts[1:]
-            resType = infoParts[-1]
-        simName = fNamePart + "_" + ("_".join(infoParts[0:-1]))
+
+        resType = infoParts[-2]
+        layerType = infoParts[-1]
+        resTypeAndLayer = infoParts[-2] + "_" + infoParts[-1]
+        simName = fNamePart + "_" + ("_".join(infoParts[0:-2]))
         # add line in the DF if the simulation does not exist yet
         if simName not in dataDF.simName.values:
             newLine = pd.DataFrame([[simName]], columns=["simName"], index=[simName])
             dataDF = pd.concat([dataDF, newLine], ignore_index=False)
             dataDF.loc[simName, "releaseArea"] = relNameSim
             dataDF.loc[simName, "simHash"] = infoParts[0]
+
             # TODO: remove once all simNames are updated to include C or D as simModified
-            if len(infoParts) == 6:  # this is the _C_M_ etc variant
-                dataDF.loc[simName, "simModified"] = infoParts[1]
-                dataDF.loc[simName, "simType"] = infoParts[3]
-                dataDF.loc[simName, "modelType"] = infoParts[4]
-            elif len(infoParts) == 5:
-                dataDF.loc[simName, "simModified"] = infoParts[1]
-                dataDF.loc[simName, "simType"] = infoParts[2]
-                dataDF.loc[simName, "modelType"] = infoParts[3]
-            elif len(infoParts) == 4:
-                dataDF.loc[simName, "simModified"] = "not specified"
-                dataDF.loc[simName, "simType"] = infoParts[1]
-                dataDF.loc[simName, "modelType"] = infoParts[2]
+            # check for indicators in simName
+            indiStr = ["_C_", "_D_"]
+            if any(x in name for x in indiStr):
+                dataDF.loc[simName, "isDefault"] = infoParts[2]
+                # now check for friction calibration info
+                frictIndi = ["_S_", "_M_", "_L_"]
+                if any(x in name for x in frictIndi):
+                    dataDF.loc[simName, "frictCalib"] = infoParts[3]
+                    j = 1  # j indicates whether there's an additional info
+                else:
+                    dataDF.loc[simName, "frictCalib"] = None
+                    j = 0
+
+                dataDF.loc[simName, "simType"] = infoParts[3 + j]
+                # dataDF.loc[simName, "resType"] = infoParts[4 + j]
+                # dataDF.loc[simName, "resTypeAndLayer"] = infoParts[4 + j] + "_" + infoParts[5 + j]
+                dataDF.loc[simName, "simName"] = fNamePart + "_" + ("_".join(infoParts[0 : (4 + j)]))
+
             else:
-                message = "simName format not recognized for simName: %s" % simName
-                log.error(message)
-                raise AssertionError(message)
+                dataDF.loc[simName, "isDefault"] = None
+                dataDF.loc[simName, "frictCalib"] = None
+                dataDF.loc[simName, "simType"] = infoParts[2]
+                # dataDF.loc[simName, "resType"] = infoParts[3]
+                # dataDF.loc[simName, "resTypeAndLayer"] = infoParts[3] + "_" + infoParts[4]
+                dataDF.loc[simName, "simName"] = fNamePart + "_" + ("_".join(infoParts[0:3]))
 
             # add info about the cell size
             header = IOf.readRasterHeader(file)
             dataDF.loc[simName, "cellSize"] = header["cellsize"]
         # add full path to resType
-        dataDF.loc[simName, resType] = pathlib.Path(file)
+        dataDF.loc[simName, resTypeAndLayer] = pathlib.Path(file)
         # list all res types found
         if resType not in resTypeListOne:
             resTypeListOne.append(resType)
+        if resTypeAndLayer not in resTypeAndLayerListOne:
+            resTypeAndLayerListOne.append(resTypeAndLayer)
+        if layerType not in layerTypeListOne:
+            layerTypeListOne.append(layerType)
+
+        dataDF.loc[simName, "resTypeAndLayerList"] = "|".join(resTypeAndLayerListOne)
+        dataDF.loc[simName, "resTypeList"] = "|".join(resTypeListOne)
+        dataDF.loc[simName, "layerTypeList"] = "|".join(layerTypeListOne)
 
     # add a hash for each line of the DF and use as index - required for identifcation
     hash = pd.util.hash_pandas_object(dataDF)
     # reset the index using the dataframe hash
     dataDF = dataDF.set_index(hash)
-    # now find res types available for all simulations
+    # now find res types available for all simulations and also all layers
     resTypeListAll = []
-    for resType in resTypeListOne:
-        if not dataDF[resType].isnull().values.any():
-            resTypeListAll.append(resType)
+    for layer in layerTypeListOne:
+        for resType in resTypeListOne:
+            if not dataDF[resType + "_" + layer].isnull().values.any():
+                resTypeListAll.append(resType)
 
-    return dataDF, resTypeListAll
+    resTypeListAll = set(resTypeListAll)
+
+    dataDF.to_csv(str(inputDir / "dataDF") + ".csv")
+    return dataDF, resTypeListAll, resTypeAndLayerListOne, layerTypeListOne
 
 
 def findAvaDirsBasedOnInputsDir(Dir):
