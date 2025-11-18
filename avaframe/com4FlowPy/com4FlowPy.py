@@ -93,6 +93,7 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     modelPaths["timeString"] = cfgPath["timeString"]
     modelPaths["outputFileList"] = cfgPath["outputFiles"].split('|')
     modelPaths["outputNoDataValue"] = cfgPath["outputNoDataValue"]
+    modelPaths["useCompression"] = cfgPath["useCompression"]
 
     modelPaths["outputFileFormat"] = cfgPath["outputFileFormat"]
     if modelPaths["outputFileFormat"] in [".asc", ".ASC"]:
@@ -545,37 +546,69 @@ def mergeAndWriteResults(modelPaths, modelOptions):
 
     demHeader = IOf.readRasterHeader(modelPaths["demPath"])
     outputHeader = demHeader.copy()
-    outputHeader["nodata_value"]=-9999
+    outputHeader["nodata_value"] = _outputNoDataValue
 
     if _oF == ".asc":
         outputHeader["driver"] = "AAIGrid"
     elif _oF == ".tif":
         outputHeader["driver"] = "GTiff"
 
+    useCompression = modelPaths["useCompression"]
+
     if 'flux' in _outputs:
         flux = defineNotAffectedCells(flux, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, flux,
-                                         modelPaths["resDir"] / "com4_{}_{}_flux".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            flux,
+            modelPaths["resDir"] / "com4_{}_{}_flux".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if 'zDelta' in _outputs:
         zDelta = defineNotAffectedCells(zDelta, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, zDelta,
-                                         modelPaths["resDir"] / "com4_{}_{}_zdelta".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            zDelta,
+            modelPaths["resDir"] / "com4_{}_{}_zdelta".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if 'cellCounts' in _outputs:
         cellCounts = defineNotAffectedCells(cellCounts, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, cellCounts,
-                                         modelPaths["resDir"] / "com4_{}_{}_cellCounts".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            cellCounts,
+            modelPaths["resDir"] / "com4_{}_{}_cellCounts".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if 'zDeltaSum' in _outputs:
         zDeltaSum = defineNotAffectedCells(zDeltaSum, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, zDeltaSum,
-                                         modelPaths["resDir"] / "com4_{}_{}_zDeltaSum".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            zDeltaSum,
+            modelPaths["resDir"] / "com4_{}_{}_zDeltaSum".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if 'routFluxSum' in _outputs:
         routFluxSum = defineNotAffectedCells(routFluxSum, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, routFluxSum,
-                                         modelPaths["resDir"] / "com4_{}_{}_routFluxSum".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            routFluxSum,
+            modelPaths["resDir"] / "com4_{}_{}_routFluxSum".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if 'depFluxSum' in _outputs:
         depFluxSum = defineNotAffectedCells(depFluxSum, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, depFluxSum,
-                                         modelPaths["resDir"] / "com4_{}_{}_depFluxSum".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            depFluxSum,
+            modelPaths["resDir"] / "com4_{}_{}_depFluxSum".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if "fpTravelAngle" in _outputs or "fpTravelAngleMax" in _outputs:
         fpTaMax = defineNotAffectedCells(fpTaMax, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
@@ -583,6 +616,7 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             fpTaMax,
             modelPaths["resDir"] / "com4_{}_{}_fpTravelAngleMax".format(_uid, _ts),
             flip=True,
+            useCompression=useCompression,
         )
     if "fpTravelAngleMin" in _outputs:
         fpTaMin = defineNotAffectedCells(fpTaMin, cellCounts, noDataValue=_outputNoDataValue)
@@ -591,11 +625,17 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             fpTaMin,
             modelPaths["resDir"] / "com4_{}_{}_fpTravelAngleMin".format(_uid, _ts),
             flip=True,
+            useCompression=useCompression,
         )
     if 'slTravelAngle' in _outputs:
         slTa = defineNotAffectedCells(slTa, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, slTa,
-                                         modelPaths["resDir"] / "com4_{}_{}_slTravelAngle".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            slTa,
+            modelPaths["resDir"] / "com4_{}_{}_slTravelAngle".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if "travelLength" in _outputs or "travelLengthMax" in _outputs:
         travelLengthMax = defineNotAffectedCells(travelLengthMax, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
@@ -603,6 +643,7 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             travelLengthMax,
             modelPaths["resDir"] / "com4_{}_{}_travelLengthMax".format(_uid, _ts),
             flip=True,
+            useCompression=useCompression,
         )
     if "travelLengthMin" in _outputs:
         travelLengthMin = defineNotAffectedCells(travelLengthMin, cellCounts, noDataValue=_outputNoDataValue)
@@ -611,6 +652,7 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             travelLengthMin,
             modelPaths["resDir"] / "com4_{}_{}_travelLengthMin".format(_uid, _ts),
             flip=True,
+            useCompression=useCompression,
         )
 
     # NOTE:
@@ -619,14 +661,24 @@ def mergeAndWriteResults(modelPaths, modelOptions):
     # io.output_raster(modelPaths["demPath"], modelPaths["resDir"] / ("z_delta_sum%s" %(output_format)),z_delta_sum)
     if modelOptions["infraBool"]:  # if infra
         backcalc = defineNotAffectedCells(backcalc, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(outputHeader, backcalc,
-                                         modelPaths["resDir"] / "com4_{}_{}_backcalculation".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            backcalc,
+            modelPaths["resDir"] / "com4_{}_{}_backcalculation".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     if modelOptions["forestInteraction"]:
         forestInteraction = defineNotAffectedCells(
             forestInteraction, cellCounts, noDataValue=_outputNoDataValue
         )
-        output = IOf.writeResultToRaster(outputHeader, forestInteraction,
-                                         modelPaths["resDir"] / "com4_{}_{}_forestInteraction".format(_uid, _ts), flip=True)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            forestInteraction,
+            modelPaths["resDir"] / "com4_{}_{}_forestInteraction".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
     del output
 
 
@@ -664,7 +716,12 @@ def checkConvertReleaseShp2Tif(modelPaths):
         # NOTE: nodata_value does not matter anyways - since gT.prepareArea() returns a
         # raster with values of '0' indicating 'no release area' - so there actually should
         # not be any 'no_data' values in the created release raster file
-        IOf.writeResultToRaster(demHeader, releaseArea, modelPaths["workDir"] / "release")
+        IOf.writeResultToRaster(
+            demHeader,
+            releaseArea,
+            modelPaths["workDir"] / "release",
+            useCompression=modelPaths["useCompression"],
+        )
         del releaseLine
     else:
         modelPaths["releasePathWork"] = modelPaths["releasePath"]

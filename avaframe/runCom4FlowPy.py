@@ -111,7 +111,8 @@ def main(avalancheDir=''):
         cfgPath["uid"] = uid
         cfgPath["timeString"] = timeString
         cfgPath["outputFiles"] = cfgCustomPaths["outputFiles"]
-        cfgPath["outputNoDataValue"] = cfgCustomPaths["outputNoDataValue"]
+        cfgPath["outputNoDataValue"] = cfgCustomPaths.getfloat("outputNoDataValue")
+        cfgPath["useCompression"] = cfgCustomPaths.getboolean("useCompression")
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
 
@@ -171,6 +172,7 @@ def main(avalancheDir=''):
         cfgPath["outputFileFormat"] = cfgCustomPaths["outputFileFormat"]
         cfgPath["outputFiles"] = cfgCustomPaths["outputFiles"]
         cfgPath["outputNoDataValue"] = cfgCustomPaths.getfloat("outputNoDataValue")
+        cfgPath["useCompression"] = cfgCustomPaths.getboolean("useCompression")
 
         cfgSetup["cpuCount"] = str(cfgUtils.getNumberOfProcesses(cfgMain, 9999))
         cfgPath["customDirs"] = cfgCustomPaths["useCustomPaths"]
@@ -213,17 +215,17 @@ def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
     avalancheDir = pathlib.Path(avalancheDir)
 
     inputDir = avalancheDir / "Inputs"
-    relFile, available = gI.getAndCheckInputFiles(inputDir, "REL", "Release Area", fileExt="shp")
-    
+    relFile, available, _ = gI.getAndCheckInputFiles(inputDir, "REL", "Release Area", fileExt="shp")
+
     if available == "No":
-        relFile, available = gI.getAndCheckInputFiles(inputDir, "REL", "Release Area", fileExt="raster")
+        relFile, available, _ = gI.getAndCheckInputFiles(inputDir, "REL", "Release Area", fileExt="raster")
     if available == "No":
         message = f"There is no release area file in supported format provided in {avalancheDir}/REL"
         log.error(message)
         raise AssertionError(message)
     log.info("Release area file is: %s" % relFile)
     cfgPath["releasePath"] = relFile
-    
+
     # TODO: also use the getAndCheckInputFiles to get the paths for the following files?
     # read infra area
     if cfgFlowPy.getboolean("GENERAL", "infra") is True:
@@ -239,7 +241,7 @@ def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
 
     # read uMax Limit Raster
     if cfgFlowPy.getboolean("GENERAL", "variableUmaxLim") is True:
-        varUmaxPath, available = gI.getAndCheckInputFiles(inputDir, "UMAX", "Umax", fileExt="raster")
+        varUmaxPath, available, _ = gI.getAndCheckInputFiles(inputDir, "UMAX", "Umax", fileExt="raster")
         if available == "No":
             message = f"There is no variable UMAX file in supported format provided in {avalancheDir}/UMAX"
             log.error(message)
@@ -252,7 +254,7 @@ def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
     # read variable Alpha Angle Raster
 
     if cfgFlowPy.getboolean("GENERAL", "variableAlpha") is True:
-        varAlphaPath, available = gI.getAndCheckInputFiles(inputDir, "ALPHA", "alpha", fileExt="raster")
+        varAlphaPath, available, _ = gI.getAndCheckInputFiles(inputDir, "ALPHA", "alpha", fileExt="raster")
         if available == "No":
             message = f"There is no variable ALPHA file in supported format provided in {avalancheDir}/ALPHA"
             log.error(message)
@@ -265,7 +267,7 @@ def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
     # read variable Exponent Raster
 
     if cfgFlowPy.getboolean("GENERAL", "variableExponent") is True:
-        varExponentPath, available = gI.getAndCheckInputFiles(inputDir, "EXP", "exp", fileExt="raster")
+        varExponentPath, available, _ = gI.getAndCheckInputFiles(inputDir, "EXP", "exp", fileExt="raster")
         if available == "No":
             message = f"There is no variable EXPONENT file in supported format provided in {avalancheDir}/EXP"
             log.error(message)
@@ -279,7 +281,7 @@ def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
     # TODO: should we also allow forest as shp - file?
 
     if cfgFlowPy.getboolean("GENERAL", "forest") is True:
-        forestPath, available = gI.getAndCheckInputFiles(inputDir, "RES", "forest", fileExt="raster")
+        forestPath, available, _ = gI.getAndCheckInputFiles(inputDir, "RES", "forest", fileExt="raster")
         if available == "No":
             message = f"There is no forest file in supported format provided in {avalancheDir}/RES"
             log.error(message)
