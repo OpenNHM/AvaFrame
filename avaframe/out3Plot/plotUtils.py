@@ -492,7 +492,7 @@ def constrainPlotsToData(inputData, cellSize, extentOption=False, constrainedDat
     else:
         plotBuffer = int(cfg.getfloat("plotBuffer") / cellSize)
 
-    ind = np.where(inputData > 0)
+    ind = np.where(inputData != 0)
     if len(ind[0]) > 0:
         rowsMin = max(np.amin(ind[0]) - plotBuffer, 0)
         rowsMax = min(np.amax(ind[0]) + plotBuffer, inputData.shape[0] - 1)
