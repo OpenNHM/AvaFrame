@@ -19,6 +19,7 @@ from avaframe.in2Trans.shpConversion import SHP2Array
 # Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def scarp_test_data():
     """Return path to scarpExample test data directory"""
@@ -84,6 +85,7 @@ def temp_output_dir(tmp_path):
 # ============================================================================
 # Unit Tests
 # ============================================================================
+
 
 def test_readPerimeterSHP(scarp_test_data):
     """Test perimeter shapefile reading and rasterization"""
@@ -188,13 +190,15 @@ def test_calculateScarpWithPlanes_single_plane(mock_dem, mock_perimeter, mock_tr
 
     # Outside perimeter, scarp should equal DEM
     outside_mask = mock_perimeter == 0
-    assert np.allclose(scarpData[outside_mask], mock_dem[outside_mask]), \
-        "Outside perimeter, scarp should equal DEM"
+    assert np.allclose(
+        scarpData[outside_mask], mock_dem[outside_mask]
+    ), "Outside perimeter, scarp should equal DEM"
 
     # Inside perimeter, scarp should be <= DEM
     inside_mask = mock_perimeter > 0
-    assert np.all(scarpData[inside_mask] <= mock_dem[inside_mask] + 0.001), \
-        "Inside perimeter, scarp should not exceed DEM"
+    assert np.all(
+        scarpData[inside_mask] <= mock_dem[inside_mask] + 0.001
+    ), "Inside perimeter, scarp should not exceed DEM"
 
 
 def test_calculateScarpWithPlanes_multiple_planes(mock_dem, mock_perimeter, mock_transform):
@@ -218,8 +222,9 @@ def test_calculateScarpWithPlanes_multiple_planes(mock_dem, mock_perimeter, mock
 
     # Outside perimeter, scarp should equal DEM
     outside_mask = mock_perimeter == 0
-    assert np.allclose(scarpData[outside_mask], mock_dem[outside_mask]), \
-        "Outside perimeter, scarp should equal DEM"
+    assert np.allclose(
+        scarpData[outside_mask], mock_dem[outside_mask]
+    ), "Outside perimeter, scarp should equal DEM"
 
 
 def test_calculateScarpWithPlanes_edge_cases(mock_dem, mock_perimeter, mock_transform):
@@ -234,8 +239,7 @@ def test_calculateScarpWithPlanes_edge_cases(mock_dem, mock_perimeter, mock_tran
     # With zero slope, plane should be horizontal at zSeed
     inside_mask = mock_perimeter > 0
     expected = np.minimum(mock_dem[inside_mask], zSeed)
-    assert np.allclose(scarpData[inside_mask], expected), \
-        "Zero slope should create horizontal plane"
+    assert np.allclose(scarpData[inside_mask], expected), "Zero slope should create horizontal plane"
 
     # Test case 2: Vertical dip (90 degrees)
     dip, slope = 90.0, 10.0
@@ -250,6 +254,7 @@ def test_calculateScarpWithPlanes_edge_cases(mock_dem, mock_perimeter, mock_tran
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 def test_scarpAnalysisMain_plane_method(scarp_test_data, scarp_config, tmp_path, caplog):
     """End-to-end test using plane method with real test data"""
@@ -277,20 +282,17 @@ def test_scarpAnalysisMain_plane_method(scarp_test_data, scarp_config, tmp_path,
     # Read output files and validate
     with rasterio.open(scarp_elevation_file) as src:
         scarp_data = src.read(1)
-        scarp_transform = src.transform
 
         assert src.height == 220, "Output should have correct height"
         assert src.width == 300, "Output should have correct width"
-        assert np.all(np.isfinite(scarp_data[scarp_data != src.nodata])), \
-            "Scarp data should be finite"
+        assert np.all(np.isfinite(scarp_data[scarp_data != src.nodata])), "Scarp data should be finite"
 
     with rasterio.open(hrel_file) as src:
         hrel_data = src.read(1)
 
         # hRel should be non-negative where valid (DEM - scarp >= 0)
         valid_mask = hrel_data != src.nodata
-        assert np.all(hrel_data[valid_mask] >= -0.001), \
-            "hRel values should be non-negative"
+        assert np.all(hrel_data[valid_mask] >= -0.001), "hRel values should be non-negative"
 
     # Check logging output
     assert "Perimeterfile is:" in caplog.text, "Should log perimeter file"
@@ -300,6 +302,7 @@ def test_scarpAnalysisMain_plane_method(scarp_test_data, scarp_config, tmp_path,
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 def test_scarpAnalysisMain_missing_perimeter_file(scarp_config, temp_output_dir, caplog):
     """Test error handling when perimeter shapefile is missing"""
@@ -317,8 +320,9 @@ def test_scarpAnalysisMain_missing_perimeter_file(scarp_config, temp_output_dir,
         scarp.scarpAnalysisMain(scarp_config, str(temp_output_dir))
 
     # Check that error was logged
-    assert "not found" in caplog.text.lower() or "error" in caplog.text.lower(), \
-        "Should log error about missing file"
+    assert (
+        "not found" in caplog.text.lower() or "error" in caplog.text.lower()
+    ), "Should log error about missing file"
 
 
 def test_scarpAnalysisMain_invalid_shapefile_attributes(scarp_config, temp_output_dir, caplog):
@@ -352,8 +356,7 @@ def test_scarpAnalysisMain_useShapefiles_false(scarp_config, scarp_test_data, tm
         pass  # Expected to fail after logging error
 
     # Check error message was logged
-    assert "Shapefile option not selected" in caplog.text, \
-        "Should log error about shapefile option"
+    assert "Shapefile option not selected" in caplog.text, "Should log error about shapefile option"
 
 
 def test_scarpAnalysisMain_invalid_method(scarp_test_data, scarp_config, tmp_path):
