@@ -13,13 +13,15 @@ from avaframe.in3Utils import logUtils
 from avaframe.in3Utils import initializeProject as initProj
 
 
-def runScarpAnalysisWorkflow(inputDir=""):
+def runScarpAnalysisWorkflow(inputDir="", method=""):
     """Run the scarp analysis workflow.
 
     Parameters
     ----------
     inputDir: str
         Path to the input directory containing DEM, coordinates and perimeter files.
+    method: str
+        Method to use for scarp analysis: plane, ellipsoid, or ini (use config file default).
 
     Returns
     -------
@@ -49,6 +51,14 @@ def runScarpAnalysisWorkflow(inputDir=""):
     # load scarp config
     scarpCfg = cfgUtils.getModuleConfig(scarp)
 
+    # Set method according to cmd argument
+    if method.lower() == "plane":
+        scarpCfg["SETTINGS"]["method"] = "plane"
+    elif method.lower() == "ellipsoid":
+        scarpCfg["SETTINGS"]["method"] = "ellipsoid"
+    else:
+        log.info("no method override given - using ini")
+
     # Run the scarp analysis
     scarp.scarpAnalysisMain(scarpCfg, str(inputDir))
 
@@ -62,6 +72,12 @@ if __name__ == '__main__':
     parser.add_argument(
         "inputDir", metavar="inputDir", type=str, nargs="?", default="", help="the input directory"
     )
+    parser.add_argument(
+        "-m", "--method", choices=["plane", "ellipsoid", "ini"],
+        type=str, default="ini",
+        help="method override, possible values are plane, ellipsoid and ini. " +
+             "Overrides default AND local configs"
+    )
 
     args = parser.parse_args()
-    runScarpAnalysisWorkflow(str(args.inputDir))
+    runScarpAnalysisWorkflow(str(args.inputDir), str(args.method))
