@@ -254,10 +254,10 @@ testDictList = tU.readAllBenchmarkDesDicts(info=False)
 # filter benchmarks for tag standardTest
 # filterType = "TAGS"
 # valuesList = ["resistance"]
-filterType = "TAGS"
-valuesList = ["standardTest", "standardTestSnowGlide"]
-# filterType = "NAME"
-# valuesList = ["avaGarNullTest6", "avaGarNullTest2"]
+# filterType = "TAGS"
+# valuesList = ["standardTest", "standardTestSnowGlide"]
+filterType = "NAME"
+valuesList = ["avaInclinedPlaneEntresTest"]
 
 testList = tU.filterBenchmarks(testDictList, filterType, valuesList, condition="or")
 
