@@ -52,3 +52,5 @@ avaframe/com1DFA/*.so
 *.py[cod]
 
 *.rcf
+/avaframe/data/tmpStdTests/
+/wheelhouse/

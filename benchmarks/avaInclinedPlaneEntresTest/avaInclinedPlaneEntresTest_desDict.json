@@ -9,15 +9,15 @@
     "2DPeak"
   ],
   "FILES": [
-    "release1IP_0098dde5b0_C_L_entres_dfa_ppr",
-    "release1IP_0098dde5b0_C_L_entres_dfa_pft",
-    "release1IP_0098dde5b0_C_L_entres_dfa_pfv",
-    "mass_release1IP_0098dde5b0_C_L_entres_dfa"
+    "release1IP_d553e2b322_C_L_entres_dfa_pft",
+    "release1IP_d553e2b322_C_L_entres_dfa_ppr",
+    "release1IP_d553e2b322_C_L_entres_dfa_pfv",
+    "mass_release1IP_d553e2b322_C_L_entres_dfa"
   ],
   "TOPOTYPE": "idealised",
   "AVANAME": "avaInclinedPlane",
   "AVADIR": "data/avaInclinedPlane",
-  "simNameRef": "release1IP_0098dde5b0_C_L_entres_dfa",
+  "simNameRef": "release1IP_d553e2b322_C_L_entres_dfa",
   "NAME": "avaInclinedPlaneEntresTest",
   "Test Info": {
     "type": "text",
@@ -26,11 +26,11 @@
   "simType": "entres",
   "simName": {
     "type": "simName",
-    "name": "release1IP_0098dde5b0_C_L_entres_dfa"
+    "name": "release1IP_d553e2b322_C_L_entres_dfa"
   },
   "Simulation Parameters": {
     "type": "list",
-    "Program version": "1.11",
+    "Program version": "1.13",
     "Parameter set": "Changed",
     "Release Area Scenario": "release1IP",
     "Entrainment": "Yes",
@@ -39,7 +39,7 @@
     "Density [kgm-3]": "200",
     "Friction model": "samosAT",
     "Initial mass [kg]": "19989442.99",
-    "Final mass [kg]": "21731578.45",
+    "Final mass [kg]": "9844862.98",
     "Entrained mass [kg]": "1742135.46",
     "Entrained volume [m3]": "17421.35",
     "Stop criterion": "end Time reached: 400.00",
