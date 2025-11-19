@@ -54,11 +54,12 @@ def plotAllPeakFields(avaDir, cfgFLAGS, modName, demData=""):
     inputDir = avaDir / "Outputs" / modName / "peakFiles"
     inDir = avaDir / "Inputs"
     peakFilesDF = fU.makeSimDF(inputDir, avaDir=avaDir)
+
     if modName in ["com1DFA", "com9MoTVoellmy"] and demData == "":
         configurationDF = cfgUtils.createConfigurationInfo(avaDir, comModule=modName)
         configurationDF = configurationDF.rename(columns={"resType": "resTypeList"})
         peakFilesDF = (
-            peakFilesDF.reset_index().merge(configurationDF, on=["simName", "modelType"]).set_index("index")
+            peakFilesDF.reset_index().merge(configurationDF, on=["simName"]).set_index("index")
         )
 
     if demData == "":
