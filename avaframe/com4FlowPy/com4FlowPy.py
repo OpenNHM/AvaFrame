@@ -158,6 +158,18 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     else:
         modelPaths["varExponentPath"] = ""
 
+    if "relIdPolygon" in modelPaths["outputFileList"] or "relIdCount" in modelPaths["outputFileList"]:
+        modelPaths["relIdPath"] = cfgPath["relIdPath"]
+        modelParameters["outputRelIdBool"] = True
+    else:
+        modelPaths["relIdPath"] = ""
+        modelParameters["outputRelIdBool"] = False
+
+    if "relVolMin" in modelPaths["outputFileList"] or "relVolMax" in modelPaths["outputFileList"]:
+        modelParameters["outputRelVolBool"] = True
+    else:
+        modelParameters["outputRelVolBool"] = False
+
     # TODO: provide some kind of check for the model Parameters
     #       i.e. * sensible value ranges
     #            * contradicting options ...
@@ -452,6 +464,8 @@ def tileInputLayers(modelParameters, modelPaths, rasterAttributes, tilingParamet
         SPAM.tileRaster(modelPaths["varExponentPath"], "varExponent", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U)
     if modelParameters["forestBool"]:
         SPAM.tileRaster(modelPaths["forestPath"], "forest", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U)
+    if modelParameters["outputRelIdBool"]:
+        SPAM.tileRaster(modelPaths["relIdPath"], "relId", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U)
     log.info("Finished Tiling All Input Rasters.")
     log.info("==================================")
 
@@ -515,64 +529,26 @@ def mergeAndWriteResults(modelPaths, modelOptions):
     _outputs = set(modelPaths['outputFileList'])
     _outputNoDataValue = modelPaths["outputNoDataValue"]
 
-    log.info(" merging results ...")
-    log.info("-------------------------")
-
-    # Merge calculated tiles
-    zDelta = SPAM.mergeRaster(modelPaths["tempDir"], "res_z_delta")
-    flux = SPAM.mergeRaster(modelPaths["tempDir"], "res_flux")
-    cellCounts = SPAM.mergeRaster(modelPaths["tempDir"], "res_count", method="sum")
-    zDeltaSum = SPAM.mergeRaster(modelPaths["tempDir"], "res_z_delta_sum", method="sum")
-    routFluxSum = SPAM.mergeRaster(modelPaths["tempDir"], "res_rout_flux_sum", method="sum")
-    depFluxSum = SPAM.mergeRaster(modelPaths["tempDir"], "res_dep_flux_sum", method="sum")
-    fpTaMax = SPAM.mergeRaster(modelPaths["tempDir"], "res_fp_max")
-    fpTaMin = SPAM.mergeRaster(modelPaths["tempDir"], "res_fp_min", method="min")
-    slTa = SPAM.mergeRaster(modelPaths["tempDir"], "res_sl")
-    travelLengthMax = SPAM.mergeRaster(modelPaths["tempDir"], "res_travel_length_max")
-    travelLengthMin = SPAM.mergeRaster(modelPaths["tempDir"], "res_travel_length_min", method="min")
-
-    if modelOptions["infraBool"]:
-        backcalc = SPAM.mergeRaster(modelPaths["tempDir"], "res_backcalc")
-
-    if modelOptions["forestInteraction"]:
-        forestInteraction = SPAM.mergeRaster(modelPaths["tempDir"], "res_forestInt", method='min')
-
-    # Write Output Files to Disk
-    log.info("-------------------------")
-    log.info(" writing output files ...")
-    log.info("-------------------------")
-    _oF = modelPaths["outputFileFormat"]
-    _ts = modelPaths["timeString"]
-
     demHeader = IOf.readRasterHeader(modelPaths["demPath"])
     outputHeader = demHeader.copy()
     outputHeader["nodata_value"] = _outputNoDataValue
+    _oF = modelPaths["outputFileFormat"]
+    _ts = modelPaths["timeString"]
+
+    useCompression = modelPaths["useCompression"]
 
     if _oF == ".asc":
         outputHeader["driver"] = "AAIGrid"
     elif _oF == ".tif":
         outputHeader["driver"] = "GTiff"
 
-    useCompression = modelPaths["useCompression"]
+    log.info(" merging and writing results ...")
+    log.info("-------------------------")
 
-    if 'flux' in _outputs:
-        flux = defineNotAffectedCells(flux, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(
-            outputHeader,
-            flux,
-            modelPaths["resDir"] / "com4_{}_{}_flux".format(_uid, _ts),
-            flip=True,
-            useCompression=useCompression,
-        )
-    if 'zDelta' in _outputs:
-        zDelta = defineNotAffectedCells(zDelta, cellCounts, noDataValue=_outputNoDataValue)
-        output = IOf.writeResultToRaster(
-            outputHeader,
-            zDelta,
-            modelPaths["resDir"] / "com4_{}_{}_zdelta".format(_uid, _ts),
-            flip=True,
-            useCompression=useCompression,
-        )
+    # Merge calculated tiles
+    # compute cellCounts and don't delete because it is used for defining not affected cells
+    # other rasters (and polygons) are deleted after writing (to reduce computation time and used RAM)
+    cellCounts = SPAM.mergeRaster(modelPaths["tempDir"], "res_count", method="sum")
     if 'cellCounts' in _outputs:
         cellCounts = defineNotAffectedCells(cellCounts, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
@@ -581,8 +557,40 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             modelPaths["resDir"] / "com4_{}_{}_cellCounts".format(_uid, _ts),
             flip=True,
             useCompression=useCompression,
-        )
+            )
+        del output
+        log.info("com4_{}_{}_cellCounts  is written".format(_uid, _ts))
+
+    if 'zDelta' in _outputs:
+        zDelta = SPAM.mergeRaster(modelPaths["tempDir"], "res_z_delta")
+        zDelta = defineNotAffectedCells(zDelta, cellCounts, noDataValue=_outputNoDataValue)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            zDelta,
+            modelPaths["resDir"] / "com4_{}_{}_zdelta".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+            )
+        del zDelta
+        del output
+        log.info("com4_{}_{}_zdelta  is written".format(_uid, _ts))
+
+    if 'flux' in _outputs:
+        flux = SPAM.mergeRaster(modelPaths["tempDir"], "res_flux")
+        flux = defineNotAffectedCells(flux, cellCounts, noDataValue=_outputNoDataValue)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            flux,
+            modelPaths["resDir"] / "com4_{}_{}_flux".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+            )
+        del flux
+        del output
+        log.info("com4_{}_{}_flux  is written".format(_uid, _ts))
+
     if 'zDeltaSum' in _outputs:
+        zDeltaSum = SPAM.mergeRaster(modelPaths["tempDir"], "res_z_delta_sum", method="sum")
         zDeltaSum = defineNotAffectedCells(zDeltaSum, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -591,7 +599,12 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del zDeltaSum
+        del output
+        log.info("com4_{}_{}_zDeltaSum  is written".format(_uid, _ts))
+
     if 'routFluxSum' in _outputs:
+        routFluxSum = SPAM.mergeRaster(modelPaths["tempDir"], "res_rout_flux_sum", method="sum")
         routFluxSum = defineNotAffectedCells(routFluxSum, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -600,7 +613,12 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del routFluxSum
+        del output
+        log.info("com4_{}_{}_routFluxSum  is written".format(_uid, _ts))
+
     if 'depFluxSum' in _outputs:
+        depFluxSum = SPAM.mergeRaster(modelPaths["tempDir"], "res_dep_flux_sum", method="sum")
         depFluxSum = defineNotAffectedCells(depFluxSum, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -609,7 +627,12 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del depFluxSum
+        del output
+        log.info("com4_{}_{}_depFluxSum  is written".format(_uid, _ts))
+
     if "fpTravelAngle" in _outputs or "fpTravelAngleMax" in _outputs:
+        fpTaMax = SPAM.mergeRaster(modelPaths["tempDir"], "res_fp_max")
         fpTaMax = defineNotAffectedCells(fpTaMax, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -618,7 +641,12 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del fpTaMax
+        del output
+        log.info("com4_{}_{}_fpTravelAngleMax is written".format(_uid, _ts))
+
     if "fpTravelAngleMin" in _outputs:
+        fpTaMin = SPAM.mergeRaster(modelPaths["tempDir"], "res_fp_min", method="min")
         fpTaMin = defineNotAffectedCells(fpTaMin, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -627,7 +655,12 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del fpTaMin
+        del output
+        log.info("com4_{}_{}_fpTravelAngleMin is written".format(_uid, _ts))
+
     if 'slTravelAngle' in _outputs:
+        slTa = SPAM.mergeRaster(modelPaths["tempDir"], "res_sl")
         slTa = defineNotAffectedCells(slTa, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -636,7 +669,12 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del slTa
+        del output
+        log.info("com4_{}_{}_slTravelAngle is written".format(_uid, _ts))
+
     if "travelLength" in _outputs or "travelLengthMax" in _outputs:
+        travelLengthMax = SPAM.mergeRaster(modelPaths["tempDir"], "res_travel_length_max")
         travelLengthMax = defineNotAffectedCells(travelLengthMax, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -645,7 +683,12 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del travelLengthMax
+        del output
+        log.info("com4_{}_{}_travelLengthMax is written".format(_uid, _ts))
+
     if "travelLengthMin" in _outputs:
+        travelLengthMin = SPAM.mergeRaster(modelPaths["tempDir"], "res_travel_length_min", method="min")
         travelLengthMin = defineNotAffectedCells(travelLengthMin, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -654,12 +697,13 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             flip=True,
             useCompression=useCompression,
         )
+        del travelLengthMin
+        del output
+        log.info("com4_{}_{}_travelLengthMin is written".format(_uid, _ts))
 
-    # NOTE:
-    # if not modelOptions["infraBool"]:  # if no infra
-    # io.output_raster(modelPaths["demPath"], modelPaths["resDir"] / ("cell_counts%s" %(output_format)),cell_counts)
-    # io.output_raster(modelPaths["demPath"], modelPaths["resDir"] / ("z_delta_sum%s" %(output_format)),z_delta_sum)
-    if modelOptions["infraBool"]:  # if infra
+
+    if modelOptions["infraBool"]:
+        backcalc = SPAM.mergeRaster(modelPaths["tempDir"], "res_backcalc")
         backcalc = defineNotAffectedCells(backcalc, cellCounts, noDataValue=_outputNoDataValue)
         output = IOf.writeResultToRaster(
             outputHeader,
@@ -667,8 +711,14 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             modelPaths["resDir"] / "com4_{}_{}_backcalculation".format(_uid, _ts),
             flip=True,
             useCompression=useCompression,
-        )
+            )
+        del backcalc
+        del output
+        log.info("com4_{}_{}_backcalculation is written".format(_uid, _ts))
+
+
     if modelOptions["forestInteraction"]:
+        forestInteraction = SPAM.mergeRaster(modelPaths["tempDir"], "res_forestInt", method='min')
         forestInteraction = defineNotAffectedCells(
             forestInteraction, cellCounts, noDataValue=_outputNoDataValue
         )
@@ -678,8 +728,69 @@ def mergeAndWriteResults(modelPaths, modelOptions):
             modelPaths["resDir"] / "com4_{}_{}_forestInteraction".format(_uid, _ts),
             flip=True,
             useCompression=useCompression,
+            )
+        del forestInteraction
+        del output
+        log.info("com4_{}_{}_forestInteraction is written".format(_uid, _ts))
+
+
+    if "relIdPolygon" in _outputs:
+        pathPolygons = SPAM.mergeDictToPolygon(modelPaths["tempDir"], "res_startCellIdDict", outputHeader)
+        pathPolygons.to_file(
+            modelPaths["resDir"] / "com4_{}_{}_pathPolygons.geojson".format(_uid, _ts), driver="GeoJSON"
         )
-    del output
+        del pathPolygons
+        log.info("com4_{}_{}_pathPolygons is written".format(_uid, _ts))
+
+
+    if "relIdCount" in _outputs:
+        countRelId = SPAM.mergeDictToRaster(modelPaths["tempDir"], "res_startCellIdDict")
+        countRelId = defineNotAffectedCells(countRelId, cellCounts, noDataValue=_outputNoDataValue)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            countRelId,
+            modelPaths["resDir"] / "com4_{}_{}_countRelId".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
+        del countRelId
+        del output
+        log.info("com4_{}_{}_countRelId is written".format(_uid, _ts))
+
+
+    if "relVolMin" in _outputs:
+        relVolMin = SPAM.mergeRaster(modelPaths["tempDir"], "res_relVol_min", method="min")
+        relVolMin = defineNotAffectedCells(relVolMin, cellCounts, noDataValue=_outputNoDataValue)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            relVolMin,
+            modelPaths["resDir"] / "com4_{}_{}_relVolMin".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
+        del relVolMin
+        del output
+        log.info("com4_{}_{}_relVolMin is written".format(_uid, _ts))
+
+
+    if "relVolMax" in _outputs:
+        relVolMax = SPAM.mergeRaster(modelPaths["tempDir"], "res_relVol_max")
+        relVolMax = defineNotAffectedCells(relVolMax, cellCounts, noDataValue=_outputNoDataValue)
+        output = IOf.writeResultToRaster(
+            outputHeader,
+            relVolMax,
+            modelPaths["resDir"] / "com4_{}_{}_relVolMax".format(_uid, _ts),
+            flip=True,
+            useCompression=useCompression,
+        )
+        del relVolMax
+        del output
+        log.info("com4_{}_{}_relVolMax is written".format(_uid, _ts))
+
+    # NOTE:
+    # if not modelOptions["infraBool"]:  # if no infra
+    # io.output_raster(modelPaths["demPath"], modelPaths["resDir"] / ("cell_counts%s" %(output_format)),cell_counts)
+    # io.output_raster(modelPaths["demPath"], modelPaths["resDir"] / ("z_delta_sum%s" %(output_format)),z_delta_sum)
 
 
 def checkConvertReleaseShp2Tif(modelPaths):
