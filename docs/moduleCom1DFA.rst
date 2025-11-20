@@ -149,7 +149,7 @@ Release, entrainment and secondary release thickness can be specified in two dif
 Only available for release thickness:
 
 3. Via **release thickness file**:
-
+# TODO: HERE IS A MISTAKE, but not sure what is true:
   - set the flag 'relThFromFile' to False
   - set the flag 'relThFromFile' to True
   - save a raster file with info on release thickness as raster file in
