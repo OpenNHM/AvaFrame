@@ -120,8 +120,8 @@ Release, entrainment and secondary release thickness can be specified in two dif
     taken from `entThIfMissingInShp` (default 0.3 m) in the configuration file. If multiple features are
     in the entrainment file the thickness attribute has to be set either for ALL or NONE of the features.
   - for backwards compatibility, the attribute 'd0' also works, but we suggest to use `thickness` in new projects
-  - set the flag `THICKNESSFromShp` (i.e. relThFromFile, entThFromFile,
-    secondaryRelthFromShp) to True in the configuration file (default is True)
+  - set the flag `THICKNESSFromFile` (i.e. relThFromFile, entThFromFile,
+    secondaryRelThFromFile) to True in the configuration file (default is True)
   - a parameter variation can be added with the `THICKNESSPercentVariation`
     parameter in the configuration file in the form of
     ``+-percentage$numberOfSteps``. Provided a `+` a positive variation will be
@@ -138,7 +138,7 @@ Release, entrainment and secondary release thickness can be specified in two dif
 
 2. Via **configuration file (ini)**:
 
-  - set the flag 'THICKNESSFromShp' to False
+  - set the flag 'THICKNESSFromFile' to False
   - provide your desired thickness value in the respective THICKNESS parameter (i.e. relTh, entTh or secondaryRelth)
   - in addition to the `THICKNESSPercentVariation` and `THICKNESSRangeVariation`
     options (see option 1) and the standard variation options in
