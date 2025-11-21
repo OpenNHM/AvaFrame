@@ -215,8 +215,18 @@ def getInputDataCom1DFA(avaDir):
 
     # Set flag if there is an entrainment or resistance area
     entResInfo = {}
+    # set releaseDir
+    if os.path.isdir(inputDir / "REL"):
+        releaseDir = inputDir / "REL"
+        entResInfo["relFromHydr"] = False
+    elif os.path.isdir(inputDir / "HYDR"):
+        releaseDir = inputDir / "HYDR"
+        entResInfo["relFromHydr"] = True
+    else:
+        message = "No REL or HYDR folder exists."
+        log.error(message)
+        raise AssertionError(message)
 
-    releaseDir = inputDir / "REL"
     relFiles = sorted(
         list(releaseDir.glob("*.shp")) + list(releaseDir.glob("*.tif")) + list(releaseDir.glob("*.asc"))
     )

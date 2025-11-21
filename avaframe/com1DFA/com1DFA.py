@@ -3539,8 +3539,6 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
     if releaseType == "primary":
         typeTh = "relTh"
-    elif releaseType == "hydrograph":
-        typeTh = "hydr"
     else:
         typeTh = "secondaryRelTh"
 
@@ -3591,6 +3589,7 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
         relVolume = np.nansum(hydrLine["rasterData"] * demVol["areaRaster"])
     """
+    # TODO: does it make sense to return releaseLine? Since it is a dict and is changed here, it is also changed later on?
     return relVolume
 
 
