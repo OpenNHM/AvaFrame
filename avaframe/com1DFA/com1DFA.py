@@ -478,7 +478,7 @@ def prepareReleaseEntrainment(cfg, rel, inputSimLines):
         )
 
     # set release thickness
-    
+
     if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
         inputSimLines["hydrographAreaLine"]["thicknessSource"] = ["csv file"]
         log.info("Release scenario with hydrograph and without REL area.")
@@ -541,9 +541,15 @@ def setThickness(cfg, lineTh, typeTh):
     else:
         lineTh["thicknessSource"] = ["ini file"] * len(lineTh["thickness"])
 
+    if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
+        lineTh["thicknessSource"] = ["csv file"] * len(lineTh["thickness"])
+
     # set thickness value info read from ini file that has been updated from shp or ini previously
     for count, id in enumerate(lineTh["id"]):
-        if cfg["GENERAL"].getboolean(thFlag):
+        if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
+            lineTh["thickness"][count] = float(lineTh["thickness"][count])
+
+        elif cfg["GENERAL"].getboolean(thFlag):
             thName = typeTh + id
             lineTh["thickness"][count] = cfg["GENERAL"].getfloat(thName)
 
@@ -3539,6 +3545,8 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
     if releaseType == "primary":
         typeTh = "relTh"
+    elif releaseType == "hydrograph":
+        typeTh = "hydrTh"
     else:
         typeTh = "secondaryRelTh"
 

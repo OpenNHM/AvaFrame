@@ -57,7 +57,7 @@ def releaseHydrograph(cfg, inputSimLines, particles, fields, dem, zPartArray0, t
         # iTup is a tuple containing an array with one value in the first position, so we can extract the index:
         i = iTup[0].item()
         log.info(
-            "add hydrograph at timestep: %f s with thickness %s m and velocity %s m/s"
+            "add hydrograph at timestep: %.2f s with thickness %s m and velocity %s m/s"
             % (t, hydrValues["thickness"][i], hydrValues["velocity"][i])
         )
         # similar workflow to secondary release!
