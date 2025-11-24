@@ -62,7 +62,7 @@ projection. Allowed file types are either raster files, i.e. `ESRI grid format <
     - raster file:
         - cells with non-zero values define the release area
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
-        - negative values are not allowed
+        - negative values are not allowed (specified no-data values are not considered)
         - if the cellsize does not match the requested meshCellSize, the file is remeshed if within `resizeThreshold`
     - ALL features within one shapefile or all cells with non-zero values in a raster file are released at the same time (and interact), this is what we refer to as *scenario*
     - if you want to simulate different scenarios with the same features, you have to copy them to separate shapefiles/raster files
@@ -80,7 +80,7 @@ at least two results are generated: the *null* variant and the variant with entr
     - raster file:
         - cells with non-zero values define where entrainment can occur
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
-        - negative values are not allowed
+        - negative values are not allowed (specified no-data values are not considered)
         - if the cellsize does not match the requested meshCellSize, the file is
           remeshed if within `resizeThreshold`
 
@@ -91,7 +91,7 @@ at least two results are generated: the *null* variant and the variant with entr
         - resistance areas must not contain any "holes" or inner rings
     - raster file:
         - cells with non-zero values define where entrainment can occur
-        - negative values are not allowed
+        - negative values are not allowed (specified no-data values are not considered)
         - if the cellsize does not match the requested meshCellSize, the file is
           remeshed if within `resizeThreshold`
 
