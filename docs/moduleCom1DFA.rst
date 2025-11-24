@@ -55,11 +55,11 @@ projection. Allowed file types are either raster files, i.e. `ESRI grid format <
 * digital elevation model as raster file. The format of the DEM determines the format of the output files.
 
 * release area scenario as (multi-) polygon shapefile OR raster file (in Inputs/REL; only shapefiles OR raster files)
-    - polygon shapefile:
+    - either polygon shapefile(s):
         - the release area polygon must not contain any "holes" or inner rings
         - multiple features are allowed
         - recommended attributes are *name*, *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`) and *ci95* (see :ref:`moduleAna4Stats:probAna - Probability maps`)
-    - raster file:
+    - or raster file(s):
         - cells with non-zero values define the release area
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
         - negative values are not allowed (specified no-data values are not considered)
@@ -74,10 +74,10 @@ at least two results are generated: the *null* variant and the variant with entr
 
 * one entrainment area as (multi-) polygon shapefile OR raster file (in Inputs/ENT)
     - marks the (multiple) areas where entrainment can occur.
-    - polygon shapefile:
+    - either polygon shapefile:
         - attribute *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
         - must not contain any "holes" or inner rings
-    - raster file:
+    - or raster file:
         - cells with non-zero values define where entrainment can occur
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
         - negative values are not allowed (specified no-data values are not considered)
@@ -87,9 +87,9 @@ at least two results are generated: the *null* variant and the variant with entr
 * one resistance area as (multi-) polygon shapefile OR raster file (in Inputs/RES)
     - marks the (multiple) areas where resistance is considered
     - please consider the information about resistance below :ref:`moduleCom1DFA:Resistance setup`
-    - polygon shapefile:
+    - either polygon shapefile:
         - resistance areas must not contain any "holes" or inner rings
-    - raster file:
+    - or raster file:
         - cells with non-zero values define where entrainment can occur
         - negative values are not allowed (specified no-data values are not considered)
         - if the cellsize does not match the requested meshCellSize, the file is
