@@ -3584,19 +3584,6 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
         # compute release volume using raster and dem area
         relVolume = np.nansum(releaseLine["rasterData"] * demVol["areaRaster"])
-    """
-    if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
-        hydrLine = geoTrans.prepareArea(
-            releaseLine,
-            demVol,
-            radius,
-            # thList=releaseLine["thickness"],
-            combine=True,
-            checkOverlap=False,
-        )
-
-        relVolume = np.nansum(hydrLine["rasterData"] * demVol["areaRaster"])
-    """
     # TODO: does it make sense to return releaseLine? Since it is a dict and is changed here, it is also changed later on?
     return relVolume
 
