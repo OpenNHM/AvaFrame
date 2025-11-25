@@ -538,11 +538,10 @@ def setThickness(cfg, lineTh, typeTh):
             lineTh["thicknessSource"] = ["ini file"] * len(lineTh["thickness"])
         else:
             lineTh["thicknessSource"] = ["shp file"] * len(lineTh["thickness"])
+    elif cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
+        lineTh["thicknessSource"] = ["csv file"] * len(lineTh["thickness"])
     else:
         lineTh["thicknessSource"] = ["ini file"] * len(lineTh["thickness"])
-
-    if cfg["GENERAL"].getboolean("hydrograph") and cfg["GENERAL"].getboolean("noRelArea"):
-        lineTh["thicknessSource"] = ["csv file"] * len(lineTh["thickness"])
 
     # set thickness value info read from ini file that has been updated from shp or ini previously
     for count, id in enumerate(lineTh["id"]):
@@ -3584,7 +3583,7 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary"):
 
         # compute release volume using raster and dem area
         relVolume = np.nansum(releaseLine["rasterData"] * demVol["areaRaster"])
-    # TODO: does it make sense to return releaseLine? Since it is a dict and is changed here, it is also changed later on?
+    # TODO: does it make sense to return releaseLine? Since the dictionary is changed here?
     return relVolume
 
 

@@ -516,7 +516,7 @@ def updateThicknessCfg(inputSimFiles, cfgInitial):
     # initialize release scenario list
     releaseScenarioIni = cfgInitial["INPUT"]["releaseScenario"]
     if releaseScenarioIni == "":
-        if cfgInitial["GENERAL"]["hydrograph"] == "True" and cfgInitial["GENERAL"]["noRelArea"] == "True":
+        if cfgInitial["GENERAL"].getboolean("hydrograph") and cfgInitial["GENERAL"].getboolean("noRelArea"):
             cfgInitial["INPUT"]["hydrThFile"] = ""
             releaseScenarioList = []
             for hydrA in inputSimFiles["hydrographFile"]:
