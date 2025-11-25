@@ -57,7 +57,7 @@ def releaseHydrograph(cfg, inputSimLines, particles, fields, dem, zPartArray0, t
         # iTup is a tuple containing an array with one value in the first position, so we can extract the index:
         i = iTup[0].item()
         log.info(
-            "add hydrograph at timestep: %f s with thickness %s m and velocity %s m/s"
+            "add hydrograph at timestep: %.2f s with thickness %s m and velocity %s m/s"
             % (t, hydrValues["thickness"][i], hydrValues["velocity"][i])
         )
         # similar workflow to secondary release!
@@ -149,7 +149,7 @@ def addHydrographParticles(cfg, particles, inputSimLines, thickness, velocityMag
     return particles, zPartArray0
 
 
-def checkHydrograph(hydrographValues, hydrCsv):
+def checkHydrograph(hydrographValues, hydrCsv, cfgGen):
     """
     check if hydrograph satisfied the following requirements:
     - hydrograph-timesteps are unique
@@ -162,6 +162,8 @@ def checkHydrograph(hydrographValues, hydrCsv):
         directory to csv table containing hydrograph values
     hydrographValues: dict
         contains hydrograph values: timestep, thickness, velocity
+    cfgGen: configparser Object
+        GENERAL section of the configuration file
     """
     # check if timesteps are unique
     timeStepUnique = np.unique(hydrographValues["timeStep"])
@@ -179,6 +181,16 @@ def checkHydrograph(hydrographValues, hydrCsv):
     for th in hydrographValues["thickness"]:
         if th <= 0:
             message = "For every release time step a thickness > 0 needs to be provided in %s" % (hydrCsv)
+            log.error(message)
+            raise ValueError(message)
+
+    # check if a timestep = 0 is provided, when no REL area is used
+    if cfgGen.getboolean("hydrograph") and cfgGen.getboolean("noRelArea"):
+        if 0 not in timeStepUnique:
+            message = (
+                "If no release area is released, a thickness needs to be provided for  time step 0 s in %s"
+                % (hydrCsv)
+            )
             log.error(message)
             raise ValueError(message)
 
@@ -206,7 +218,7 @@ def preparehydrographAreaLine(inputSimFiles, demOri, cfg):
         - values: timeStep, thickness, velocity
     """
     try:
-        hydrFile = inputSimFiles["hydrographFile"]
+        hydrFile = inputSimFiles["hydrographFile"][0]
         hydrLine = shpConv.readLine(hydrFile, "", demOri)
         hydrLine["fileName"] = hydrFile
         hydrLine["type"] = "Hydrograph"
@@ -226,7 +238,7 @@ def preparehydrographAreaLine(inputSimFiles, demOri, cfg):
         log.error(message)
         raise FileNotFoundError(message)
 
-    checkHydrograph(hydrLine["values"], inputSimFiles["hydrographCsv"])
+    checkHydrograph(hydrLine["values"], inputSimFiles["hydrographCsv"], cfg["GENERAL"])
 
     return hydrLine
 

@@ -403,7 +403,11 @@ def test_fetchReleaseFile(tmp_path):
     inputSimFiles = {"relFiles": [rel1, rel2]}
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "rel1"}
-    cfg["GENERAL"] = {"relThFromFile": False}
+    cfg["GENERAL"] = {
+        "relThFromFile": False,
+        "hydrograph": "False",
+        "noRelArea": "False",
+    }
     releaseScenario = "rel1"
     releaseList = ["rel1", "rel2"]
 
@@ -419,7 +423,11 @@ def test_fetchReleaseFile(tmp_path):
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "rel2"}
     inputSimFiles = {"relFiles": [rel1, rel2]}
-    cfg["GENERAL"] = {"relThFromFile": True}
+    cfg["GENERAL"] = {
+        "relThFromFile": True,
+        "hydrograph": "False",
+        "noRelArea": "False",
+    }
     cfg["INPUT"] = {
         "rel2_relThId": "0",
         "rel2_relThThickness": "2.",
@@ -1417,7 +1425,11 @@ def test_fetchReleaseFile_scenario_not_found():
     inputSimFiles = {"relFiles": [rel1, rel2]}
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "relNONEXISTENT"}
-    cfg["GENERAL"] = {"relThFromFile": "False"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "False",
+        "hydrograph": "False",
+        "noRelArea": "False",
+    }
     releaseScenario = "relNONEXISTENT"
     releaseList = ["rel1", "rel2"]
 
@@ -1448,7 +1460,11 @@ def test_fetchReleaseFile_multiple_files_same_name():
         "release2_relThThickness": "1.5",
         "release2_relThCi95": "None",
     }
-    cfg["GENERAL"] = {"relThFromFile": "True"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "True",
+        "hydrograph": "False",
+        "noRelArea": "False",
+    }
     releaseScenario = "release1"
     releaseList = ["release1", "release2"]
 
@@ -1478,7 +1494,11 @@ def test_fetchReleaseFile_no_matching_thickness_file():
         "release2_relThThickness": "1.5",
         "release2_relThCi95": "None",
     }
-    cfg["GENERAL"] = {"relThFromFile": "True"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "True",
+        "hydrograph": "False",
+        "noRelArea": "False",
+    }
     releaseScenario = "release2"
     releaseList = ["release2"]
 
@@ -1509,7 +1529,11 @@ def test_fetchReleaseFile_no_matching_thickness_file():
     inputSimFiles = {"relFiles": [rel1]}
     cfg = configparser.ConfigParser()
     cfg["INPUT"] = {"releaseScenario": "release1"}
-    cfg["GENERAL"] = {"relThFromFile": "False"}
+    cfg["GENERAL"] = {
+        "relThFromFile": "False",
+        "hydrograph": "False",
+        "noRelArea": "False",
+    }
     releaseScenario = "release1"
     releaseList = ["release1"]
 
