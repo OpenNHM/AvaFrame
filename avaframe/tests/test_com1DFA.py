@@ -1989,6 +1989,8 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "xsivoellmy": "4000.",
         "dam": "True",
         "explicitFriction": 0,
+        "hydrograph": "False",
+        "noRelArea": "False",
     }
     standardCfg["INPUT"] = {
         "entThThickness": "1.",
