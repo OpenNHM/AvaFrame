@@ -191,6 +191,7 @@ the following folder structure inside the ``avalancheDir`` directory inside whic
       Inputs/
         ElevationModel - digital elevation model (.asc)
         REL/      - release area file (can be either .asc, .tif, or .shp) <required>
+        RELID/    - release ID file (can be either .asc, .tif) <optional>
         RES/      - forest structure information (FSI) (.asc or .tif) <optional>
         INFRA/    - infrastructure layer (.asc or .tif) <optional>
         ALPHA/	  - variable alpha angle layer (.tif) <optional>
@@ -206,6 +207,7 @@ inputs and working directories/model outputs in different places, which might be
 - ``workDir`` :math:`\ldots` working directory (a ``temp/`` folder, model log and model results will be written here)
 - ``demPath`` :math:`\ldots` path to input DEM (must be ``.asc`` currently)
 - ``releasePath`` :math:`\ldots` path to release area raster (``.asc, .tif``)
+- ``releaseIdPath`` :math:`\ldots` path to release ID raster (``.asc, .tif``)
 - ``infraPath`` :math:`\ldots` path to infrastructure raster (``.asc, .tif``) (required if ``infra = True``)
 - ``forestPath`` :math:`\ldots` path to forest (FSI) raster (``.asc, .tif``) (required if ``forest = True``)
 - ``varAlphaPath`` :math:`\ldots` path to variable alpha angle raster (``.tif``) (required if ``variableAlpha = True``)
@@ -243,6 +245,10 @@ In addition these output layers are also available:
 - ``depFluxSum``: deposited flux summed up over all paths
 - ``travelLengthMin``: the travel length along the flow path (the minimum value of all paths for every raster cell)
 - ``fpTravelAngleMin``: the gamma angle along the flow path (the minimum value of all paths for every raster cell)
+- ``relVolMin``: the minimum of the tracked release volume that route through the raster cell (the volume is provided in the release file in the REL folder)
+- ``relVolMax``: the maximum of the tracked release volume that route through the raster cell (the volume is provided in the release file in the REL folder)
+- ``relIdPolygon``: polygons (*.geojson) that cover the affected process belonging to one release ID (can include multiple release cells; release IDs are provided in the RELID folder)
+- ``relIdCount``: number of paths belonging to different release IDs that route flux through a raster cell (release IDs are provided in the RELID folder)
 
 If ``forestInteraction = True`` this layer will be written automatically (no need to separately define in ``outputFiles``):
 

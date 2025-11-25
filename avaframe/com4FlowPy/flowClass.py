@@ -10,14 +10,25 @@ import math
 
 
 class Cell:
+
     def __init__(
         self,
-        rowindex, colindex,
-        dem_ng, cellsize,
-        flux, z_delta, parent,
-        alpha, exp, flux_threshold, max_z_delta,
-        startcell, fluxDistOldVersionBool=False,
-        FSI=None, forestParams=None,
+        rowindex,
+        colindex,
+        dem_ng,
+        cellsize,
+        flux,
+        z_delta,
+        parent,
+        alpha,
+        exp,
+        flux_threshold,
+        max_z_delta,
+        startcell,
+        fluxDistOldVersionBool=False,
+        FSI=None,
+        forestParams=None,
+        startcellVol=None,
     ):
         """constructor for the Cell class that describes a raster cell that is hit by the GMF.
         the constructor function is called every time a new instance of type 'Cell' is
@@ -61,6 +72,9 @@ class Cell:
 
         self._SQRT2 = np.sqrt(2.0)
         self._RAD90 = np.deg2rad(90.0)
+
+        self.startcellVolMin = startcellVol
+        self.startcellVolMax = startcellVol
 
         # NOTE: Forest Interaction included here
         # if FSI != None AND forestParams != None - then self.ForestBool = True and forestParams and
@@ -176,6 +190,10 @@ class Cell:
             # than the older one -> take minimum!
             if parent.forestIntCount < (self.forestIntCount - self.isForest):
                 self.forestIntCount = parent.forestIntCount + self.isForest
+
+    def calc_startCellVol(self, startcellVolNew):
+        self.startcellVolMin = min(self.startcellVolMin, startcellVolNew)
+        self.startcellVolMax = max(self.startcellVolMax, startcellVolNew)
 
     def calcDistMin(self, calc3D=False):
         """
@@ -416,7 +434,7 @@ class Cell:
             self.dist[self.dist < threshold] = 0
         if np.sum(self.dist) != self.flux and count > 0:
             # correction/flux conservation for potential rounding losses or gains
-            # (self.flux - np.sum(self.dist)) will either be negative or positive 
+            # (self.flux - np.sum(self.dist)) will either be negative or positive
             # depending on the direction of the rounding error
             self.dist[self.dist >= threshold] += (self.flux - np.sum(self.dist)) / count
         if count == 0:
