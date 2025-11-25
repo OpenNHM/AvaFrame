@@ -126,6 +126,9 @@ def SHP2Array(infile, defname=None):
     start = 0
     nParts = []
 
+    # New: Create an empty list to store attributes
+    attributes = []
+
     for n, (item, rec) in enumerate(zip(shps, sf.records())):
         pts = item.points
         # if feature has no points - ignore
@@ -145,9 +148,14 @@ def SHP2Array(infile, defname=None):
         # check if records are available and extract
         if records:
             # loop through fields
+            # Extract attributes for the feature
+            attr_dict = {}
             for (name, typ, size, deci), value in zip(sf.fields[1:], records[n].record):
                 # get entity name
                 name = name.lower()
+                attr_dict[name] = value  # Store attributes in dictionary
+
+                # Specific field handling (existing code)
                 if name == "name":
                     layername = str(value)
                 if (name == "thickness") or (name == "d0"):
@@ -183,12 +191,14 @@ def SHP2Array(infile, defname=None):
                 if name == "iso":
                     iso = value
                 if name == "layer":
-                    layerN = value
+                    layerN = value               
             # if name is still empty go through file again and take Layer instead
             if (type(layername) is bytes) or (layername is None):
                 for (name, typ, size, deci), value in zip(sf.fields[1:], records[n].record):
                     if name == "Layer":
                         layername = value
+
+            attributes.append(attr_dict)  # Add the attribute dictionary to the list
 
         # if layer still not defined, use generic
         if layername is None:
@@ -243,6 +253,7 @@ def SHP2Array(infile, defname=None):
     SHPdata["tilt"] = tiltList
     SHPdata["direc"] = direcList
     SHPdata["offset"] = offsetList
+    SHPdata["attributes"] = attributes  # Add attributes to SHPdata
 
     sf.close()
 
