@@ -14,7 +14,6 @@ import avaframe.in2Trans.rasterUtils as IOf
 import shapely
 import shapely.ops
 import geopandas as gpd
-from shapely.geometry import Polygon
 
 # create local logger
 log = logging.getLogger(__name__)
