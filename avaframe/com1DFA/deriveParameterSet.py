@@ -1017,7 +1017,7 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
             raise FileExistsError(message)
 
         # write raster to file
-        useCompression = cfg["EXPORTS"].getboolean("useCompression")
+        useCompression = cfg["EXPORTS"]["useCompression"]
         outFile = IOf.writeResultToRaster(
             dem["header"], inputField["rasterData"], outFile, flip=True, useCompression=useCompression
         )
