@@ -197,8 +197,32 @@ def test_calculation():
     outputs = ['travelLengthMin', 'flux']
     forestArray = None
     forestParams = None
-    args = [dem, infra, pra, alpha, exp, fluxTh, zDeltaMax, nodata, cellsize, infraBool, forestBool, variableParameters,
-            fluxDistOldVersionBool, previewMode, forestArray, forestParams, outputs]
+    relOutputParams = {
+        "relIdBool": False,
+        "relIdArray": None,
+        "relVolBool": False,
+        "relVolArray": None,
+    }
+    args = [
+        dem,
+        infra,
+        pra,
+        alpha,
+        exp,
+        fluxTh,
+        zDeltaMax,
+        nodata,
+        cellsize,
+        infraBool,
+        forestBool,
+        variableParameters,
+        fluxDistOldVersionBool,
+        previewMode,
+        forestArray,
+        forestParams,
+        outputs,
+        relOutputParams,
+    ]
 
     flux = ones_like(dem) * -9999.
     flux[[1, 2, 3], [2, 2, 2]] = 1
@@ -210,7 +234,7 @@ def test_calculation():
     travelLengthMin[3, 2] = 2 * np.sqrt(cellsize ** 2)
     results = flowCore.calculation(args)
 
-    assert len(results) == 12
+    assert len(results) == 16
     assert np.all(results[1] == flux)
     assert np.all(results[10] == routFluxSum)
     assert np.all(results[11] == depFluxSum)
