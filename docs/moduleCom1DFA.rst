@@ -49,10 +49,10 @@ folder structure described below.
 
 In the directory ``Inputs``, the following files are required. Be aware that ALL inputs have to be provided in the same
 projection. Allowed file types are either raster files, i.e. `ESRI grid format <https://desktop.arcgis.com/en/arcmap/10.3/manage-data/raster-and-images/esri-ascii-raster-format.htm>`_
-  or GeoTIFF format, or shape files and specified for the respective input type below:
+or GeoTIFF format, or shape files and specified for the respective input type below:
 
 
-* digital elevation model as raster file. The format of the DEM determines the format of the output files.
+* **digital elevation model as raster file. The format of the DEM determines the format of the output files.**
 
 * release area scenario as (multi-) polygon shapefile OR raster file (in Inputs/REL; only shapefiles OR raster files)
     - either polygon shapefile(s):
@@ -71,7 +71,7 @@ and the following files are optional. Please note: in the standard configuration
 the *null* variant is always run! I.e. if a resistance and/or an entrainment file is given (as described below),
 at least two results are generated: the *null* variant and the variant with entrainment and/or resistance.
 
-* one entrainment area as (multi-) polygon shapefile OR raster file (in Inputs/ENT)
+* **one entrainment area as (multi-) polygon shapefile OR raster file (in Inputs/ENT)**
     - marks the (multiple) areas where entrainment can occur.
     - either polygon shapefile:
         - attribute *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
@@ -81,7 +81,7 @@ at least two results are generated: the *null* variant and the variant with entr
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
         - negative values are not allowed (specified no-data values are not considered)
 
-* one resistance area as (multi-) polygon shapefile OR raster file (in Inputs/RES)
+* **one resistance area as (multi-) polygon shapefile OR raster file (in Inputs/RES)**
     - marks the (multiple) areas where resistance is considered
     - please consider the information about resistance below :ref:`moduleCom1DFA:Resistance setup`
     - either polygon shapefile:
@@ -92,14 +92,14 @@ at least two results are generated: the *null* variant and the variant with entr
         - if the cellsize does not match the requested meshCellSize, the file is
           remeshed if within `resizeThreshold`
 
-* one secondary release area (multi-) as polygon shapefile OR raster file (in Inputs/SECREL)
+* **one secondary release area (multi-) as polygon shapefile OR raster file (in Inputs/SECREL)**
 
   - can have multiple release areas, each as one feature
   - same setup as the release area scenario (see above)
   - features will release as soon as at least one particle enters its area
   - release area polygons must not contain any "holes" or inner rings
 
-* raster files for the Voellmy friction parameters :math:`\mu` and :math:`\xi` (in Inputs/RASTERS)
+* **raster files for the Voellmy friction parameters :math:`\mu` and :math:`\xi` (in Inputs/RASTERS)**
 
   - spatial field of :math:`\mu` and :math:`\xi` values with same extent as DEM
   - file names need to end with ``_mu.*`` and ``_xi.*``
@@ -107,7 +107,7 @@ at least two results are generated: the *null* variant and the variant with entr
   - if ``meshCellSize`` is different from simulation ``meshCellSize`` fields will be remeshed
   - only used if ``frictionModel`` is set to ``spatialVoellmy``
 
-* one ``_cropshape.shp`` shape file (in Inputs/POLYGONS)
+* **one ``_cropshape.shp`` shape file (in Inputs/POLYGONS)**
 
   - provides a polygon located inside the DEM to define area for report plots of peak fields (bounds of polygon)
   - if not provided peak fields are shown for the extent where peak field values are nonzero
