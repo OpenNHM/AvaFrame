@@ -948,15 +948,8 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
     cellSizeOld = inputField["header"]["cellsize"]
     demHeader = dem["header"]
 
-    # check if negative values or nan values
-    if np.any(np.isnan(inputField["rasterData"])):
-        message = "In %s file (%s) nan values found - this is not allowed" % (
-            fileType,
-            inputFile.name,
-        )
-        log.error(message)
-        raise AssertionError(message)
-    elif np.any(inputField["rasterData"] < 0):
+    # check if negative values in raster file
+    if np.any(inputField["rasterData"] < 0):
         message = "In %s file (%s) negative values found - this is not allowed" % (
             fileType,
             inputFile.name,
@@ -978,8 +971,10 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
         outFile = inputFile
         log.info("%s matches extent and cell size of DEM - keep file" % returnStr)
         remeshedFlag = "No"
+        inFieldIni = inputField["rasterData"].copy()
     else:
         # resize data, project data from inputFile onto computational domain
+        inFieldIni = inputField["rasterData"].copy()
         inputField["rasterData"], _ = geoTrans.resizeData(inputField, dem)
 
         # add warning
@@ -1024,6 +1019,33 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
         log.info("Saved remeshed raster to %s" % outFile)
         returnStr = str(pathlib.Path("remeshedRasters", outFile.name))
         remeshedFlag = "Yes"
+
+    # check if no data values only where DEM also has no data values
+    nanDEMMasked = np.where(np.isnan(dem["rasterData"]), -9999, inputField["rasterData"])
+
+    # if diff is negative on Left side DEM is smaller
+    # if diff is negative on right side DEM is larger
+    nNeglectRowsMin = int(np.ceil(abs(min(0, diffY0 / dem["header"]["cellsize"]))))
+    nNeglectRowsMax = int(np.ceil(abs(max(0, diffY1 / dem["header"]["cellsize"]))))
+
+    # if diff is negative on lower side DEM is smaller
+    # if diff is negative on right side DEM is larger
+    nNeglectColsMin = int(np.ceil(abs(min(0, diffX0 / dem["header"]["cellsize"]))))
+    nNeglectColsMax = int(np.ceil(abs(max(0, diffX1 / dem["header"]["cellsize"]))))
+    maxRows = dem["header"]["nrows"] - nNeglectRowsMin
+    maxCols = dem["header"]["ncols"] - nNeglectColsMin
+
+    # change order because diff is with origin lower!!
+    nanDEMMaskedLimited = nanDEMMasked[nNeglectRowsMax:maxRows, nNeglectColsMax:maxCols]
+
+    # check if nan values in raster file data
+    if np.any(np.isnan(nanDEMMaskedLimited)):
+        message = "In %s file (%s) nan values found inside DEM extent - this is not allowed" % (
+            fileType,
+            inputFile.name,
+        )
+        log.error(message)
+        raise AssertionError(message)
 
     return returnStr, outFile, remeshedFlag
 
