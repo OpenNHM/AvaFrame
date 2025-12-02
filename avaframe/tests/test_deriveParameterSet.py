@@ -744,8 +744,6 @@ def test_checkExtentAndCellSize(tmp_path):
 
     testFile4, outFile4, remeshedFlag4 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
 
-    newRaster4 = IOf.readRaster((inDir / testFile4))
-
     assert remeshedFlag4 == "No"
 
     inputFile = inDirR / "inputFile4.asc"

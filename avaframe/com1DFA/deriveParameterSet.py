@@ -971,10 +971,8 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
         outFile = inputFile
         log.info("%s matches extent and cell size of DEM - keep file" % returnStr)
         remeshedFlag = "No"
-        inFieldIni = inputField["rasterData"].copy()
     else:
         # resize data, project data from inputFile onto computational domain
-        inFieldIni = inputField["rasterData"].copy()
         inputField["rasterData"], _ = geoTrans.resizeData(inputField, dem)
 
         # add warning
@@ -1021,13 +1019,15 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
         remeshedFlag = "Yes"
 
     # check if no data values only where DEM also has no data values
+    # if remeshed - potentially nans at edges, if inputField has a different origin/extent
+    # for example if extent of DEM is larger -> nans in this region in remeshed input file
+    # first maks nans values of DEM as there, also inputField is allowed to have nans
     nanDEMMasked = np.where(np.isnan(dem["rasterData"]), -9999, inputField["rasterData"])
-
+    # search for indices where nans come from remeshing use difference in extent prior to remeshing
     # if diff is negative on Left side DEM is smaller
     # if diff is negative on right side DEM is larger
     nNeglectRowsMin = int(np.ceil(abs(min(0, diffY0 / dem["header"]["cellsize"]))))
     nNeglectRowsMax = int(np.ceil(abs(max(0, diffY1 / dem["header"]["cellsize"]))))
-
     # if diff is negative on lower side DEM is smaller
     # if diff is negative on right side DEM is larger
     nNeglectColsMin = int(np.ceil(abs(min(0, diffX0 / dem["header"]["cellsize"]))))
@@ -1035,10 +1035,11 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
     maxRows = dem["header"]["nrows"] - nNeglectRowsMin
     maxCols = dem["header"]["ncols"] - nNeglectColsMin
 
+    # add mask where nans come from remeshing
     # change order because diff is with origin lower!!
     nanDEMMaskedLimited = nanDEMMasked[nNeglectRowsMax:maxRows, nNeglectColsMax:maxCols]
 
-    # check if nan values in raster file data
+    # check if nan values in raster file data (excluding nans from remeshing and where also DEM has nans)
     if np.any(np.isnan(nanDEMMaskedLimited)):
         message = "In %s file (%s) nan values found inside DEM extent - this is not allowed" % (
             fileType,
