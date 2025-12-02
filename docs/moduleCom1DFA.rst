@@ -48,47 +48,58 @@ folder structure described below.
 
 
 In the directory ``Inputs``, the following files are required. Be aware that ALL inputs have to be provided in the same
-projection:
+projection. Allowed file types are either raster files, i.e. `ESRI grid format <https://desktop.arcgis.com/en/arcmap/10.3/manage-data/raster-and-images/esri-ascii-raster-format.htm>`_
+or GeoTIFF format, or shape files and specified for the respective input type below:
 
-* digital elevation model as raster file with either `ESRI grid format <https://desktop.arcgis.com/en/arcmap/10.3/manage-data/raster-and-images/esri-ascii-raster-format.htm>`_
-  or GeoTIFF format. The format of the DEM determines the format of the output files.
 
-* release area scenario as (multi-) polygon shapefile (in Inputs/REL; multiple features are possible)
+* **digital elevation model as raster file. The format of the DEM determines the format of the output files.**
 
-  - the release area polygon must not contain any "holes" or inner rings
-  - the release area name should not contain an underscore, if so '_AF' is added.
-  - recommended attributes are *name*, *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
-    and *ci95* (see :ref:`moduleAna4Stats:probAna - Probability maps`)
-  - ALL features within one shapefile are released at the same time (and interact), this is what we refer to as *scenario*
-  - if you want to simulate different scenarios with the same features, you have to copy them to separate shapefiles
-
+* release area scenario as (multi-) polygon shapefile OR raster file (in Inputs/REL; only shapefiles OR raster files)
+    - either polygon shapefile(s):
+        - the release area polygon must not contain any "holes" or inner rings
+        - multiple features are allowed
+        - recommended attributes are *name*, *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`) and *ci95* (see :ref:`moduleAna4Stats:probAna - Probability maps`)
+    - or raster file(s):
+        - cells with non-zero values define the release area
+        - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
+        - negative values are not allowed (specified no-data values are not considered)
+    - ALL features within one shapefile or all cells with non-zero values in a raster file are released at the same time (and interact), this is what we refer to as *scenario*
+    - if you want to simulate different scenarios with the same features, you have to copy them to separate shapefiles/raster files
+    - the release area name should not contain an underscore, if so '_AF' is added.
 
 and the following files are optional. Please note: in the standard configuration (i.e. ``simTypeList = available``) ,
 the *null* variant is always run! I.e. if a resistance and/or an entrainment file is given (as described below),
 at least two results are generated: the *null* variant and the variant with entrainment and/or resistance.
 
-* one entrainment area (multi-) polygon shapefile (in Inputs/ENT)
+* **one entrainment area as (multi-) polygon shapefile OR raster file (in Inputs/ENT)**
+    - marks the (multiple) areas where entrainment can occur.
+    - either polygon shapefile:
+        - attribute *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
+        - must not contain any "holes" or inner rings
+    - or raster file:
+        - cells with non-zero values define where entrainment can occur
+        - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
+        - negative values are not allowed (specified no-data values are not considered)
 
-  - marks the (multiple) areas where entrainment can occur.
-  - attribute *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
-  - must not contain any "holes" or inner rings
+* **one resistance area as (multi-) polygon shapefile OR raster file (in Inputs/RES)**
+    - marks the (multiple) areas where resistance is considered
+    - please consider the information about resistance below :ref:`moduleCom1DFA:Resistance setup`
+    - either polygon shapefile:
+        - resistance areas must not contain any "holes" or inner rings
+    - or raster file:
+        - cells with non-zero values define where entrainment can occur
+        - negative values are not allowed (specified no-data values are not considered)
+        - if the cellsize does not match the requested meshCellSize, the file is
+          remeshed if within `resizeThreshold`
 
-
-* one resistance area (multi-) polygon shapefile (in Inputs/RES)
-
-  - marks the (multiple) areas where resistance is considered
-  - resistance areas must not contain any "holes" or inner rings
-  - please consider the information about resistance below :ref:`moduleCom1DFA:Resistance setup`
-
-
-* one secondary release area (multi-) polygon shapefile (in Inputs/SECREL)
+* **one secondary release area (multi-) as polygon shapefile OR raster file (in Inputs/SECREL)**
 
   - can have multiple release areas, each as one feature
   - same setup as the release area scenario (see above)
   - features will release as soon as at least one particle enters its area
   - release area polygons must not contain any "holes" or inner rings
 
-* raster files for the Voellmy friction parameters :math:`\mu` and :math:`\xi` (in Inputs/RASTERS)
+* **raster files for the Voellmy friction parameters :math:`\mu` and :math:`\xi` (in Inputs/RASTERS)**
 
   - spatial field of :math:`\mu` and :math:`\xi` values with same extent as DEM
   - file names need to end with ``_mu.*`` and ``_xi.*``
@@ -96,7 +107,7 @@ at least two results are generated: the *null* variant and the variant with entr
   - if ``meshCellSize`` is different from simulation ``meshCellSize`` fields will be remeshed
   - only used if ``frictionModel`` is set to ``spatialVoellmy``
 
-* one ``_cropshape.shp`` shape file (in Inputs/POLYGONS)
+* **one ``_cropshape.shp`` shape file (in Inputs/POLYGONS)**
 
   - provides a polygon located inside the DEM to define area for report plots of peak fields (bounds of polygon)
   - if not provided peak fields are shown for the extent where peak field values are nonzero
@@ -112,51 +123,48 @@ Release-, entrainment thickness settings
 
 Release, entrainment and secondary release thickness can be specified in two different ways:
 
-1. Via **shape file**:
+1. **Read from file**:
 
-  - add an attribute called `thickness` for each feature
-  - important: ALL features have to have a single thickness value, which can differ between features
-  - for entrainment area only: if the thickness value is missing, the thickness value is
-    taken from `entThIfMissingInShp` (default 0.3 m) in the configuration file. If multiple features are
-    in the entrainment file the thickness attribute has to be set either for ALL or NONE of the features.
-  - for backwards compatibility, the attribute 'd0' also works, but we suggest to use `thickness` in new projects
-  - set the flag `THICKNESSFromShp` (i.e. relThFromFile, entThFromFile,
-    secondaryRelthFromShp) to True in the configuration file (default is True)
-  - a parameter variation can be added with the `THICKNESSPercentVariation`
-    parameter in the configuration file in the form of
-    ``+-percentage$numberOfSteps``. Provided a `+` a positive variation will be
-    performed, if `-` is given, only a negative variation is performed. If no
-    sign is given: both directions will be used. Additionally, a variation can be
-    added with the `THICKNESSRangeVariation` parameter in the configuration file
-    in the form of ``+-range$numberOfSteps``. Provided a `+` a positive variation
-    will be performed, if `-` is given, only a negative variation is performed.
-    If no sign is given: both directions will be used. Furthermore, there is the
-    option to vary the thickness in a range of +- the 95% confidence interval
-    value, which is also read from the shape file (requires an attribute called
-    ci95). In order to use this variation, set the 'THICKESSRangeFromCiVariation'
-    to ``ci95$numberOfSteps``.
+- Via **shape file**:
+
+    - add an attribute called `thickness` for each feature
+    - important: ALL features have to have a single thickness value, which can differ between features
+    - for entrainment area only: if the thickness value is missing, the thickness value is
+      taken from `entThIfMissingInShp` (default 0.3 m) in the configuration file. If multiple features are
+      in the entrainment file the thickness attribute has to be set either for ALL or NONE of the features.
+    - for backwards compatibility, the attribute 'd0' also works, but we suggest to use `thickness` in new projects
+    - set the flag `THICKNESSFromFile` (i.e. relThFromFile, entThFromFile,
+      secondaryRelThFromFile) to True in the configuration file (default is True)
+    - a parameter variation can be added with the `THICKNESSPercentVariation`
+      parameter in the configuration file in the form of
+      ``+-percentage$numberOfSteps``. Provided a `+` a positive variation will be
+      performed, if `-` is given, only a negative variation is performed. If no
+      sign is given: both directions will be used. Additionally, a variation can be
+      added with the `THICKNESSRangeVariation` parameter in the configuration file
+      in the form of ``+-range$numberOfSteps``. Provided a `+` a positive variation
+      will be performed, if `-` is given, only a negative variation is performed.
+      If no sign is given: both directions will be used. Furthermore, there is the
+      option to vary the thickness in a range of +- the 95% confidence interval
+      value, which is also read from the shape file (requires an attribute called
+      ci95). In order to use this variation, set the 'THICKESSRangeFromCiVariation'
+      to ``ci95$numberOfSteps``.
+
+- Via **raster file**:
+
+    - non-zero cell values are read as thickness
+    - set the flag `THICKNESSFromFile` (i.e. relThFromFile, entThFromFile,
+      secondaryRelThFromFile) to True in the configuration file (default is True)
+    - no thickness variation is available if input type is raster file and `THICKNESSFromFile` is *True*
 
 2. Via **configuration file (ini)**:
 
-  - set the flag 'THICKNESSFromShp' to False
-  - provide your desired thickness value in the respective THICKNESS parameter (i.e. relTh, entTh or secondaryRelth)
-  - in addition to the `THICKNESSPercentVariation` and `THICKNESSRangeVariation`
-    options (see option 1) and the standard variation options in
-    :ref:`configuration:Configuration`, you can also directly set e.g. `relTh =
-    1.$50$2`, ``referenceValue$+-percentage$numberOfSteps``, resulting in a
-    variation of relTh from 0.5 to 1.5m in two steps.
-
-Only available for release thickness:
-
-3. Via **release thickness file**:
-
-  - set the flag 'relThFromFile' to False
-  - set the flag 'relThFromFile' to True
-  - save a raster file with info on release thickness as raster file in
-    ``Inputs/RELTH`` the number of rows and columns must match the DEM raster
-    with desired meshCellSize (recommended)
-  - if the cellsize does not match the requested meshCellSize, the file is
-    remeshed.
+    - set the flag 'THICKNESSFromFile' to False
+    - provide your desired thickness value in the respective THICKNESS parameter (i.e. relTh, entTh or secondaryRelth)
+    - in addition to the `THICKNESSPercentVariation` and `THICKNESSRangeVariation`
+      options (see option 1) and the standard variation options in
+      :ref:`configuration:Configuration`, you can also directly set e.g. `relTh =
+      1.$50$2`, ``referenceValue$+-percentage$numberOfSteps``, resulting in a
+      variation of relTh from 0.5 to 1.5m in two steps.
 
 
 Friction parameters

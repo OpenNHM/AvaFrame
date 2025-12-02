@@ -686,7 +686,7 @@ def test_checkExtentAndCellSize(tmp_path):
     assert newRaster2["header"]["xllcenter"] == 1.0
     assert newRaster2["header"]["yllcenter"] == 5.0
 
-    inputFile2 = inDirR / "inputFile1.asc"
+    inputFile2 = inDirR / "inputFile2.asc"
     headerInput2 = {
         "nrows": 5,
         "ncols": 5,
@@ -706,6 +706,102 @@ def test_checkExtentAndCellSize(tmp_path):
         assert dP.checkExtentAndCellSize(cfg, inputFile2, dem, "mu")
     assert "Lower left center coordinates of DEM and " in str(e.value)
 
+    demField = np.ones((4, 5))
+    dem = {
+        "header": {
+            "nrows": 4,
+            "ncols": 5,
+            "xllcenter": 1,
+            "yllcenter": 5,
+            "cellsize": 1,
+            "nodata_value": -9999,
+            "driver": "AAIGrid",
+        },
+        "rasterData": demField,
+    }
+
+    demField[0, :] = np.nan
+    dem["header"]["transform"] = IOf.transformFromASCHeader(dem["header"])
+    dem["header"]["crs"] = rasterio.crs.CRS()
+
+    inputFile = inDirR / "inputFile3.asc"
+    headerInput = {
+        "nrows": 4,
+        "ncols": 5,
+        "xllcenter": 1,
+        "yllcenter": 5,
+        "cellsize": 1,
+        "nodata_value": -9999,
+        "driver": "AAIGrid",
+    }
+    headerInput["transform"] = IOf.transformFromASCHeader(headerInput)
+    headerInput["crs"] = rasterio.crs.CRS()
+
+    inField = np.ones((4, 5))
+    inField[2, 2] = 10.0
+    inField[0, :] = np.nan
+    IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
+
+    testFile4, outFile4, remeshedFlag4 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+
+    assert remeshedFlag4 == "No"
+
+    inputFile = inDirR / "inputFile4.asc"
+    inField = np.ones((4, 5))
+    inField[2, 2] = 10.0
+    inField[0, :] = np.nan
+    inField[1, 1] = np.nan
+    IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
+
+    with pytest.raises(AssertionError) as e:
+        assert dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+    assert "nan values found inside DEM extent - this is not allowed" in str(e.value)
+
+    inputFile = inDirR / "inputFile5.asc"
+    headerInput = {
+        "nrows": 4,
+        "ncols": 5,
+        "xllcenter": 1.3,
+        "yllcenter": 4.2,
+        "cellsize": 1,
+        "nodata_value": -9999,
+        "driver": "AAIGrid",
+    }
+    headerInput["transform"] = IOf.transformFromASCHeader(headerInput)
+    headerInput["crs"] = rasterio.crs.CRS()
+
+    inField = np.ones((4, 5))
+    inField[2, 2] = 10.0
+    inField[0, :] = np.nan
+    IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
+
+    testFile5, outFile5, remeshedFlag5 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+    newRaster5 = IOf.readRaster((inDir / testFile5))
+    assert remeshedFlag5 == "Yes"
+    assert np.isnan(newRaster5["rasterData"][0, :]).all()
+    assert np.isnan(newRaster5["rasterData"][-1, :]).all()
+
+    inputFile = inDirR / "inputFile51.asc"
+    headerInput = {
+        "nrows": 4,
+        "ncols": 5,
+        "xllcenter": 1.3,
+        "yllcenter": 4.2,
+        "cellsize": 1,
+        "nodata_value": -9999,
+        "driver": "AAIGrid",
+    }
+    headerInput["transform"] = IOf.transformFromASCHeader(headerInput)
+    headerInput["crs"] = rasterio.crs.CRS()
+
+    inField = np.ones((4, 5))
+    inField[2, 2] = 10.0
+    inField[0:2, :] = np.nan
+    IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
+
+    with pytest.raises(AssertionError) as e:
+        assert dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+    assert "nan values found inside DEM extent - this is not allowed" in str(e.value)
 
 # Produced by AI (test):
 
