@@ -1681,6 +1681,7 @@ def initializeFields(cfg, dem, particles, releaseLine):
     fields["sfcChange"] = np.zeros((nrows, ncols))  # depth that changes the surface [m]
     fields["sfcChangeTotal"] = np.zeros((nrows, ncols))  # total depth that changed the surface [m]
     fields["demAdapted"] = np.zeros((nrows, ncols))  # adapted topography [m]
+    fields["timeInfo"] = np.zeros((nrows, ncols))  # first time
     # for optional fields, initialize with dummys (minimum size array). The cython functions then need something
     # even if it is empty to run properly
     if ("TA" in resTypesLast) or ("pta" in resTypesLast):
@@ -2673,6 +2674,9 @@ def computeEulerTimeStep(
     if fields["computeTA"]:
         particles = DFAfunC.computeTrajectoryAngleC(particles, zPartArray0)
     particles, fields = DFAfunC.updateFieldsC(cfg, particles, dem, fields)
+
+    # update field that indicates when cell was first affected by mass
+    fields = com1DFATools.updateTimeField(fields, particles["t"])
 
     # adapt DEM considering erosion and deposition
     # only adapt DEM when in one grid cell the changing height > threshold

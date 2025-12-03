@@ -391,11 +391,14 @@ def test_checkThicknessSettings():
 
     thName = "relTh"
 
-    thicknessSettingsCorrect = dP.checkThicknessSettings(cfg, thName, inputSimFiles)
-
-    assert thicknessSettingsCorrect
+    with pytest.raises(AssertionError) as e:
+        assert dP.checkThicknessSettings(cfg, "relTh", inputSimFiles)
+    assert str(e.value) == (
+        "If Release area input file is of type .asc or .tif - relThFromFile needs to be set to True"
+    )
 
     cfg["GENERAL"]["relThRangeVariation"] = "50$4"
+    cfg["GENERAL"]["relThFromFile"] = "True"
 
     with pytest.raises(AssertionError) as e:
         assert dP.checkThicknessSettings(cfg, "relTh", inputSimFiles)

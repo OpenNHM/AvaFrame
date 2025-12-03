@@ -214,6 +214,31 @@ colorsSfcC = [
 ]
 cmapSfcChange = copy.copy(cmapCrameri.nuuk.reversed())
 
+# colormap for timeInfo
+levtimeInfo = list(fU.splitIniValueToArraySteps(cfgPlotUtils["timeInfoColorLevels"]))
+# lipari reversed color map
+colorstimInfo = [
+    "#fdf5da",
+    "#f2debb",
+    "#e9c99f",
+    "#e5b58a",
+    "#e7a37a",
+    "#ea906d",
+    "#e57b62",
+    "#d46b5e",
+    "#bc6461",
+    "#a36267",
+    "#8e616c",
+    "#7c6071",
+    "#6b5f76",
+    "#5b5d79",
+    "#45587a",
+    "#294b70",
+    "#13385a",
+    "#082540",
+    "#031326",
+]
+cmaptimeInfo = copy.copy(cmapCrameri.lipari.reversed())
 
 ###############################################
 # Set colormaps to use
@@ -236,6 +261,8 @@ cmapProb = {"cmap": cmapProbmap, "colors": colorsProb, "levels": levProb}
 cmapEnergy = {"cmap": cmapE, "colors": colorsE, "levels": levE}
 
 cmapSfcChange = {"cmap": cmapSfcChange, "colors": colorsSfcC, "levels": levSfcC}
+
+cmapTime = {"cmap": cmaptimeInfo, "colors": colorstimInfo, "levels": levtimeInfo}
 
 # for zdelta
 # Remark FSO: the try except comes from cmcrameri v1.5 not having lipari, but it is still
@@ -269,6 +296,7 @@ colorMaps = {
     "dmDet": cmapDmDet,
     "demAdapted": cmapGreys,
     "sfcChange": cmapSfcChange,
+    "timeInfo": cmapTime,
 }
 
 cmapDEM = cmapGreys

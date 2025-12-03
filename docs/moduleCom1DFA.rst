@@ -122,7 +122,8 @@ Release-, entrainment thickness settings
     Thickness is unambiguous: it is measured normal to the slope.
 
 Release, entrainment and secondary release thickness can be specified in two different ways, 1) directly from the provided
-input file (shape file or raster file) or 2) through the :py:mod:`com1DFA` configuration file:
+input file (shape file or raster file) or 2) through the :py:mod:`com1DFA` configuration file
+(only available if input file is of type shape file):
 
 1. **Read from input file**:
 
@@ -306,6 +307,7 @@ The result types that can be chosen to be exported are (all correspond to fields
 * FTDet - thickness of detrained mass computed based on dmDet / (rho * area of cell)
 * sfcChange - flow depth that changed the surface topography due to detrainment, stopping and entrainment
 * demAdapted - adapted DEM considering stopping/ detrainment/ entrainment
+* timeInfo - time step at which a cell was first affected by flow
 * particles (:ref:`com1DFAAlgorithm:Particle properties`)
 
 Have a look at the designated subsection Output in ``com1DFA/com1DFACfg.ini``.

@@ -18,9 +18,7 @@ import avaframe.out3Plot.outAna1Plots as outAna1Plots
 
 def test_mainCompareSimSolCom1DFA(tmp_path):
     dirname = pathlib.Path(__file__).parents[0]
-    simiSolCfg = (
-        dirname / ".." / "tests" / "data" / "testSimiSol" / "simiSol_com1DFACfg.ini"
-    )
+    simiSolCfg = dirname / ".." / "data" / "avaSimilaritySol" / "Inputs" / "simiSol_com1DFACfg.ini"
     sourceDir = dirname / ".." / "data" / "avaSimilaritySol" / "Inputs"
     destDir = tmp_path / "avaSimilaritySol" / "Inputs"
     avalancheDir = tmp_path / "avaSimilaritySol"
@@ -33,15 +31,27 @@ def test_mainCompareSimSolCom1DFA(tmp_path):
     cfgMain = cfgUtils.getGeneralConfig()
     cfgMain['MAIN']['avalancheDir'] = str(avalancheDir)
     cfg = cfgUtils.getModuleConfig(com1DFA, simiSolCfg)
+    # adjust settings for faster computation times
+    cfg["GENERAL"]["cMax"] = "0.04"
+    cfg["GENERAL"]["sphKernelRadius"] = "8"
+    cfg["GENERAL"]["nPPK0"] = "15|20"
+    cfg["GENERAL"]["aPPK"] = "-0.5|-1"
+    cfg["GENERAL"]["meshCellSize"] = "8"
+
+    # write updated cfg to file
+    cfgFile = pathlib.Path(destDir, "%s.ini" % ("simiSolUpdated_com1DFACfg"))
+    with open(cfgFile, "w") as conf:
+        cfg.write(conf)
+
     # Define release thickness distribution
     demFile = gI.getDEMPath(avalancheDir)
     relDict = simiSolTest.getReleaseThickness(avalancheDir, cfg, demFile)
     # call com1DFA to perform simulations - provide configuration file and release thickness function
     # (may be multiple sims)
-    _, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=simiSolCfg)
+    _, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile)
 
     simDF, _ = cfgUtils.readAllConfigurationInfo(avalancheDir)
-    solSimi = simiSolTest.mainSimilaritySol(simiSolCfg)
+    solSimi = simiSolTest.mainSimilaritySol(cfgFile)
 
     simDF = simiSolTest.postProcessSimiSol(
         avalancheDir, cfgMain, cfg, simDF, solSimi, outDirTest
