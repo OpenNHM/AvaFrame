@@ -153,6 +153,7 @@ def checkResType(fullCfg, section, key, value):
             "FTDet",
             "sfcChange",
             "demAdapted",
+            "timeInfo",
         ]
         message = "The parameter % s is not a valid resType. It will not be saved"
         newResType = []
@@ -408,6 +409,18 @@ def checkThicknessSettings(cfg, thName, inputSimFiles):
             message = (
                 "If %s is set to False and %s defined by a shapefile - it is required to set a value for %s"
                 % (thFlag, nameStrings[thName], thName)
+            )
+            log.error(message)
+            raise AssertionError(message)
+        # Check: If raster input file but thFromFile = False, error
+        elif (
+            not cfg["GENERAL"].getboolean(thFlag)
+            and inputSimFiles["entResInfo"][thName + "FileType"] in [".asc", ".tif"]
+            and inputSimFiles["entResInfo"]["flag" + nameTypes[thName]] == "Yes"
+        ):
+            message = "If %s input file is of type .asc or .tif - %s needs to be set to True" % (
+                nameStrings[thName],
+                thFlag,
             )
             log.error(message)
             raise AssertionError(message)

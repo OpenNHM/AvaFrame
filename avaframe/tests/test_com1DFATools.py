@@ -150,3 +150,27 @@ def test_updateResCoeffFields(tmp_path):
     assert fields["detRaster"][0, 0] == 3
     assert fields["cResRaster"][2, 3] == 0
     assert fields["detRaster"][2, 3] == 3
+
+
+def test_updateTimeField():
+    """test updating the field of timeInfo"""
+
+    nrows = 5
+    ncols = 6
+
+    timeInfo = np.zeros((nrows, ncols))
+    timeInfo[0, 1:3] = 1.0
+
+    FT = np.zeros((nrows, ncols))
+    FT[0, 1:3] = 0.5
+    FT[1, 2:4] = 2.5
+    timeStep = 5.0
+    fields = {"timeInfo": timeInfo, "FT": FT}
+
+    fields = com1DFATools.updateTimeField(fields, timeStep)
+
+    assert fields["timeInfo"][0, 1] == 1.0
+    assert fields["timeInfo"][0, 2] == 1.0
+    assert fields["timeInfo"][1, 2] == 5.0
+    assert fields["timeInfo"][1, 3] == 5.0
+    assert not fields["timeInfo"][2:6, :].any()

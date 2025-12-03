@@ -1915,13 +1915,14 @@ def test_initializeFields():
     #    print("compute TA", fields["computeTA"])
     #    print("compute P", fields["computeP"])
 
-    assert len(fields) == 23
+    assert len(fields) == 24
     assert fields["computeTA"] is False
     assert fields["computeKE"] is False
     assert fields["computeP"]
     assert np.sum(fields["pfv"]) == 0.0
     assert np.sum(fields["pta"]) == 0.0
     assert np.sum(fields["ppr"]) == 0.0
+    assert np.sum(fields["pke"]) == 0.0
     assert np.sum(fields["FV"]) == 0.0
     assert np.sum(fields["P"]) == 0.0
     assert np.sum(fields["TA"]) == 0.0
@@ -1937,6 +1938,8 @@ def test_initializeFields():
     assert np.sum(fields["FTDet"]) == 0.0
     assert np.sum(fields["FTStop"]) == 0.0
     assert np.sum(fields["FTEnt"]) == 0.0
+    assert np.sum(fields["timeInfo"]) == 0.0
+    assert np.sum(fields["sfcChangeTotal"]) == 0.0
 
     cfg["REPORT"] = {"plotFields": "pft|pfv"}
     cfg["GENERAL"] = {
@@ -1947,7 +1950,7 @@ def test_initializeFields():
     }
     # call function to be tested
     particles, fields = com1DFA.initializeFields(cfg, dem, particles, "")
-    assert len(fields) == 23
+    assert len(fields) == 24
     assert fields["computeTA"]
     assert fields["computeKE"]
     assert fields["computeP"] is False

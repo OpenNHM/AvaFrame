@@ -10,7 +10,6 @@ import matplotlib
 matplotlib.use("agg")
 from matplotlib import pyplot as plt
 import pathlib
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import avaframe.out3Plot.plotUtils as pU
 import avaframe.in1Data.getInput as gI
@@ -306,9 +305,18 @@ def addConstrainedDataField(fileName, resType, demField, ax, cellSize, alpha=1.0
         if len(np.nonzero(data)[0]) > 0.0:
             # add Colorbar
             fig = ax.get_figure()
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
-            fig.colorbar(im1, cax=cax)
+            cax = ax.inset_axes([1.05, 0.075, 0.05, 0.925], transform=ax.transAxes)
+            fig.colorbar(im1, ax=ax, cax=cax)
+            cax2 = ax.inset_axes([1.0, 0.0, 0.05, 0.075], transform=ax.transAxes)
+            plt.text(
+                0.5,
+                0.5,
+                ("[%s]" % unit),
+                horizontalalignment="left",
+                verticalalignment="center",
+                transform=cax2.transAxes,
+            )
+            cax2.set_visible(False)
 
     return ax, rowsMinPlot, colsMinPlot, extentCellCorners
 

@@ -481,3 +481,27 @@ def chooseDemPlot(dem, adaptedDemBackground=False):
         demPlot["rasterData"] = dem["originalRasterData"]
         log.info("The original DEM is used in the plots.")
     return demPlot
+
+
+def updateTimeField(fields, timeStep):
+    """update filed indicating first time step mass entered a cell
+
+    Parameters
+    -----------
+    fields: dict
+        dictionary with fields
+    timeStep: float
+        actual time step
+
+    Returns
+    ---------
+    fields: dict
+        updated timeInfo field
+    """
+
+    FT = fields["FT"]
+
+    # set time step to previously not affected cells
+    fields["timeInfo"] = np.where(((fields["timeInfo"] == 0) & (FT != 0)), timeStep, fields["timeInfo"])
+
+    return fields
