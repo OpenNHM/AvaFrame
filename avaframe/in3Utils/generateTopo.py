@@ -241,81 +241,175 @@ def addDrop(cfg, x, y, zv):
 
 def hockey(cfg):
     """
-    Compute coordinates of an inclined plane with a flat foreland  defined by
-    total fall height z0, angle to flat foreland (meanAlpha) and a radius (rCirc) to
-    smooth the transition from inclined plane to flat foreland
-    """
+    Compute coordinates of an inclined plane with a flat or inclined foreland defined by
+    total fall height z0, angle to foreland (meanAlpha), foreland angle (tiltRunout),
+    and a radius (rCirc) to smooth the transition between planes
+    
+    Note: meanAlpha and tiltRunout are provided as POSITIVE values but represent
+    DESCENDING slopes ! 
+    Example: meanAlpha=35 creates a -35° slope, tiltRunout=5 creates a -5° slope
+    meanAlpha should be larger than tiltRunout for typical runout geometry.
 
-    # input parameters
+    Parameters
+    ----------
+    cfg dictionary of dictionaries
+        parameters from configuration file
+
+    Returns
+    ----------
+
+    x, y, zv 2D numpy arrays
+        x, y and z coordinates of the hockey-stick topography in 2D arrays
+    """
+# input parameters
     rCirc = float(cfg["TOPO"]["rCirc"])
     meanAlpha = float(cfg["TOPO"]["meanAlpha"])
     z0 = float(cfg["TOPO"]["z0"])
-
+    
+    # New parameter for foreland inclination (default 0 for flat)
+    tiltRunout = float(cfg["TOPO"].get("tiltRunout", 0))
+    
     cff = float(cfg["CHANNELS"]["cff"])
     cRadius = float(cfg["CHANNELS"]["cRadius"])
     cInit = float(cfg["CHANNELS"]["cInit"])
     cMustart = float(cfg["CHANNELS"]["cMustart"])
     cMuendFP = float(cfg["CHANNELS"]["cMuendFP"])
-
     dx, xEnd, yEnd = getGridDefs(cfg)
-
+    
     # Compute coordinate grid
     xv, yv, zv, x, y, nRows, nCols = computeCoordGrid(dx, xEnd, yEnd)
-
-    # Compute distance to flat foreland for given meanAlpha
+    
+    # Compute distance to foreland transition for given meanAlpha
+    # Note: meanAlpha is provided as positive but represents a descending slope
     x1 = z0 / np.tan(np.radians(meanAlpha))
+    
     if x1 >= xEnd * 0.9:
         log.warning(
-            "Your domain (xEnd) is to small or the slope angle (meanAlpha) to"
-            "shallow to produce a signifcant (>10 percent of domain, in your case:"
-            " %.2f m) flat foreland!" % (0.1 * (xEnd - dx))
+            "Your domain (xEnd) is too small or the slope angle (meanAlpha) too "
+            "shallow to produce a significant (>10 percent of domain, in your case:"
+            " %.2f m) foreland!" % (0.1 * (xEnd - dx))
         )
-
+   
     # Compute circle parameters for smoothing the transition
-    beta = 0.5 * (180.0 - (meanAlpha))
-    xc = rCirc / np.tan(np.radians(beta))
-    yc = xc * np.cos(np.radians(meanAlpha))
-    xCirc = x1 + xc
-    # for plotting
-    d1 = np.tan(np.radians(beta)) * x1
+    # Both angles are provided as positive values representing descending slopes
+    # The actual angle between the two planes needs to account for their orientation
+    # from horizontal: upper slope goes down at -meanAlpha, lower slope at -tiltRunout
+    deltaAlpha = (180.0 - meanAlpha) + tiltRunout  # Interior angle between the two slopes
+    
+    if deltaAlpha <= 0 or deltaAlpha >= 180:
+        log.warning(
+            f"Invalid geometry: meanAlpha={meanAlpha}°, tiltRunout={tiltRunout}° "
+            f"produces deltaAlpha={deltaAlpha}°. Check your angle values."
+        )
+    
+    if meanAlpha <= tiltRunout:
+        log.warning(
+            f"meanAlpha ({meanAlpha}°) should be larger than tiltRunout ({tiltRunout}°) "
+            "for typical runout geometry. The transition may not work as expected."
+        )
+    
+    # Height at the kink point (where slopes would meet without smoothing)
+    z1 = z0 - np.tan(np.radians(meanAlpha)) * x1
+    log.info(f"found kink point at {x1, z1} - note z1 should be 0")
+    
+    # Calculate geometry for circular transition between two slopes
+    # Both slopes descend (angles provided as positive values)
+    
+    # Distance from perpendicular to circle center
+    # This is the key: perpendicular distance from each slope to the circle center
+    perpDist = rCirc
+    
+    # Distance along each slope from kink point to tangent point
+    # Using geometry: the tangent points are equidistant from the kink along their respective slopes
+    tangentDist = rCirc / np.tan(np.radians(deltaAlpha / 2.0))
+    
+    # Tangent point on upper slope (going backward in x from x1)
+    # Moving up along the slope means: -dx in x-direction, +dz in z-direction
+    x_tangent_upper = x1 - tangentDist * np.cos(np.radians(meanAlpha))
+    z_tangent_upper = z1 + tangentDist * np.sin(np.radians(meanAlpha))
 
+    log.info(f"upper tangent point at {x_tangent_upper, z_tangent_upper}")
+    
+    # Tangent point on lower slope (going forward in x from x1)
+    # Moving down along the runout means: +dx in x-direction, -dz in z-direction
+    x_tangent_lower = x1 + tangentDist * np.cos(np.radians(tiltRunout))
+    z_tangent_lower = z1 - tangentDist * np.sin(np.radians(tiltRunout))
+
+    log.info(f"lower tangent point at {x_tangent_lower, z_tangent_lower}")
+   
+    # Circle center is perpendicular distance from each tangent point
+    # toward the "inside" of the angle (above both slopes)
+    xCirc = x_tangent_upper + perpDist * np.cos(np.radians(90 - meanAlpha))
+    zCirc = z_tangent_upper + perpDist * np.sin(np.radians(90 - meanAlpha))
+
+    # Verify with lower tangent point (should give same result)
+    xCirc_check = x_tangent_lower + perpDist * np.cos(np.radians(90 - tiltRunout))
+    zCirc_check = z_tangent_lower + perpDist * np.sin(np.radians(90 - tiltRunout))
+
+    log.info(f"circle center at {xCirc, zCirc}")
+    log.info(f"circle center at {xCirc_check, zCirc_check}")
+    
+    # Extents of the circular transition in x-direction
+    x_start = x_tangent_upper
+    x_end = x_tangent_lower
+    
+    # For plotting
+    # d1 = np.tan(np.radians(beta)) * x1
+    
     # Set surface elevation
     zv = np.zeros((nRows, nCols))
+    
+    # Upper inclined plane (before transition)
     mask = np.zeros(np.shape(x))
-    mask[np.where(x < (x1 - yc))] = 1
+    mask[np.where(x < x_start)] = 1
     zv = zv + (z0 - np.tan(np.radians(meanAlpha)) * x) * mask
-
+    
+    # Circular transition zone
     mask = np.zeros(np.shape(x))
-    mask[np.where(((x1 - yc) <= x) & (x <= (x1 + xc)))] = 1
-    # rCirc + np.sqrt(rCirc**2 - (xv[m] - xCirc)**2)
-    zv = zv + (rCirc - np.sqrt(np.abs(rCirc ** 2 - (xCirc - x) ** 2))) * mask
-
+    mask[np.where((x_start <= x) & (x <= x_end))] = 1
+    
+    # Calculate height on the circle
+    # Circle equation: (x - xCirc)^2 + (z - zCirc)^2 = rCirc^2
+    # Solve for z (taking the lower part of the circle)
+    zv = zv + (zCirc - np.sqrt(np.abs(rCirc ** 2 - (x - xCirc) ** 2))) * mask
+    
+    # Foreland (can now be inclined)
+    mask = np.zeros(np.shape(x))
+    mask[np.where(x > x_end)] = 1
+    
+    # Height at end of circular transition (use the calculated tangent point)
+    z_transition_end = z_tangent_lower
+    x_transition_end = x_tangent_lower
+    
+    # Inclined or flat foreland
+    zv = zv + (z_transition_end - np.tan(np.radians(tiltRunout)) * (x - x_transition_end)) * mask
+    
     # If a channel shall be introduced
     if cfg["TOPO"].getboolean("channel"):
         # Compute cumulative distribution function - c1 for upper part (start)
         # of channel and c2 for lower part (end) of channel
         c1 = norm.cdf(xv, cMustart * (x1), cff)
         c2 = 1.0 - norm.cdf(xv, cMuendFP * (x1), cff)
-
-        # combine both into one function separated at the the middle of
-        #  the channel longprofile location
+        
+        # combine both into one function separated at the middle of
+        # the channel longprofile location
         mask = np.zeros(np.shape(xv))
         mask[np.where(xv < (x1 * (0.5 * (cMustart + cMuendFP))))] = 1
         c0 = c1 * mask
-
         mask = np.zeros(np.shape(xv))
         mask[np.where(xv >= (x1 * (0.5 * (cMustart + cMuendFP))))] = 1
         c0 = c0 + c2 * mask
-
+        
         # Is the channel of constant width or narrowing
         if cfg["TOPO"].getboolean("narrowing"):
             cExtent = cInit * (1 - c0[:]) + (c0[:] * cRadius)
         else:
             cExtent = np.zeros(np.shape(xv)) + cRadius
-
+        
         # Set surface elevation
         mask = np.zeros(np.shape(y))
         mask[np.where(abs(y) < cExtent)] = 1
+        
         # Add surface elevation modification introduced by channel
         if cfg["TOPO"].getboolean("topoAdd"):
             zv = zv + cExtent * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask
@@ -325,10 +419,13 @@ def hockey(cfg):
             zv = zv + cExtent * c0 * mask
         else:
             zv = zv - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
-
+    
     # Log info here
-    log.info("Hockeystick coordinates computed")
-
+    if tiltRunout == 0:
+        log.info("Hockeystick coordinates computed (flat foreland)")
+    else:
+        log.info(f"Hockeystick coordinates computed (inclined foreland at {tiltRunout}°)")
+    
     return x, y, zv
 
 
