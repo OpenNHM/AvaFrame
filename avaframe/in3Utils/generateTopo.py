@@ -21,22 +21,68 @@ log = logging.getLogger(__name__)
 
 def getParabolaParams(cfg):
     """Compute parameters for parabola"""
-
     # input parameters
     C = float(cfg["TOPO"]["C"])
     fLens = float(cfg["TOPO"]["fLens"])
     meanAlpha = float(cfg["TOPO"]["meanAlpha"])
-
-    # If mean slope is given or distance to the start of the flat plane
-    if meanAlpha != 0:
+    
+    # New parameter for tilted plane option
+    tiltRunout = float(cfg["TOPO"].get("tiltRunout", 0))  # inclination of straight section
+    
+    # If tiltRunout is specified, compute junction point where parabola slope = tiltRunout
+    if tiltRunout != 0:
+        # For a descending parabola z = C + Bx + Ax² where:
+        # - Starts at (0, C) with initial slope B (negative for descending)
+        # - Derivative: dz/dx = B + 2Ax
+        # - At junction x_j: B + 2Ax_j = -tan(tiltRunout) (negative for descending)
+        
+        # Given meanAlpha, we want the average slope from (0,C) to (x_j, z_j) to be -tan(meanAlpha)
+        # Average slope = (z_j - C) / x_j = -tan(meanAlpha)
+        # So: z_j = C - x_j * tan(meanAlpha)
+        
+        # Also, z_j = C + B*x_j + A*x_j²
+        # Therefore: C - x_j*tan(meanAlpha) = C + B*x_j + A*x_j²
+        # Simplifying: -x_j*tan(meanAlpha) = B*x_j + A*x_j²
+        # Dividing by x_j: -tan(meanAlpha) = B + A*x_j  ... (equation 1)
+        
+        # At junction, slope must equal tiltRunout:
+        # B + 2A*x_j = -tan(tiltRunout)  ... (equation 2)
+        
+        # From (1): B = -tan(meanAlpha) - A*x_j
+        # Substitute into (2): -tan(meanAlpha) - A*x_j + 2A*x_j = -tan(tiltRunout)
+        # Simplify: -tan(meanAlpha) + A*x_j = -tan(tiltRunout)
+        # So: A*x_j = -tan(tiltRunout) + tan(meanAlpha)
+        # Therefore: A = (tan(meanAlpha) - tan(tiltRunout)) / x_j
+        
+        # We still need to determine x_j. Use the total fall height C:
+        # From z_j = C - x_j*tan(meanAlpha) and the parabola must drop by C total
+        # Let's say the parabola section drops by C, so z_j = 0
+        # Then: 0 = C - x_j*tan(meanAlpha)
+        # So: x_j = C / tan(meanAlpha)
+        
+        tanMean = np.tan(np.radians(meanAlpha))
+        tanTilt = np.tan(np.radians(tiltRunout))
+        
+        fLen = C / tanMean
+        A = (tanMean - tanTilt) / fLen
+        B = -tanMean - A * fLen
+        
+        log.info("Tilted plane mode: junction at x = %.2f meters" % fLen)
+        log.info("Parabola slope at junction: %.2f degrees" % tiltRunout)
+        log.info("A = %.6f, B = %.6f" % (A, B))
+        
+    # Original flat plane logic
+    elif meanAlpha != 0:
         fLen = C / np.tan(np.radians(meanAlpha))
         log.info("fLen computed from mean alpha: %.2f meters" % fLen)
+        A = C / (fLen**2)
+        B = (-C * 2.0) / fLen
     else:
         fLen = fLens
         log.info("flen directly set to: %.2f meters" % fLen)
-    A = C / (fLen**2)
-    B = (-C * 2.0) / fLen
-
+        A = C / (fLen**2)
+        B = (-C * 2.0) / fLen
+    
     return A, B, fLen
 
 
@@ -288,91 +334,109 @@ def hockey(cfg):
 
 def parabola(cfg):
     """
-    Compute coordinates of a parabolically-shaped slope with a flat foreland
-    defined by total fall height C, angle (meanAlpha) or distance (fLen) to flat foreland
+    Compute coordinates of a parabolically-shaped slope with flat or tilted foreland
     """
-
     C = float(cfg["TOPO"]["C"])
     cff = float(cfg["CHANNELS"]["cff"])
     cRadius = float(cfg["CHANNELS"]["cRadius"])
     cInit = float(cfg["CHANNELS"]["cInit"])
     cMustart = float(cfg["CHANNELS"]["cMustart"])
     cMuend = float(cfg["CHANNELS"]["cMuend"])
-
-    # Get grid definitons
+    
+    # New parameter for tilted plane
+    tiltRunout = float(cfg["TOPO"].get("tiltRunout", 0))
+    
+    # Get grid definitions
     dx, xEnd, yEnd = getGridDefs(cfg)
-
+    
     # Compute coordinate grid
     xv, yv, zv, x, y, nRows, nCols = computeCoordGrid(dx, xEnd, yEnd)
-
+    
     # Get parabola Parameters
     [A, B, fLen] = getParabolaParams(cfg)
-
+    
+    # Compute elevation at junction point
+    z_junction = A * fLen**2 + B * fLen + C
+    
     # Set surface elevation
     zv = np.ones((nRows, nCols))
-    # initialize superimposed channel
-    superChannel = np.zeros(np.shape(xv))
-    superDam = np.zeros(np.shape(xv))
-
-    zv = zv * ((-(B ** 2)) / (4.0 * A) + C)
-    mask = np.zeros(np.shape(xv))
-    mask[np.where(xv < fLen)] = 1
-
-    zv = zv + (A * xv ** 2 + B * xv + C) * mask
-
-    # If a channel shall be introduced
+    
+    if tiltRunout != 0:
+        # Tilted plane mode: flat section is replaced by inclined plane
+        tanTilt = np.tan(np.radians(tiltRunout))
+        
+        # Use x (2D meshgrid) instead of xv (1D array)
+        # For x >= fLen: use straight line with slope = -tanTilt
+        # z = z_junction - tanTilt * (x - fLen)
+        zv = z_junction - tanTilt * (x - fLen)
+        
+        # For x < fLen: use parabola
+        mask = np.zeros(np.shape(x))
+        mask[np.where(x < fLen)] = 1
+        zv = zv * (1 - mask) + (A * x**2 + B * x + C) * mask
+        
+        log.info("Parabola with tilted plane (%.2f deg) computed" % tiltRunout)
+        log.info("A: %.5f, B: %.5f, C: %.5f"  % (A, B, C))
+        
+    else:
+        # Original flat plane mode
+        zv = zv * ((-(B**2)) / (4.0 * A) + C)
+        mask = np.zeros(np.shape(x))
+        mask[np.where(x < fLen)] = 1
+        zv = zv + (A * x**2 + B * x + C) * mask
+        
+        log.info("Parabola with flat outrun computed")
+    
+    # Initialize superimposed channel and dam
+    superChannel = np.zeros(np.shape(x))
+    superDam = np.zeros(np.shape(x))
+    
+    # Channel logic (unchanged)
     if cfg["TOPO"].getboolean("channel"):
-        c1 = norm.cdf(xv, cMustart * fLen, cff)
-        c2 = 1.0 - norm.cdf(xv, cMuend * fLen, cff)
-
-        # combine both into one function separated at the the middle of
-        #  the channel longprofile location
-        mask = np.zeros(np.shape(xv))
-        mask[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1
+        c1 = norm.cdf(x, cMustart * fLen, cff)
+        c2 = 1.0 - norm.cdf(x, cMuend * fLen, cff)
+        
+        mask = np.zeros(np.shape(x))
+        mask[np.where(x < (fLen * (0.5 * (cMustart + cMuend))))] = 1
         c0 = c1 * mask
-
-        mask = np.zeros(np.shape(xv))
-        mask[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1
+        mask = np.zeros(np.shape(x))
+        mask[np.where(x >= (fLen * (0.5 * (cMustart + cMuend))))] = 1
         c0 = c0 + c2 * mask
-
-        # Is the channel of constant width or narrowing
+        
         if cfg["TOPO"].getboolean("narrowing"):
             cExtent = cInit * (1 - c0[:]) + (c0[:] * cRadius)
         else:
             cExtent = np.zeros(nCols) + cRadius
-
-        # Add surface elevation modification introduced by channel
+        
         mask = np.zeros(np.shape(y))
         mask[np.where(abs(y) < cExtent)] = 1
+        
         if cfg["TOPO"].getboolean("topoAdd"):
             superChannel = (
-                    superChannel
-                    + cExtent * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask
+                superChannel
+                + cExtent * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent**2))))) * mask
             )
-            # outside of the channel, add layer of channel thickness
             mask = np.zeros(np.shape(y))
             mask[np.where(abs(y) >= cExtent)] = 1
             superChannel = superChannel + cExtent * c0 * mask
         else:
             superChannel = (
-                    superChannel - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
+                superChannel - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent**2)))) * mask
             )
-
+    
+    # Dam logic (unchanged)
     if cfg["TOPO"].getboolean("dam"):
         damPos = cfg["DAMS"].getfloat("damPos")
         damHeight = cfg["DAMS"].getfloat("damHeight")
         damWidth = cfg["DAMS"].getfloat("damWidth")
-        superDam = norm.pdf(xv, damPos * (-B / 2 / A), damWidth)
+        superDam = norm.pdf(x, damPos * (-B / 2 / A), damWidth)
         superDam = superDam / np.max(superDam) * damHeight
         if not cfg["TOPO"].getboolean("topoAdd"):
             superDam = superDam - cExtent * c0
-
-    # add channel and dam
+    
+    # Add channel and dam
     zv = zv + np.maximum(superDam, superChannel)
-
-    # Log info here
-    log.info("Parabola with flat outrun coordinates computed")
-
+    
     return x, y, zv
 
 
