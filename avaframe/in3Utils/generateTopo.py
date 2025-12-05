@@ -262,9 +262,9 @@ def hockey(cfg):
         x, y and z coordinates of the hockey-stick topography in 2D arrays
     """
 # input parameters
-    rCirc = float(cfg["TOPO"]["rCirc"])
-    meanAlpha = float(cfg["TOPO"]["meanAlpha"])
-    z0 = float(cfg["TOPO"]["z0"])
+    rCirc = float(cfg["TOPO"]["rCirc"]) # radius of the smoothing circle
+    meanAlpha = float(cfg["TOPO"]["meanAlpha"]) # slope of the approaching track
+    z0 = float(cfg["TOPO"]["z0"]) # elevation at start of the track
     
     # New parameter for foreland inclination (default 0 for flat)
     tiltRunout = float(cfg["TOPO"].get("tiltRunout", 0))
@@ -308,65 +308,58 @@ def hockey(cfg):
             "for typical runout geometry. The transition may not work as expected."
         )
     
-    # Height at the kink point (where slopes would meet without smoothing)
+    # z-coordinate at the kink point (where slopes would meet without smoothing)
+    # note: this should be 0 or close to 0
     z1 = z0 - np.tan(np.radians(meanAlpha)) * x1
-    log.info(f"found kink point at {x1, z1} - note z1 should be 0")
     
-    # Calculate geometry for circular transition between two slopes
-    # Both slopes descend (angles provided as positive values)
-    
-    # Distance from perpendicular to circle center
-    # This is the key: perpendicular distance from each slope to the circle center
-    perpDist = rCirc
-    
-    # Distance along each slope from kink point to tangent point
-    # Using geometry: the tangent points are equidistant from the kink along their respective slopes
+    # Distance along each slope from kink point to tangent points
+    # The tangent points are equidistant from the kink along their respective slopes (!)
     tangentDist = rCirc / np.tan(np.radians(deltaAlpha / 2.0))
     
     # Tangent point on upper slope (going backward in x from x1)
     # Moving up along the slope means: -dx in x-direction, +dz in z-direction
-    x_tangent_upper = x1 - tangentDist * np.cos(np.radians(meanAlpha))
-    z_tangent_upper = z1 + tangentDist * np.sin(np.radians(meanAlpha))
+    xTangentUpper = x1 - tangentDist * np.cos(np.radians(meanAlpha))
+    zTangentUpper = z1 + tangentDist * np.sin(np.radians(meanAlpha))
 
-    log.info(f"upper tangent point at {x_tangent_upper, z_tangent_upper}")
+    log.info(f"upper tangent point located at {xTangentUpper, zTangentUpper}")
     
     # Tangent point on lower slope (going forward in x from x1)
     # Moving down along the runout means: +dx in x-direction, -dz in z-direction
-    x_tangent_lower = x1 + tangentDist * np.cos(np.radians(tiltRunout))
-    z_tangent_lower = z1 - tangentDist * np.sin(np.radians(tiltRunout))
+    xTangentLower = x1 + tangentDist * np.cos(np.radians(tiltRunout))
+    zTangentLower = z1 - tangentDist * np.sin(np.radians(tiltRunout))
 
-    log.info(f"lower tangent point at {x_tangent_lower, z_tangent_lower}")
+    log.info(f"lower tangent point located at {xTangentLower, zTangentLower}")
    
     # Circle center is perpendicular distance from each tangent point
     # toward the "inside" of the angle (above both slopes)
-    xCirc = x_tangent_upper + perpDist * np.cos(np.radians(90 - meanAlpha))
-    zCirc = z_tangent_upper + perpDist * np.sin(np.radians(90 - meanAlpha))
+    xCirc = xTangentUpper + rCirc * np.cos(np.radians(90 - meanAlpha))
+    zCirc = zTangentUpper + rCirc * np.sin(np.radians(90 - meanAlpha))
 
     # Verify with lower tangent point (should give same result)
-    xCirc_check = x_tangent_lower + perpDist * np.cos(np.radians(90 - tiltRunout))
-    zCirc_check = z_tangent_lower + perpDist * np.sin(np.radians(90 - tiltRunout))
+    xCircCheck = xTangentLower + rCirc * np.cos(np.radians(90 - tiltRunout))
+    zCircCheck = zTangentLower + rCirc * np.sin(np.radians(90 - tiltRunout))
 
-    log.info(f"circle center at {xCirc, zCirc}")
-    log.info(f"circle center at {xCirc_check, zCirc_check}")
-    
+    # throw a warning if for some reason the calculated circle center is off for redundant calculations
+    if np.isclose(xCirc, xCircCheck) and np.isclose(zCirc, zCircCheck):
+        log.info(f"circle center at {xCirc, zCirc} - check is OK")
+    else:
+        log.warning(f"circle center at {xCircCheck, zCircCheck}, but check at {xCircCheck, zCircCheck}")
+
     # Extents of the circular transition in x-direction
-    x_start = x_tangent_upper
-    x_end = x_tangent_lower
-    
-    # For plotting
-    # d1 = np.tan(np.radians(beta)) * x1
-    
+    xStart = xTangentUpper
+    xEnd = xTangentLower
+        
     # Set surface elevation
     zv = np.zeros((nRows, nCols))
     
     # Upper inclined plane (before transition)
     mask = np.zeros(np.shape(x))
-    mask[np.where(x < x_start)] = 1
+    mask[np.where(x < xStart)] = 1
     zv = zv + (z0 - np.tan(np.radians(meanAlpha)) * x) * mask
     
     # Circular transition zone
     mask = np.zeros(np.shape(x))
-    mask[np.where((x_start <= x) & (x <= x_end))] = 1
+    mask[np.where((xStart <= x) & (x <= xEnd))] = 1
     
     # Calculate height on the circle
     # Circle equation: (x - xCirc)^2 + (z - zCirc)^2 = rCirc^2
@@ -375,14 +368,14 @@ def hockey(cfg):
     
     # Foreland (can now be inclined)
     mask = np.zeros(np.shape(x))
-    mask[np.where(x > x_end)] = 1
+    mask[np.where(x > xEnd)] = 1
     
     # Height at end of circular transition (use the calculated tangent point)
-    z_transition_end = z_tangent_lower
-    x_transition_end = x_tangent_lower
+    zTransitionEnd = zTangentLower
+    xTransitionEnd = xTangentLower
     
     # Inclined or flat foreland
-    zv = zv + (z_transition_end - np.tan(np.radians(tiltRunout)) * (x - x_transition_end)) * mask
+    zv = zv + (zTransitionEnd - np.tan(np.radians(tiltRunout)) * (x - xTransitionEnd)) * mask
     
     # If a channel shall be introduced
     if cfg["TOPO"].getboolean("channel"):
