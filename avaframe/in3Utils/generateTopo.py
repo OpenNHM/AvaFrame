@@ -268,6 +268,10 @@ def hockey(cfg):
     
     # New parameter for foreland inclination (default 0 for flat)
     tiltRunout = float(cfg["TOPO"].get("tiltRunout", 0))
+
+    # New parameter for optional shift of z-value of flat foreland or 
+    # "tilt/kink point" in case of angled runout area
+    zKinkPoint = float(cfg["TOPO"].get("zShiftTiltPoint", 0))
     
     cff = float(cfg["CHANNELS"]["cff"])
     cRadius = float(cfg["CHANNELS"]["cRadius"])
@@ -275,13 +279,15 @@ def hockey(cfg):
     cMustart = float(cfg["CHANNELS"]["cMustart"])
     cMuendFP = float(cfg["CHANNELS"]["cMuendFP"])
     dx, xEnd, yEnd = getGridDefs(cfg)
+
+
     
     # Compute coordinate grid
     xv, yv, zv, x, y, nRows, nCols = computeCoordGrid(dx, xEnd, yEnd)
     
     # Compute distance to foreland transition for given meanAlpha
     # Note: meanAlpha is provided as positive but represents a descending slope
-    x1 = z0 / np.tan(np.radians(meanAlpha))
+    x1 = (z0-zKinkPoint) / np.tan(np.radians(meanAlpha))
     
     if x1 >= xEnd * 0.9:
         log.warning(
@@ -309,7 +315,6 @@ def hockey(cfg):
         )
     
     # z-coordinate at the kink point (where slopes would meet without smoothing)
-    # note: this should be 0 or close to 0
     z1 = z0 - np.tan(np.radians(meanAlpha)) * x1
     
     # Distance along each slope from kink point to tangent points
