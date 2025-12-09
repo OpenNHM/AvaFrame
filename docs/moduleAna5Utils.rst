@@ -11,8 +11,8 @@ and analysis modules like :ref:`moduleAna3AIMEC:ana3AIMEC: Aimec` or the Distanc
 (:ref:`moduleAna5Utils:ana5Utils`) require a two-dimensional avalanche path (thalweg) and a split point as input.
 This thalweg and split point are usually created manually based on expert opinion. The aim of this module is to
 automatically generate an avalanche path from a dense flow avalanche (DFA) simulation and place a split point. The path
-is generated from the center of mass position of the dense material, hence referred to as the "mass
-average path". This mass average path is then extended towards the top of the release area and at the bottom,
+is generated from the center of mass position of the dense material, hence referred to as the "mass-
+averaged path". This mass-averaged path is then extended towards the top of the release area and at the bottom,
 resulting in a path that covers the entire length of the avalanche with additional buffer in the runout area.
 The split point is determined by fitting a parabola to the avalanche path profile.
 
@@ -38,7 +38,7 @@ We provide :py:mod:`runAna5DFAPathGeneration`, in which two main options exist:
 Output
 ~~~~~~
 
-A mass averaged path and corresponding split point are produced for each com1DFA simulation. These are saved as
+A mass-averaged path and corresponding split point are produced for each com1DFA simulation. These are saved as
 shapefiles to ``avalancheDir/Outputs/ana5Utils/DFAPath``, in addition to a plot showing how the path was generated (see
 example figure below).
 
@@ -68,26 +68,26 @@ To run
 Theory
 ~~~~~~
 
-Mass average path
+Mass-averaged path
 =================
 Any DFA simulation should be able to produce information about mass distribution for different
 time steps of the simulation (either flow thickness, mass, velocities... rasters or particles).
-This information is used to compute time dependent mass average quantities such as position
+This information is used to compute time dependent mass-averaged quantities such as position
 (center of mass), velocity... For a flow quantity :math:`\mathbf{a}(\mathbf{x}, t)`,
-the associated mass averaged quantity is defined by:
+the associated mass-averaged quantity is defined by:
 
 .. math::
-    \bar{\mathbf{a}}(t) = \int\limits_V \rho \mathbf{a}(\mathbf{x}, t)\,dV
-    \approx \sum\limits_k m_k \mathbf{a}_k(t)
+    \bar{\mathbf{a}}(t) = \frac{1}{M_V(t)} \ \int\limits_V \rho \mathbf{a}(\mathbf{x}, t)\,dV
+    \approx \frac{\sum\limits_k m_k(t) \mathbf{a}_k(t)}{\sum\limits_k m_k(t)}
 
 where :math:`m_k` respectively :math:`\mathbf{a}_k(t)` defines the mass respectively flow quantity
-of particle or raster cell :math:`k`.
-Applying the mass averaging to :math:`(x, y, z)` gives the mass average path profile.
+of particle or raster cell :math:`k`. :math:`M_V(t)` is the total flow mass in timestep t.
+Applying the mass-averaging to :math:`(x, y, z)` gives the mass-averaged path profile.
 
 .. Note::
-    The mass average path profiles does not necessarily lie on the topography
+    The mass-averaged path profiles does not necessarily lie on the topography
 
-It is also possible to compute the mass averaged velocity squared :math:`\overline{\mathbf{u^2}}(t)`,
+It is also possible to compute the mass-averaged velocity squared :math:`\overline{\mathbf{u^2}}(t)`,
 kinetic energy :math:`\overline{\frac{1}{2}m\mathbf{u^2}}(t)` or travel distance :math:`s`
 (which are used in the :ref:`moduleAna1Tests:Energy line test`).
 
@@ -95,16 +95,16 @@ kinetic energy :math:`\overline{\frac{1}{2}m\mathbf{u^2}}(t)` or travel distance
     :width: 50%
     :align: center
 
-    Schematic showing how the mass average path is generated.
+    Schematic showing how the mass-averaged path is generated.
 
 Path extension
 ==============
-The mass average path is extended towards the top of the release area to produce meaningful results when used in modules
+The mass-averaged path is extended towards the top of the release area to produce meaningful results when used in modules
 such as com2AB. Since the outcomes from the :math:`\alpha\beta` analysis depend on the starting point of the path
 profile, adjusting the starting point will shift the :math:`\alpha` angle upwards or downwards, subsequently affecting
 the runout value.
 
-There are two options available to extend the mass averaged path profile in the release area
+There are two options available to extend the mass-averaged path profile in the release area
 (``extTopOption`` in the configuration file):
 
 0. Extend the path up to the highest point in the release
@@ -114,9 +114,9 @@ There are two options available to extend the mass averaged path profile in the 
    This point does not necessarily coincide with the highest point in the
    release area and corresponds to the point for which
    :math:`(\Delta z - \Delta s \tan{\alpha})` is maximum. :math:`\alpha` corresponds
-   to the angle of the runout line going from first to last point of the mass averaged
+   to the angle of the runout line going from first to last point of the mass-averaged
    line. :math:`\Delta z` and :math:`\Delta s` represent the vertical and horizontal
-   distance between a point in the release and the first point of the mass averaged
+   distance between a point in the release and the first point of the mass-averaged
    path profile.
 
 We also extend the path at the bottom, to have some buffer in the runout area. This is done by finding the direction of
