@@ -32,7 +32,7 @@ dependencies = [
     "scipy",
     "cmcrameri",
     "seaborn",
-    "cython",
+    "cython<3.0", # cython 3.x compiles code that needs numpy > 2.0
     "pandas",
     "shapely",
     "configUpdater",
