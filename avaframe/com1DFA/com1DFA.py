@@ -1658,8 +1658,7 @@ def initializeFields(cfg, dem, particles, releaseLine):
     cfgGen = cfg["GENERAL"]
     # what result types are desired as output (we need this to decide which fields we actually need to compute)
     resTypes = fU.splitIniValueToArraySteps(cfgGen["resType"])
-    resTypesReport = fU.splitIniValueToArraySteps(cfg["REPORT"]["plotFields"])
-    resTypesLast = list(set(resTypes + resTypesReport))
+    resTypesLast = resTypes
     # read dem header
     header = dem["header"]
     ncols = header["ncols"]
@@ -2038,10 +2037,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # add particles to the results type if trackParticles option is activated
     if cfg.getboolean("TRACKPARTICLES", "trackParticles"):
         resTypes = list(set(resTypes + ["particles"]))
-    # make sure to save all desiered resuts for first and last time step for
-    # the report
-    resTypesReport = fU.splitIniValueToArraySteps(cfg["REPORT"]["plotFields"])
-    resTypesLast = list(set(resTypes + resTypesReport))
+    # use resTypes for all time steps
+    resTypesLast = resTypes
     # derive friction type
     # turn friction model into integer
     frictModelsList = [
@@ -2102,6 +2099,9 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
             outDirData = outDir / "particles"
             fU.makeADir(outDirData)
             savePartToPickle(particles, outDirData, cuSimName)
+
+        # Update dtSave to remove the initial timestep we just saved
+        dtSave = updateSavingTimeStep(dtSave, cfgGen, t)
 
     # export particles properties for visulation
     if cfg["VISUALISATION"].getboolean("writePartToCSV"):
@@ -2976,17 +2976,10 @@ def exportFields(
     """
 
     resTypesGen = fU.splitIniValueToArraySteps(cfg["GENERAL"]["resType"])
-    resTypesReport = fU.splitIniValueToArraySteps(cfg["REPORT"]["plotFields"])
     if "particles" in resTypesGen:
         resTypesGen.remove("particles")
-    if "particles" in resTypesReport:
-        resTypesReport.remove("particles")
 
-    if TSave == "final" or TSave == "initial":
-        # for last time step we need to add the report fields
-        resTypes = list(set(resTypesGen + resTypesReport))
-    else:
-        resTypes = resTypesGen
+    resTypes = resTypesGen
 
     if resTypesForced != []:
         resTypes = resTypesForced
