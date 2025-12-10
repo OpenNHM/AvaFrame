@@ -256,7 +256,7 @@ Output
 Using the default configuration, the simulation results are saved to: *Outputs/com1DFA* and include:
 
 * raster files of the peak values for pressure, flow thickness and flow velocity (*Outputs/com1DFA/peakFiles*)
-* raster files of the peak values for pressure, flow thickness and flow velocity for the initial time step (*Outputs/com1DFA/peakFiles/timeSteps*)
+* raster files of the peak values for pressure, flow thickness and flow velocity for the final time step (*Outputs/com1DFA/peakFiles/timeSteps*)
 * markdown report including figures for all simulations (*Outputs/com1DFA/reports*)
     - if a ``_cropshape.shp`` file provided in Inputs/POLYGONS, plots are cropped to the rectangular bounds of the polygon
     - if ``showOnlineBackground = True`` in avaFrameCfg.ini and a suitable ``mapProvider`` is set, peak fields are plotted onto the corresponding map

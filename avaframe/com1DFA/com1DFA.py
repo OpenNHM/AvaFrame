@@ -2094,8 +2094,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     t = particles["t"]
     log.debug("Saving results for time step t = %f s", t)
 
-    # export initial time step
-    if cfg["EXPORTS"].getboolean("exportData"):
+    # export initial time step only if t=0 is explicitly in dtSave
+    if cfg["EXPORTS"].getboolean("exportData") and (dtSave.size > 0 and dtSave[0] <= 1.0e-8):
         exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="initial")
 
         if "particles" in resTypes:
@@ -2128,8 +2128,11 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         )
         cfgRangeTime["GENERAL"]["simHash"] = simHash
 
-    # add initial time step to Tsave array
-    Tsave = [0]
+    # add initial time step to Tsave array only if it was exported
+    if dtSave.size > 0 and dtSave[0] <= 1.0e-8:
+        Tsave = [0]
+    else:
+        Tsave = []
     # derive time step for first iteration
     if cfgGen.getboolean("sphKernelRadiusTimeStepping"):
         dtSPHKR = tD.getSphKernelRadiusTimeStep(dem, cfgGen)
