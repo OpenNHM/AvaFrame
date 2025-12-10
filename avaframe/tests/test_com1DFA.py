@@ -2917,3 +2917,91 @@ def test_adaptDEM():
     assert np.any(dem["areaRaster"] != demAdapted["areaRaster"])
     assert np.all(fieldsAdapted["sfcChange"] == fields["FTDet"] / NzNormed)
     assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
+
+
+def test_tSteps_output_behavior(tmp_path):
+    """Test that tSteps controls which timesteps are exported correctly.
+
+    New behavior:
+    - Empty tSteps (default): only final timestep is exported
+    - Explicit tSteps with t=0: t=0 timestep is exported
+    """
+    testDir = pathlib.Path(__file__).parents[0]
+    inputDir = testDir / "data" / "testCom1DFA"
+
+    # Test 1: Empty tSteps should only export final timestep
+    avaDir1 = pathlib.Path(tmp_path, "testEmptyTSteps")
+    shutil.copytree(inputDir, avaDir1)
+    cfgFile1 = avaDir1 / "test_com1DFACfg.ini"
+
+    # Modify config to have empty tSteps and NO parameter variations
+    cfg = configparser.ConfigParser()
+    cfg.read(cfgFile1)
+    cfg["GENERAL"]["tSteps"] = ""
+    cfg["GENERAL"]["tEnd"] = "10"  # Short simulation
+    cfg["GENERAL"]["dt"] = "0.1"  # Single value, no variations
+    cfg["GENERAL"]["simTypeList"] = "null"  # Simple simulation, no entrainment/resistance
+    # Ensure exports are enabled
+    if "EXPORTS" not in cfg:
+        cfg["EXPORTS"] = {}
+    cfg["EXPORTS"]["exportData"] = "True"
+    with open(cfgFile1, "w") as f:
+        cfg.write(f)
+
+    cfgMain1 = configparser.ConfigParser()
+    cfgMain1["MAIN"] = {"avalancheDir": str(avaDir1), "nCPU": "1"}
+    cfgMain1["FLAGS"] = {
+        "showPlot": "False",
+        "savePlot": "False",
+        "ReportDir": "False",
+        "reportOneFile": "False",
+        "debugPlot": "False",
+    }
+
+    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain1, cfgInfo=cfgFile1)
+
+    # Check that only final timestep files exist in timeSteps directory
+    timeStepsDir1 = avaDir1 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
+    if timeStepsDir1.exists():
+        tStepFiles1 = list(timeStepsDir1.glob("*.asc"))
+        # Should only have final timestep files (one per result type: ppr, pft, pfv)
+        # Not initial timestep at t=0
+        for tFile in tStepFiles1:
+            assert "_t0.0" not in tFile.stem, f"Found initial timestep file {tFile} but tSteps was empty"
+
+    # Test 2: Explicit tSteps with t=0 should export t=0 timestep
+    avaDir2 = pathlib.Path(tmp_path, "testExplicitTSteps")
+    shutil.copytree(inputDir, avaDir2)
+    cfgFile2 = avaDir2 / "test_com1DFACfg.ini"
+
+    # Modify config to have explicit tSteps including t=0 and NO parameter variations
+    cfg2 = configparser.ConfigParser()
+    cfg2.read(cfgFile2)
+    cfg2["GENERAL"]["tSteps"] = "0|5"
+    cfg2["GENERAL"]["tEnd"] = "10"  # Short simulation
+    cfg2["GENERAL"]["dt"] = "0.1"  # Single value, no variations
+    cfg2["GENERAL"]["simTypeList"] = "null"  # Simple simulation, no entrainment/resistance
+    # Ensure exports are enabled
+    if "EXPORTS" not in cfg2:
+        cfg2["EXPORTS"] = {}
+    cfg2["EXPORTS"]["exportData"] = "True"
+    with open(cfgFile2, "w") as f:
+        cfg2.write(f)
+
+    cfgMain2 = configparser.ConfigParser()
+    cfgMain2["MAIN"] = {"avalancheDir": str(avaDir2), "nCPU": "1"}
+    cfgMain2["FLAGS"] = {
+        "showPlot": "False",
+        "savePlot": "False",
+        "ReportDir": "False",
+        "reportOneFile": "False",
+        "debugPlot": "False",
+    }
+
+    dem2, plotDict2, reportDictList2, simDF2 = com1DFA.com1DFAMain(cfgMain2, cfgInfo=cfgFile2)
+
+    # Check that t=0 timestep files exist
+    timeStepsDir2 = avaDir2 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
+    assert timeStepsDir2.exists(), "timeSteps directory should exist"
+    tStepFiles2 = list(timeStepsDir2.glob("*_t0.0*.asc"))
+    assert len(tStepFiles2) > 0, "Should have initial timestep files at t=0 when tSteps includes 0"
