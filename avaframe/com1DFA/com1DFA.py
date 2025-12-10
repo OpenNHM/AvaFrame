@@ -1658,7 +1658,11 @@ def initializeFields(cfg, dem, particles, releaseLine):
     cfgGen = cfg["GENERAL"]
     # what result types are desired as output (we need this to decide which fields we actually need to compute)
     resTypes = fU.splitIniValueToArraySteps(cfgGen["resType"])
-    resTypesLast = resTypes
+    # ensure at least one field type is present for internal computations
+    # if resTypes only contains particles add pfv
+    validFieldTypes = [rt for rt in resTypes if rt not in ["particles"]]
+    if len(validFieldTypes) == 0:
+        resTypes.append("pfv")
     # read dem header
     header = dem["header"]
     ncols = header["ncols"]
@@ -1683,7 +1687,7 @@ def initializeFields(cfg, dem, particles, releaseLine):
     fields["timeInfo"] = np.zeros((nrows, ncols))  # first time
     # for optional fields, initialize with dummys (minimum size array). The cython functions then need something
     # even if it is empty to run properly
-    if ("TA" in resTypesLast) or ("pta" in resTypesLast):
+    if ("TA" in resTypes) or ("pta" in resTypes):
         fields["pta"] = np.zeros((nrows, ncols))  # peak travel angle [°]
         fields["TA"] = np.zeros((nrows, ncols))  # travel angle [°]
         fields["computeTA"] = True
@@ -1692,14 +1696,14 @@ def initializeFields(cfg, dem, particles, releaseLine):
         fields["pta"] = np.zeros((1, 1))
         fields["TA"] = np.zeros((1, 1))
         fields["computeTA"] = False
-    if "pke" in resTypesLast:
+    if "pke" in resTypes:
         fields["pke"] = np.zeros((nrows, ncols))  # peak kinetic energy [kJ/m²]
         fields["computeKE"] = True
         log.debug("Computing Kinetic energy")
     else:
         fields["pke"] = np.zeros((1, 1))
         fields["computeKE"] = False
-    if ("P" in resTypesLast) or ("ppr" in resTypesLast):
+    if ("P" in resTypes) or ("ppr" in resTypes):
         fields["P"] = np.zeros((nrows, ncols))  # pressure [kPa]
         fields["ppr"] = np.zeros((nrows, ncols))  # peak pressure [kPa]
         fields["computeP"] = True
@@ -2037,8 +2041,11 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # add particles to the results type if trackParticles option is activated
     if cfg.getboolean("TRACKPARTICLES", "trackParticles"):
         resTypes = list(set(resTypes + ["particles"]))
-    # use resTypes for all time steps
-    resTypesLast = resTypes
+    # ensure at least one field type is present for internal computations
+    # if resTypes only contains particles, add pfv
+    validFieldTypes = [rt for rt in resTypes if rt not in ["particles"]]
+    if len(validFieldTypes) == 0:
+        resTypes.append("pfv")
     # derive friction type
     # turn friction model into integer
     frictModelsList = [
@@ -2077,7 +2084,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     pfvTimeMax = []
 
     # setup a result fields info data frame to save max values of fields and avalanche front
-    resultsDF = setupresultsDF(resTypesLast, cfg["VISUALISATION"].getboolean("createRangeTimeDiagram"))
+    resultsDF = setupresultsDF(resTypes, cfg["VISUALISATION"].getboolean("createRangeTimeDiagram"))
 
     # Add different time stepping options here
     log.debug("Use standard time stepping")
@@ -2091,13 +2098,16 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     t = particles["t"]
     log.debug("Saving results for time step t = %f s", t)
 
+    # Initialize particles output directory if needed
+    if "particles" in resTypes:
+        outDirData = outDir / "particles"
+        fU.makeADir(outDirData)
+
     # export initial time step only if t=0 is explicitly in dtSave
-    if cfg["EXPORTS"].getboolean("exportData") and (dtSave.size > 0 and dtSave[0] <= 1.0e-8):
+    if cfg["EXPORTS"].getboolean("exportData") and (dtSave.size > 0 and np.any(dtSave <= 1.0e-8)):
         exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="initial")
 
         if "particles" in resTypes:
-            outDirData = outDir / "particles"
-            fU.makeADir(outDirData)
             savePartToPickle(particles, outDirData, cuSimName)
 
         # Update dtSave to remove the initial timestep we just saved
@@ -2129,7 +2139,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         cfgRangeTime["GENERAL"]["simHash"] = simHash
 
     # add initial time step to Tsave array only if it was exported
-    if dtSave.size > 0 and dtSave[0] <= 1.0e-8:
+    if dtSave.size > 0 and np.any(dtSave <= 1.0e-8):
         Tsave = [0]
     else:
         Tsave = []
@@ -2169,7 +2179,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
             rangeValue = mtiInfo["rangeList"][-1]
         else:
             rangeValue = ""
-        resultsDF = addMaxValuesToDF(resultsDF, fields, t, resTypesLast, rangeValue=rangeValue)
+        resultsDF = addMaxValuesToDF(resultsDF, fields, t, resTypes, rangeValue=rangeValue)
 
         tCPU["nSave"] = nSave
         particles["t"] = t
@@ -2351,25 +2361,19 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         # export particles dictionaries of saving time steps
         if "particles" in resTypes:
             savePartToPickle(particles, outDirData, cuSimName)
-    else:
-        # fetch contourline info
+
+    # save contour line for each sim only if the field is properly computed (not a dummy array)
+    contourResType = cfg["VISUALISATION"]["contourResType"]
+    if fields[contourResType].shape != (1, 1):
         contourDictXY = outCom1DFA.fetchContCoors(
             dem["header"],
-            fields[cfg["VISUALISATION"]["contourResType"]],
+            fields[contourResType],
             cfg["VISUALISATION"],
             cuSimName,
         )
-
-    # save contour line for each sim
-    contourDictXY = outCom1DFA.fetchContCoors(
-        dem["header"],
-        fields[cfg["VISUALISATION"]["contourResType"]],
-        cfg["VISUALISATION"],
-        cuSimName,
-    )
-    outDirDataCont = outDir / "contours"
-    fU.makeADir(outDirDataCont)
-    saveContToPickle(contourDictXY, outDirDataCont, cuSimName)
+        outDirDataCont = outDir / "contours"
+        fU.makeADir(outDirDataCont)
+        saveContToPickle(contourDictXY, outDirDataCont, cuSimName)
 
     # export particles properties for visulation
     if cfg["VISUALISATION"].getboolean("writePartToCSV"):
@@ -2409,7 +2413,7 @@ def setupresultsDF(resTypes, cfgRangeTime):
     # TODO catch empty resTypes
     resDict = {"timeStep": [0.0]}
     for resT in resTypes:
-        if resT != "particles" and resT != "FTDet":
+        if resT != "particles":
             resDict["max" + resT] = [0.0]
     if cfgRangeTime:
         resDict["rangeList"] = [0.0]
@@ -2443,11 +2447,12 @@ def addMaxValuesToDF(resultsDF, fields, timeStep, resTypes, rangeValue=""):
 
     newLine = []
     for resT in resTypes:
-        if resT != "particles" and resT != "FTDet":
+        if resT != "particles":
             newLine.append(np.nanmax(fields[resT]))
 
     if rangeValue != "":
         newLine.append(rangeValue)
+
     resultsDF.loc[timeStep] = newLine
 
     return resultsDF
@@ -2980,6 +2985,11 @@ def exportFields(
         resTypesGen.remove("particles")
 
     resTypes = resTypesGen
+    # ensure at least one field type is present for export
+    # if resTypes only contains FTDet or is empty, add pfv
+    validFieldTypes = [rt for rt in resTypes if rt != "FTDet"]
+    if len(validFieldTypes) == 0:
+        resTypes.append("pfv")
 
     if resTypesForced != []:
         resTypes = resTypesForced
