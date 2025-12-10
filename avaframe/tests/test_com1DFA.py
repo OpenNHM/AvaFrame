@@ -1395,7 +1395,7 @@ def test_initializeParticles():
 
     # setup required input
     cfg = configparser.ConfigParser()
-    cfg["REPORT"] = {"plotFields": "ppr|pft|pfv"}
+    cfg["REPORT"] = {}
     cfg["GENERAL"] = {
         "resType": "ppr|pft|pfv",
         "rho": "200.",
@@ -1746,8 +1746,8 @@ def test_exportFields(tmp_path):
 
     # setup required input
     cfg = configparser.ConfigParser()
-    cfg["GENERAL"] = {"resType": "ppr|pft|FT"}
-    cfg["REPORT"] = {"plotFields": "ppr|pft|pfv|pke"}
+    cfg["GENERAL"] = {"resType": "ppr|pft|FT|pfv|pke"}
+    cfg["REPORT"] = {}
     cfg["EXPORTS"] = {"useCompression": "True"}
     Tsave = [0, 10, 15, 25, 40]
     demHeader = {}
@@ -1837,13 +1837,15 @@ def test_exportFields(tmp_path):
 
     assert np.array_equal(fieldFinal, pprFinal)
     assert np.array_equal(field10, pftt10)
-    assert len(fieldsListTest) == 8
+    # With new behavior: both intermediate and final export all fields from resType
+    # resType has 5 fields (ppr, pft, FT, pfv, pke), exported at 2 time steps = 10 files
+    assert len(fieldsListTest) == 10
 
     # call function to be tested
     outDir2 = pathlib.Path(tmp_path, "testDir2")
     outDir2.mkdir()
-    cfg["GENERAL"]["resType"] = ""
-    cfg["REPORT"] = {"plotFields": "ppr|pft|pfv"}
+    cfg["GENERAL"]["resType"] = "ppr|pft|pfv"
+    cfg["REPORT"] = {}
 
     com1DFA.exportFields(cfg, 0.00, fields1, dem, outDir2, logName, TSave="initial")
     com1DFA.exportFields(cfg, 10.00, fields2, dem, outDir2, logName, TSave="intermediate")
@@ -1865,7 +1867,10 @@ def test_exportFields(tmp_path):
     for f in fieldFiles3:
         fieldsListTest3.append(f.name)
 
-    assert len(fieldsListTest2) == 6
+    # With new behavior: all time steps export fields from resType
+    # resType has 3 fields (ppr, pft, pfv), exported at 5 time steps = 15 files in timeSteps/
+    # final time step also exports 3 files to peakFiles/ = 3 files
+    assert len(fieldsListTest2) == 15
     assert len(fieldsListTest3) == 3
 
 
@@ -1894,7 +1899,7 @@ def test_initializeFields():
         "stoppedParticles": {"m": np.empty(0), "x": np.empty(0), "y": np.empty(0)},
     }
     cfg = configparser.ConfigParser()
-    cfg["REPORT"] = {"plotFields": "ppr|pft|pfv"}
+    cfg["REPORT"] = {}
     cfg["GENERAL"] = {
         "rho": "200.",
         "interpOption": "2",
@@ -1941,7 +1946,7 @@ def test_initializeFields():
     assert np.sum(fields["timeInfo"]) == 0.0
     assert np.sum(fields["sfcChangeTotal"]) == 0.0
 
-    cfg["REPORT"] = {"plotFields": "pft|pfv"}
+    cfg["REPORT"] = {}
     cfg["GENERAL"] = {
         "resType": "pke|pta|pft|pfv",
         "rho": "200.",
@@ -2229,7 +2234,7 @@ def test_initializeSimulation(tmp_path):
 
     # setup required input
     cfg = configparser.ConfigParser()
-    cfg["REPORT"] = {"plotFields": "ppr|pft|pfv"}
+    cfg["REPORT"] = {}
     cfg["GENERAL"] = {
         "methodMeshNormal": "1",
         "thresholdPointInPoly": "0.001",
@@ -2412,7 +2417,7 @@ def test_initializeSimulation(tmp_path):
     # test if dam is found
     # setup required input
     cfg = configparser.ConfigParser()
-    cfg["REPORT"] = {"plotFields": "ppr|pft|pfv"}
+    cfg["REPORT"] = {}
     cfg["GENERAL"] = {
         "methodMeshNormal": "1",
         "thresholdPointInPoly": "0.001",
@@ -2597,6 +2602,8 @@ def test_runCom1DFA(tmp_path, caplog):
     #     print("there is an extra key in particles: ", particlesList[-1].keys() - set(dictKeys))
     assert all(key in dictKeys for key in particlesList[-1])
 
+    # With dtSave bug fixed: 2 simulations × 6 timesteps = 12 files
+    # Timesteps: t=0, 10, 20, 30, 40, 50 (from tSteps=0:10)
     assert len(particlesList) == 12
 
     #    print(simDF["simName"])
@@ -3003,5 +3010,8 @@ def test_tSteps_output_behavior(tmp_path):
     # Check that t=0 timestep files exist
     timeStepsDir2 = avaDir2 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
     assert timeStepsDir2.exists(), "timeSteps directory should exist"
+    allFiles2 = list(timeStepsDir2.glob("*.asc"))
+    print(f"\nAll timestep files: {[f.name for f in allFiles2]}")
     tStepFiles2 = list(timeStepsDir2.glob("*_t0.0*.asc"))
+    print(f"Files matching t0.0: {[f.name for f in tStepFiles2]}")
     assert len(tStepFiles2) > 0, "Should have initial timestep files at t=0 when tSteps includes 0"
