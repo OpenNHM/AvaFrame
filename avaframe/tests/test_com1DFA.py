@@ -2926,10 +2926,9 @@ def test_adaptDEM():
     assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
 
 
-def test_tSteps_output_behavior(tmp_path):
+def test_tSteps_output_behavior(tmp_path, caplog):
     """Test that tSteps controls which timesteps are exported correctly.
 
-    New behavior:
     - Empty tSteps (default): only final timestep is exported
     - Explicit tSteps with t=0: t=0 timestep is exported
     """
@@ -2941,31 +2940,19 @@ def test_tSteps_output_behavior(tmp_path):
     shutil.copytree(inputDir, avaDir1)
     cfgFile1 = avaDir1 / "test_com1DFACfg.ini"
 
+    # Get main configuration
+    cfgMain = cfgUtils.getGeneralConfig()
+    cfgMain['MAIN']['avalancheDir'] = str(avaDir1)
     # Modify config to have empty tSteps and NO parameter variations
-    cfg = configparser.ConfigParser()
-    cfg.read(cfgFile1)
+    cfg = cfgUtils.getModuleConfig(com1DFA, cfgFile1)
     cfg["GENERAL"]["tSteps"] = ""
     cfg["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg["GENERAL"]["dt"] = "0.1"  # Single value, no variations
     cfg["GENERAL"]["simTypeList"] = "null"  # Simple simulation, no entrainment/resistance
-    # Ensure exports are enabled
-    if "EXPORTS" not in cfg:
-        cfg["EXPORTS"] = {}
-    cfg["EXPORTS"]["exportData"] = "True"
     with open(cfgFile1, "w") as f:
         cfg.write(f)
 
-    cfgMain1 = configparser.ConfigParser()
-    cfgMain1["MAIN"] = {"avalancheDir": str(avaDir1), "nCPU": "1"}
-    cfgMain1["FLAGS"] = {
-        "showPlot": "False",
-        "savePlot": "False",
-        "ReportDir": "False",
-        "reportOneFile": "False",
-        "debugPlot": "False",
-    }
-
-    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain1, cfgInfo=cfgFile1)
+    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile1)
 
     # Check that only final timestep files exist in timeSteps directory
     timeStepsDir1 = avaDir1 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
@@ -2981,37 +2968,49 @@ def test_tSteps_output_behavior(tmp_path):
     shutil.copytree(inputDir, avaDir2)
     cfgFile2 = avaDir2 / "test_com1DFACfg.ini"
 
+    cfgMain['MAIN']['avalancheDir'] = str(avaDir2)
+
     # Modify config to have explicit tSteps including t=0 and NO parameter variations
-    cfg2 = configparser.ConfigParser()
-    cfg2.read(cfgFile2)
+    cfg2 = cfgUtils.getModuleConfig(com1DFA, cfgFile2)
     cfg2["GENERAL"]["tSteps"] = "0|5"
     cfg2["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg2["GENERAL"]["dt"] = "0.1"  # Single value, no variations
     cfg2["GENERAL"]["simTypeList"] = "null"  # Simple simulation, no entrainment/resistance
-    # Ensure exports are enabled
-    if "EXPORTS" not in cfg2:
-        cfg2["EXPORTS"] = {}
-    cfg2["EXPORTS"]["exportData"] = "True"
     with open(cfgFile2, "w") as f:
         cfg2.write(f)
 
-    cfgMain2 = configparser.ConfigParser()
-    cfgMain2["MAIN"] = {"avalancheDir": str(avaDir2), "nCPU": "1"}
-    cfgMain2["FLAGS"] = {
-        "showPlot": "False",
-        "savePlot": "False",
-        "ReportDir": "False",
-        "reportOneFile": "False",
-        "debugPlot": "False",
-    }
-
-    dem2, plotDict2, reportDictList2, simDF2 = com1DFA.com1DFAMain(cfgMain2, cfgInfo=cfgFile2)
+    dem2, plotDict2, reportDictList2, simDF2 = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile2)
 
     # Check that t=0 timestep files exist
     timeStepsDir2 = avaDir2 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
     assert timeStepsDir2.exists(), "timeSteps directory should exist"
-    allFiles2 = list(timeStepsDir2.glob("*.asc"))
-    print(f"\nAll timestep files: {[f.name for f in allFiles2]}")
     tStepFiles2 = list(timeStepsDir2.glob("*_t0.0*.asc"))
-    print(f"Files matching t0.0: {[f.name for f in tStepFiles2]}")
     assert len(tStepFiles2) > 0, "Should have initial timestep files at t=0 when tSteps includes 0"
+
+    # Test 3: exportData = False should trigger contour fetching in else block
+    avaDir3 = pathlib.Path(tmp_path, "testExportDataFalse")
+    shutil.copytree(inputDir, avaDir3)
+    cfgFile3 = avaDir3 / "test_com1DFACfg.ini"
+
+    cfgMain['MAIN']['avalancheDir'] = str(avaDir3)
+
+    # Modify config to have exportData = False
+    cfg3 = cfgUtils.getModuleConfig(com1DFA, cfgFile3)
+    cfg3["GENERAL"]["tSteps"] = ""
+    cfg3["GENERAL"]["tEnd"] = "5"  # Very short simulation
+    cfg3["GENERAL"]["dt"] = "0.1"
+    cfg3["GENERAL"]["simTypeList"] = "null"
+    cfg3["EXPORTS"]["exportData"] = "False"  # Key setting to test else block
+    with open(cfgFile3, "w") as f:
+        cfg3.write(f)
+
+    dem3, plotDict3, reportDictList3, simDF3 = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile3)
+
+    # Check that contour data was generated (stored in reportDict) instead of exported files
+    assert len(reportDictList3) > 0, "Should have report dict even with exportData=False"
+    # Verify that timeSteps directory doesn't exist (no data exported)
+    timeStepsDir3 = avaDir3 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
+    if timeStepsDir3.exists():
+        tStepFiles3 = list(timeStepsDir3.glob("*.asc"))
+        # With exportData=False, intermediate timesteps should not be exported
+        assert len(tStepFiles3) == 0, "No timestep files should be exported when exportData=False"
