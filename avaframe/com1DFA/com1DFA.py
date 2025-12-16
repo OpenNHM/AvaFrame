@@ -2103,15 +2103,21 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         outDirData = outDir / "particles"
         fU.makeADir(outDirData)
 
-    # export initial time step only if t=0 is explicitly in dtSave
-    if cfg["EXPORTS"].getboolean("exportData") and (dtSave.size > 0 and np.any(dtSave <= 1.0e-8)):
+    # Save original dtSave for initial timestep decisions
+    dtSaveOriginal = dtSave.copy()
+
+    # export initial time step only if t=0 is explicitly in dtSaveOriginal
+    if cfg["EXPORTS"].getboolean("exportData") and (
+        dtSaveOriginal.size > 0 and np.any(dtSaveOriginal <= 1.0e-8)
+    ):
         exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="initial")
 
         if "particles" in resTypes:
             savePartToPickle(particles, outDirData, cuSimName)
 
         # Update dtSave to remove the initial timestep we just saved
-        dtSave = updateSavingTimeStep(dtSave, cfgGen, t)
+        dtSave = updateSavingTimeStep(dtSaveOriginal, cfgGen, t)
+
 
     # export particles properties for visulation
     if cfg["VISUALISATION"].getboolean("writePartToCSV"):
@@ -2139,10 +2145,11 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         cfgRangeTime["GENERAL"]["simHash"] = simHash
 
     # add initial time step to Tsave array only if it was exported
-    if dtSave.size > 0 and np.any(dtSave <= 1.0e-8):
+    if dtSaveOriginal.size > 0 and np.any(dtSaveOriginal <= 1.0e-8):
         Tsave = [0]
     else:
         Tsave = []
+
     # derive time step for first iteration
     if cfgGen.getboolean("sphKernelRadiusTimeStepping"):
         dtSPHKR = tD.getSphKernelRadiusTimeStep(dem, cfgGen)
@@ -2987,7 +2994,7 @@ def exportFields(
     resTypes = resTypesGen
     # ensure at least one field type is present for export
     # if resTypes only contains FTDet or is empty, add pfv
-    validFieldTypes = [rt for rt in resTypes if rt != "FTDet"]
+    validFieldTypes = [rt for rt in resTypes if rt != "particles"]
     if len(validFieldTypes) == 0:
         resTypes.append("pfv")
 
