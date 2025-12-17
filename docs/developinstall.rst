@@ -21,7 +21,7 @@ Setup AvaFrame
 Clone the AvaFrame repository (in a directory of your choice: [YOURDIR]) and change into it::
 
   cd [YOURDIR]
-  git clone https://github.com/avaframe/AvaFrame.git
+  git clone https://github.com/OpenNHM/AvaFrame.git
   cd AvaFrame
 
 

@@ -3,7 +3,7 @@ QGis AvaFrameConnector
 
 The AvaFrameConnector allows QGis users to access certain base workflows directly from QGis. The connector 
 only provides the interface to functions within the AvaFrame python package, and is developed separately, see the
-`QGisAF github repository <https://github.com/avaframe/QGisAF>`_. 
+`QGisAF github repository <https://github.com/OpenNHM/QGisAF>`_. 
 It makes use of the QGis processing plugin, which is included in all current QGis releases. 
 
 .. Note::

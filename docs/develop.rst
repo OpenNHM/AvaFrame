@@ -119,7 +119,7 @@ Our suggested git workflow
 
 Clone repository::
 
-  git clone https://github.com/avaframe/AvaFrame.git
+  git clone https://github.com/OpenNHM/AvaFrame.git
 
 Clones the repository to your local machine into the directory AvaFrame. Sets
 the repository to track to *origin*
@@ -158,7 +158,7 @@ Push your changes to the main repository::
 
 Once you feel you are done, start a pull request on  github.com_.
 
-.. _github.com: https://github.com/avaframe/AvaFrame
+.. _github.com: https://github.com/OpenNHM/AvaFrame
 
 Pull requests are reviewed and handled. Once the pull request is included into the
 master, the local myAwesomeFeature branch can be deleted (the one in the main
