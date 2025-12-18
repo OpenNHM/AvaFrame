@@ -99,6 +99,7 @@ def readAIMECinputs(avalancheDir, pathDict, defineRunoutArea, dirName='com1DFA')
     # check for reference data
     referenceDir= pathlib.Path(avalancheDir, 'Inputs')
 
+    # file names need to contain: _LINE, _POLY, _POINT
     referenceTypes = {"referenceLine": "LINE", "referencePolygon": "POLY",'referencePoint': 'POINT'}
     for refType in referenceTypes:
         referenceFile, availableFile, _ = gI.getAndCheckInputFiles(
@@ -106,7 +107,7 @@ def readAIMECinputs(avalancheDir, pathDict, defineRunoutArea, dirName='com1DFA')
             "REFDATA",
             referenceTypes[refType],
             fileExt="shp",
-            fileSuffix=referenceTypes[refType],
+            fileSuffix=("_" + referenceTypes[refType]),
         )
         if availableFile == 'Yes':
             # add file paths to pathDict
@@ -1643,6 +1644,7 @@ def createReferenceDF(pathDict):
                 newLine = newLine.set_index(hashRef)
                 referenceDF = pd.concat([referenceDF, newLine], ignore_index=False)
                 referenceDF.loc[hashRef, 'dataType'] = 'reference'
+                referenceDF.loc[hashRef, "reference_Type"] = refFile.stem.split("_")[1]
 
     # TODO add here if additional info read from shp or a textfile?
 
