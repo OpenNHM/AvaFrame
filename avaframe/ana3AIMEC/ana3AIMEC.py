@@ -152,6 +152,9 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     if cfgSetup.getboolean('includeReference'):
         referenceDF = aimecTools.createReferenceDF(pathDict)
         refDataTransformed, referenceDF = postProcessReference(cfg, rasterTransfo, pathDict, referenceDF, newRasters)
+        # save resultsDF to file
+        referenceDFPath = pathlib.Path(pathDict["pathResult"], "referenceDF.csv")
+        referenceDF.to_csv(referenceDFPath)
     else:
         refDataTransformed = {}
 
@@ -178,7 +181,7 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     if sorted(pathDict['resTypeList']) == sorted(['ppr', 'pft', 'pfv']) and cfgPlots.getboolean('extraPlots'):
         outAimec.visuSimple(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, pathDict)
     if len(resAnalysisDF.index) == 2 and sorted(pathDict['resTypeList']) == sorted(['ppr', 'pft', 'pfv']):
-            plotName = outAimec.visuRunoutComp(rasterTransfo, resAnalysisDF, cfgSetup, pathDict)
+        plotName = outAimec.visuRunoutComp(rasterTransfo, resAnalysisDF, cfgSetup, pathDict)
 
     plotName = outAimec.visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup, pathDict)
 
@@ -415,9 +418,9 @@ def postProcessAIMEC(cfg, rasterTransfo, pathDict, resAnalysisDF, newRasters, ti
 
 
 def postProcessReference(cfg, rasterTransfo, pathDict, referenceDF, newRasters):
-    """ Apply domain transformation and analyse reference data, e.g. compute runout point
+    """Apply domain transformation and analyse reference data, e.g. compute runout point
 
-    Apply the domain tranformation to reference data sets
+    Apply the domain transformation to reference data sets
     Analyse them.
     Calculate runout
 
