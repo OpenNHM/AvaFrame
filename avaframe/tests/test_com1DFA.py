@@ -2085,7 +2085,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
     testCfg["GENERAL"]["avalancheDir"] = str(avaDir)
 
     simHash = cfgUtils.cfgHash(testCfg)
-    simName1 = "relAlr_" + simHash + "_C_L_entres_dfa"
+    simName1 = "relAlr_" + simHash + "_com1_C_L_entres_dfa"
     testDict = {
         simName1: {
             "simHash": simHash,
@@ -2193,7 +2193,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
     testCfg2["INPUT"]["resistanceScenario"] = str(pathlib.Path("RES", "entAlr.shp"))
     testCfg2["GENERAL"]["avalancheDir"] = str(avaDir)
     simHash2 = cfgUtils.cfgHash(testCfg2)
-    simName2 = "relAlr_" + simHash2 + "_C_L_entres_dfa"
+    simName2 = "relAlr_" + simHash2 + "_com1_C_L_entres_dfa"
     testDict2 = {
         simName2: {
             "simHash": simHash2,

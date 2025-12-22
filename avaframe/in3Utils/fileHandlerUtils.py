@@ -13,6 +13,7 @@ import shutil
 
 # Local imports
 import avaframe.in2Trans.rasterUtils as IOf
+import avaframe.in3Utils.cfgUtils as cfgUtils
 
 # create local logger
 # change log level in calling module to DEBUG to see log messages
@@ -600,61 +601,41 @@ def makeSimDF(inputDir, avaDir="", simID="simID"):
         data["files"].append(datafiles[m])
         name = datafiles[m].stem
         data["names"].append(name)
+
+        # Parse the filename to extract all components
+        parsed = cfgUtils.parseSimName(name)
+
+        # Populate data dictionary from parsed result
+        data["releaseArea"].append(parsed["releaseName"])
+        data[simID].append(parsed["simHash"])
+        data["isDefault"].append(parsed["defID"] if parsed["defID"] != "_C_" else None)
+        data["frictCalib"].append(parsed["frictIndi"])
+        data["simType"].append(parsed["simType"])
+        data["modelType"].append(parsed["modelType"])
+        data["resType"].append(parsed["resType"] if parsed["resType"] else "")
+        data["timeStep"].append(parsed["timeStep"] if parsed["timeStep"] else "")
+
+        # Reconstruct simName (without resType and timeStep)
+        # Preserve _AF_ separator if present in original name
         if "_AF_" in name:
-            nameParts = name.split("_AF_")
-            fNamePart = nameParts[0] + "_AF"
-            relNameSim = nameParts[0]
-            infoParts = nameParts[1].split("_")
-
+            simNameBase = parsed["releaseName"] + "_AF_" + parsed["simHash"]
         else:
-            nameParts = name.split("_")
-            fNamePart = nameParts[0]
-            relNameSim = nameParts[0]
-            infoParts = nameParts[1:]
+            simNameBase = parsed["releaseName"] + "_" + parsed["simHash"]
 
-        data["releaseArea"].append(relNameSim)
-        data[simID].append(infoParts[0])
+        parts = [simNameBase]
+        if parsed["modName"] != "NA":
+            parts.append(parsed["modName"])
+        # Only add defID if it was explicitly in the original filename
+        if "_C_" in name or "_D_" in name:
+            parts.append(parsed["defID"])
+        # Only add frictIndi if it was in the original
+        if parsed["frictIndi"]:
+            parts.append(parsed["frictIndi"])
+        parts.extend([parsed["simType"], parsed["modelType"]])
+        data["simName"].append("_".join(parts))
 
-        indiStr = ["_C_", "_D_"]
-        if any(x in name for x in indiStr):
-            data["isDefault"].append(infoParts[1])
-            # now check for friction calibration info
-            frictIndi = ["_S_", "_M_", "_L_"]
-            if any(x in name for x in frictIndi):
-                data["frictCalib"].append(infoParts[2])
-                j = 1  # j indicates whether there's an additional info
-            else:
-                data["frictCalib"].append(None)
-                j = 0
-
-            data["simType"].append(infoParts[2 + j])
-            data["modelType"].append(infoParts[3 + j])
-            data["resType"].append(infoParts[4 + j])
-            data["simName"].append(fNamePart + "_" + ("_".join(infoParts[0 : (4 + j)])))
-
-            header = IOf.readRasterHeader(datafiles[m])
-            data["cellSize"].append(header["cellsize"])
-            if len(infoParts) == (6 + j):
-                data["timeStep"].append(infoParts[5 + j])
-            else:
-                data["timeStep"].append("")
-
-        # If it still is an 'old' simname
-        # This can be removed at one point
-        else:
-            data["isDefault"].append(None)
-            data["frictCalib"].append(None)
-            data["simType"].append(infoParts[1])
-            data["modelType"].append(infoParts[2])
-            data["resType"].append(infoParts[3])
-            data["simName"].append(fNamePart + "_" + ("_".join(infoParts[0:3])))
-
-            header = IOf.readRasterHeader(datafiles[m])
-            data["cellSize"].append(header["cellsize"])
-            if len(infoParts) == 5:
-                data["timeStep"].append(infoParts[4])
-            else:
-                data["timeStep"].append("")
+        header = IOf.readRasterHeader(datafiles[m])
+        data["cellSize"].append(header["cellsize"])
 
         # Set name of avalanche if avaDir is given
         if avaDir != "":
@@ -730,43 +711,44 @@ def makeSimFromResDF(avaDir, comModule, inputDir="", simName=""):
 
     for file in datafiles:
         name = file.stem
-        if "_AF_" in name:
-            nameParts = name.split("_AF_")
-            fNamePart = nameParts[0] + "_AF"
-            relNameSim = nameParts[0]
-            infoParts = nameParts[1].split("_")
-            resType = infoParts[-1]
+        # Parse the filename to extract components
+        parsed = cfgUtils.parseSimName(name)
 
+        # Extract simName (without resType/timeStep) and resType
+        resType = parsed["resType"] if parsed["resType"] else name.split("_")[-1]
+
+        # Reconstruct simName without resType and timeStep
+        # Preserve _AF_ separator if present in original name
+        if "_AF_" in name:
+            simNameBase = parsed["releaseName"] + "_AF_" + parsed["simHash"]
         else:
-            nameParts = name.split("_")
-            fNamePart = nameParts[0]
-            relNameSim = nameParts[0]
-            infoParts = nameParts[1:]
-            resType = infoParts[-1]
-        simName = fNamePart + "_" + ("_".join(infoParts[0:-1]))
+            simNameBase = parsed["releaseName"] + "_" + parsed["simHash"]
+
+        parts = [simNameBase]
+        if parsed["modName"] != "NA":
+            parts.append(parsed["modName"])
+        # Only add defID if it was explicitly in the original filename
+        if "_C_" in name or "_D_" in name:
+            parts.append(parsed["defID"])
+        # Only add frictIndi if it was in the original
+        if parsed["frictIndi"]:
+            parts.append(parsed["frictIndi"])
+        parts.extend([parsed["simType"], parsed["modelType"]])
+        simName = "_".join(parts)
+
         # add line in the DF if the simulation does not exist yet
         if simName not in dataDF.simName.values:
             newLine = pd.DataFrame([[simName]], columns=["simName"], index=[simName])
             dataDF = pd.concat([dataDF, newLine], ignore_index=False)
-            dataDF.loc[simName, "releaseArea"] = relNameSim
-            dataDF.loc[simName, "simHash"] = infoParts[0]
-            # TODO: remove once all simNames are updated to include C or D as simModified
-            if len(infoParts) == 6:  # this is the _C_M_ etc variant
-                dataDF.loc[simName, "simModified"] = infoParts[1]
-                dataDF.loc[simName, "simType"] = infoParts[3]
-                dataDF.loc[simName, "modelType"] = infoParts[4]
-            elif len(infoParts) == 5:
-                dataDF.loc[simName, "simModified"] = infoParts[1]
-                dataDF.loc[simName, "simType"] = infoParts[2]
-                dataDF.loc[simName, "modelType"] = infoParts[3]
-            elif len(infoParts) == 4:
-                dataDF.loc[simName, "simModified"] = "not specified"
-                dataDF.loc[simName, "simType"] = infoParts[1]
-                dataDF.loc[simName, "modelType"] = infoParts[2]
+            dataDF.loc[simName, "releaseArea"] = parsed["releaseName"]
+            dataDF.loc[simName, "simHash"] = parsed["simHash"]
+            # Only set simModified if defID was explicitly in filename
+            if "_C_" in name or "_D_" in name:
+                dataDF.loc[simName, "simModified"] = parsed["defID"]
             else:
-                message = "simName format not recognized for simName: %s" % simName
-                log.error(message)
-                raise AssertionError(message)
+                dataDF.loc[simName, "simModified"] = "not specified"
+            dataDF.loc[simName, "simType"] = parsed["simType"]
+            dataDF.loc[simName, "modelType"] = parsed["modelType"]
 
             # add info about the cell size
             header = IOf.readRasterHeader(file)

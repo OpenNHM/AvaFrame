@@ -11,6 +11,9 @@ import pandas as pd
 from tabulate import tabulate
 from datetime import datetime
 
+# Local imports
+from avaframe.in3Utils import cfgUtils
+
 # create local logger
 # change log level in calling module to DEBUG to see log messages
 log = logging.getLogger(__name__)
@@ -252,13 +255,8 @@ def checkAndCleanReportDictOnWinIssue872(reportDictList):
 
     for k, listItem in enumerate(reportDictList):
         simName = listItem['simName']['name']
-        if '_AF_' in simName:
-            nameParts = simName.split('_AF_')
-        else:
-            nameParts = simName.split('_')
-
-        # This is the proper simName
-        simNameClean = nameParts[0]
+        # Extract release name using parseSimName
+        simNameClean = cfgUtils.parseSimName(simName)["releaseName"]
 
         if listItem['Simulation Parameters']['Release Area Scenario'] != simNameClean:
             reportDictList[k]['Simulation Parameters']['Release Area Scenario'] = simNameClean

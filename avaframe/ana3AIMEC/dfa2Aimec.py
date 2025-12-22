@@ -9,6 +9,7 @@ import pandas as pd
 
 # local modules
 from avaframe.in3Utils import fileHandlerUtils as fU
+from avaframe.in3Utils import cfgUtils
 
 # create local logger
 # change log level in calling module to DEBUG to see log messages
@@ -52,12 +53,19 @@ def getMBInfo(avaDir, inputsDF, comMod, simName=''):
             message = 'No mass log file found in directory %s' % (str(dir))
             log.error(message)
             raise FileNotFoundError(message)
-        mbNames = sorted(set(mbFiles), key=lambda s: (str(s).split("_")[1], str(s).split("_")[2], str(s).split("_")[4]))
+        # Sort mass balance files by simName components using parseSimName
+        def sortKey(filepath):
+            """Extract sort key from mass balance filename"""
+            # Remove 'mass_' prefix from stem to get simName
+            simName = filepath.stem[5:]  # 'mass_' is 5 characters
+            parsed = cfgUtils.parseSimName(simName)
+            return (parsed["simHash"], parsed["modName"], parsed["simType"])
+
+        mbNames = sorted(set(mbFiles), key=sortKey)
 
         for mFile in mbNames:
-            name = mFile.stem
-            nameParts = name.split('_')
-            simName = ('_'.join(nameParts[1:]))
+            # Extract simName from filename (remove 'mass_' prefix)
+            simName = mFile.stem[5:]
             simRowHash = inputsDF[inputsDF['simName'] == simName].index[0]
             inputsDF.loc[simRowHash, 'massBal'] = mFile
             log.debug('Added to inputsDF[massBal] %s' % (mFile))
