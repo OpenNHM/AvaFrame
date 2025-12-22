@@ -7,7 +7,8 @@ import pathlib
 import numpy as np
 import pandas as pd
 import copy
-
+import shapely as shp
+import itertools as iterT
 
 # Local imports
 import avaframe.in2Trans.shpConversion as shpConv
@@ -20,7 +21,6 @@ import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.DFAtools as DFAtools
 import avaframe.out3Plot.outAIMEC as outAimec
 import avaframe.out3Plot.plotUtils as pU
-
 
 # create local logger
 log = logging.getLogger(__name__)
@@ -521,6 +521,9 @@ def makeDomainTransfo(pathDict, dem, refCellSize, cfgSetup):
 
     # get z coordinate of the center line
     rasterTransfo, _ = geoTrans.projectOnRaster(dem, rasterTransfo)
+
+    # check if any coordinate lines of new coordinate system are overlapping
+    _ = checkOverlapDBXY(rasterTransfo)
 
     # add surface parallel coordinate (sParallel)
     rasterTransfo = addSurfaceParalleCoord(rasterTransfo)
@@ -1837,3 +1840,41 @@ def analyzeDiffsRunoutLines(cfgSetup, runoutLine, refDataTransformed, resAnalysi
             log.info('For reference data type %s, runout line comparison is not available' % refLine['type'])
 
     return resAnalysisDF
+
+
+def checkOverlapDBXY(rasterTransfo):
+    """check if x, y coordinates of new coordinate system overlap
+
+    Parameters
+    -----------
+    rasterTransfo: dict
+        dict with gridx, gridy locations of new coordinates in old coordinate system
+
+    """
+
+    x = rasterTransfo["gridx"]
+    y = rasterTransfo["gridy"]
+
+    # create lineStrings from coordinate points
+    multiLine = []
+    for i in range(x.shape[1]):
+        lineArray = np.zeros((x.shape[0], 2))
+        lineArray[:, 0] = x[:, i]
+        lineArray[:, 1] = y[:, i]
+        multiLine.append(shp.LineString(lineArray))
+
+    # check for intersections of the individual lines in the multiline
+    for line1, line2 in iterT.combinations(multiLine, 2):
+        if line1.crosses(line2):
+            intersectionPoints = line1.intersection(line2)
+            if isinstance(intersectionPoints, shp.Point) or isinstance(intersectionPoints, shp.MultiPoint):
+                message = (
+                    "New coordinate system has overlaps - first intersection at %s. "
+                    "The provided path has too much curvature. "
+                    "Try: (1) smoothing the path, (2) reducing the domain width, or (3) using fewer points."
+                    % intersectionPoints
+                )
+                log.error(message)
+                raise AssertionError(message)
+
+    return True

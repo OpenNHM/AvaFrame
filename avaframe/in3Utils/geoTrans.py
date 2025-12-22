@@ -1128,6 +1128,9 @@ def path2domain(xyPath, rasterTransfo):
     DBYl = np.array((y + w * np.sin(d)))
     DBYr = np.array((y + w * np.sin(d + math.pi)))
 
+    # check if left or right domain boundary line is selfintersecting
+    checkDBOverlap(DBXl, DBXr, DBYl, DBYr)
+
     rasterTransfo["DBXl"] = DBXl
     rasterTransfo["DBXr"] = DBXr
     rasterTransfo["DBYl"] = DBYl
@@ -2094,3 +2097,31 @@ def cellsAffectedLine(header, pointsXY, typePoints):
                 mask[ind, ind2] = 1.0
 
     return mask, xx, yy
+
+
+def checkDBOverlap(DBXl, DBXr, DBYl, DBYr):
+    """check if lines spanned by DBX and DBY do intersect themselves; if selfintersecting line error
+
+    Parameters
+    -----------
+    DBXl, DBXr, DBYl, DBYr: numpy nd array
+        coordinates of lines
+
+    """
+
+    # create left and right domain boundar lineString
+    DBr = np.zeros((len(DBXr), 2))
+    DBr[:, 0] = DBXr
+    DBr[:, 1] = DBYr
+    DBrLine = shp.LineString(DBr)
+
+    DBl = np.zeros((len(DBXl), 2))
+    DBl[:, 0] = DBXl
+    DBl[:, 1] = DBYl
+    DBlLine = shp.LineString(DBl)
+
+    # check if either of the left or right domain boundary lineString is selfintersecting
+    if not DBrLine.is_simple or not DBlLine.is_simple:
+        message = "Domain transformation not applicable for given line - curvature of provided line would lead to folding"
+        log.error(message)
+        raise AssertionError(message)

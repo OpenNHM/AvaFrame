@@ -314,3 +314,24 @@ def test_computeRunoutLine(tmp_path):
     assert ("sRunout" in runoutLine.keys()) is False
     assert ("lRunout" in runoutLine.keys()) is False
     assert ("xRunout" in runoutLine.keys()) is False
+
+
+def test_checkOverlapDBXY():
+    """check if lines along coordinate grid do intersect"""
+
+    # setup required input
+    x1 = np.arange(0, 10, 1)
+    y1 = np.arange(2, 10, 1)
+    X, Y = np.meshgrid(x1, y1)
+    rasterTransfo = {"gridx": X, "gridy": Y}
+
+    flagOverlap = aT.checkOverlapDBXY(rasterTransfo)
+
+    assert flagOverlap is True
+
+    X[:, 0] = np.arange(0, 8, 1)
+    rasterTransfo = {"gridx": X, "gridy": Y}
+
+    with pytest.raises(AssertionError) as e:
+        assert aT.checkOverlapDBXY(rasterTransfo)
+    assert "New coordinate system has overlaps - first intersection at POINT (1 3)." in str(e.value)
