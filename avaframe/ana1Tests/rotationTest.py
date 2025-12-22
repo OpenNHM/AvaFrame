@@ -11,6 +11,7 @@ from datetime import datetime
 # Local imports
 # import config and init tools
 from avaframe.in3Utils import fileHandlerUtils as fU
+from avaframe.in3Utils import cfgUtils
 from avaframe.log2Report import generateReport as gR
 from avaframe.in3Utils import geoTrans as gT
 import avaframe.in2Trans.rasterUtils as IOf
@@ -63,7 +64,7 @@ def mainRotationTest(avalancheDir, energyLineTestCfg, com1DFACfg, dem, simDF, re
     fU.makeADir(outDir)
     # get reference angle
     simName = simDF.loc[refSimRowHash, 'simName']
-    relName = (simName.split('_'))[0]
+    relName = cfgUtils.parseSimName(simName)["releaseName"]
     thetaRef = float(relName[3:])
     for rowSimHash in simDF.index:
         # rotate results to be able to proceed to the aimec analysis
@@ -119,7 +120,7 @@ def rotateDFAResults(avalancheDir, simDF, rowSimHash, resTypeList, thetaRef, com
     """
     log.debug('Rotating simulation: %s' % rowSimHash)
     simName = simDF.loc[rowSimHash, 'simName']
-    relName = (simName.split('_'))[0]
+    relName = cfgUtils.parseSimName(simName)["releaseName"]
     theta = float(relName[3:])
     simDF.loc[rowSimHash, 'relAngle'] = theta
     thetaRot = theta - thetaRef

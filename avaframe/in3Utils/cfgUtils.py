@@ -408,6 +408,122 @@ def readCfgFile(avaDir, module="", fileName=""):
     return cfg
 
 
+def parseSimName(name):
+    """Parse simulation name handling both old and new formats.
+
+    Auto-detects:
+    - Old format: relName_simHash_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
+    - New format: relName_simHash_modName_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
+
+    Parameters
+    ----------
+    name : str
+        Simulation name or full filename to parse
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - releaseName: str (required)
+        - simHash: str (required)
+        - modName: str (required, "NA" for old format)
+        - defID: str (required, defaults to "C")
+        - frictIndi: str | None (optional, values: "S", "M", "L")
+        - simType: str (required)
+        - modelType: str (required)
+        - resType: str | None (optional, only in filenames)
+        - timeStep: str | None (optional, only in filenames)
+
+    Raises
+    ------
+    ValueError
+        If required components are missing or format is invalid
+
+    Examples
+    --------
+    >>> parseSimName("release1_a1b2c3_C_S_ent_dfa")
+    {'releaseName': 'release1', 'simHash': 'a1b2c3', 'modName': 'NA', 'defID': 'C',
+     'frictIndi': 'S', 'simType': 'ent', 'modelType': 'dfa', 'resType': None, 'timeStep': None}
+
+    >>> parseSimName("release1_a1b2c3_com1_C_S_ent_dfa")
+    {'releaseName': 'release1', 'simHash': 'a1b2c3', 'modName': 'com1', 'defID': 'C',
+     'frictIndi': 'S', 'simType': 'ent', 'modelType': 'dfa', 'resType': None, 'timeStep': None}
+    """
+
+    # Step 1: Handle _AF_ separator
+    if "_AF_" in name:
+        nameParts = name.split("_AF_")
+        releaseName = nameParts[0]
+        infoParts = nameParts[1].split("_")
+    else:
+        nameParts = name.split("_")
+        releaseName = nameParts[0]
+        infoParts = nameParts[1:]
+
+    # Step 2: Extract simHash (always first in infoParts)
+    if len(infoParts) < 1:
+        raise ValueError(f"Invalid simName format: no simHash found in '{name}'")
+    simHash = infoParts[0]
+
+    # Step 3: Detect format via module name pattern (com\d+ with optional letters)
+    # Matches both "com1" and "com1DFA", but extracts only short form (e.g., "com1")
+    modulePattern = re.compile(r"^com\d+[A-Za-z]*$")
+    shortModPattern = re.compile(r"^(com\d+)")
+
+    if len(infoParts) > 1 and modulePattern.match(infoParts[1]):
+        # NEW FORMAT - extract short module name (e.g., "com1" from "com1DFA" or "com1")
+        match = shortModPattern.match(infoParts[1])
+        modName = match.group(1) if match else infoParts[1]
+        remainingParts = infoParts[2:]  # Start after modName
+    else:
+        # OLD FORMAT
+        modName = "NA"
+        remainingParts = infoParts[1:]  # Start after simHash
+
+    # Step 4: Detect optional indicators
+    defID = "C"  # Default
+    frictIndi = None
+    offset = 0
+
+    if len(remainingParts) > 0 and remainingParts[0] in ["C", "D"]:
+        defID = remainingParts[0]
+        offset = 1
+
+    if len(remainingParts) > offset and remainingParts[offset] in ["S", "M", "L"]:
+        frictIndi = remainingParts[offset]
+        offset += 1
+
+    # Step 5: Extract required components (simType, modelType)
+    if len(remainingParts) < offset + 2:
+        raise ValueError(f"Invalid simName format: missing required components in '{name}'")
+
+    simType = remainingParts[offset]
+    modelType = remainingParts[offset + 1]
+
+    # Step 6: Extract optional file components (resType, timeStep)
+    resType = None
+    timeStep = None
+
+    if len(remainingParts) > offset + 2:
+        resType = remainingParts[offset + 2]
+
+    if len(remainingParts) > offset + 3:
+        timeStep = remainingParts[offset + 3]
+
+    # Step 7: Return structured dictionary
+    return {
+        "releaseName": releaseName,
+        "simHash": simHash,
+        "modName": modName,
+        "defID": defID,
+        "frictIndi": frictIndi,
+        "simType": simType,
+        "modelType": modelType,
+        "resType": resType,
+        "timeStep": timeStep,
+    }
+
+
 def cfgHash(cfg, typeDict=False):
     """UID hash of a config. Given a configParser object cfg,
     or a dictionary - then typeDict=True, returns a uid hash
@@ -530,14 +646,8 @@ def createConfigurationInfo(
         for cFile in configFiles:
             if "sourceConfiguration" not in str(cFile):
                 simName = pathlib.Path(cFile).stem
-                if "_AF_" in simName:
-                    nameParts = simName.split("_AF_")
-                    infoParts = nameParts[1].split("_")
-
-                else:
-                    nameParts = simName.split("_")
-                    infoParts = nameParts[1:]
-                simHash = infoParts[0]
+                # Extract simHash using parseSimName
+                simHash = parseSimName(simName)["simHash"]
                 cfgObject = readCfgFile(avaDir, fileName=cFile)
                 simDF = appendCgf2DF(simHash, simName, cfgObject, simDF)
 

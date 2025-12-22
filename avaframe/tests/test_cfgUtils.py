@@ -769,3 +769,279 @@ def test_setStrnanToNan_case_sensitivity():
     # Verify all variations of 'nan' were converted
     for i in range(5):
         assert pd.isna(resultDF.at[i, 'column1'])
+
+
+# Tests for parseSimName function
+
+
+def test_parseSimName_oldFormat_basic():
+    """Test parsing old format without modName"""
+    name = "release1_a1b2c3_C_S_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "NA"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] == "S"
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+    assert result["resType"] is None
+    assert result["timeStep"] is None
+
+
+def test_parseSimName_oldFormat_minimal():
+    """Test parsing minimal old format (no indicators)"""
+    name = "release1_a1b2c3_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "NA"
+    assert result["defID"] == "C"  # Default
+    assert result["frictIndi"] is None
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+    assert result["resType"] is None
+    assert result["timeStep"] is None
+
+
+def test_parseSimName_oldFormat_defID_only():
+    """Test parsing old format with defID but no frictIndi"""
+    name = "release1_a1b2c3_D_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "NA"
+    assert result["defID"] == "D"
+    assert result["frictIndi"] is None
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+
+
+def test_parseSimName_newFormat_basic():
+    """Test parsing new format with modName"""
+    name = "release1_a1b2c3_com1_C_S_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com1"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] == "S"
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+    assert result["resType"] is None
+    assert result["timeStep"] is None
+
+
+def test_parseSimName_newFormat_com8():
+    """Test parsing new format with com8 module"""
+    name = "release1_a1b2c3_com8_C_M_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com8"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] == "M"
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+
+
+def test_parseSimName_newFormat_com9():
+    """Test parsing new format with com9 module"""
+    name = "release1_a1b2c3_com9_D_L_null_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com9"
+    assert result["defID"] == "D"
+    assert result["frictIndi"] == "L"
+    assert result["simType"] == "null"
+    assert result["modelType"] == "dfa"
+
+
+def test_parseSimName_newFormat_minimal():
+    """Test parsing new format without optional indicators"""
+    name = "release1_a1b2c3_com1_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com1"
+    assert result["defID"] == "C"  # Default
+    assert result["frictIndi"] is None
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+
+
+def test_parseSimName_withFile_oldFormat():
+    """Test parsing full filename with resType and timeStep (old format)"""
+    name = "release1_a1b2c3_C_S_ent_dfa_ppr_100.5"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "NA"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] == "S"
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+    assert result["resType"] == "ppr"
+    assert result["timeStep"] == "100.5"
+
+
+def test_parseSimName_withFile_newFormat():
+    """Test parsing full filename with resType and timeStep (new format)"""
+    name = "release1_a1b2c3_com1_C_S_ent_dfa_pft_50.2"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com1"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] == "S"
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+    assert result["resType"] == "pft"
+    assert result["timeStep"] == "50.2"
+
+
+def test_parseSimName_withFile_resTypeOnly():
+    """Test parsing filename with resType but no timeStep"""
+    name = "release1_a1b2c3_com1_C_ent_dfa_pfv"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com1"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] is None
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+    assert result["resType"] == "pfv"
+    assert result["timeStep"] is None
+
+
+def test_parseSimName_AF_separator_oldFormat():
+    """Test parsing with _AF_ separator (old format)"""
+    name = "release1_AF_a1b2c3_C_S_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "NA"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] == "S"
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+
+
+def test_parseSimName_AF_separator_newFormat():
+    """Test parsing with _AF_ separator (new format)"""
+    name = "release1_AF_a1b2c3_com1_D_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com1"
+    assert result["defID"] == "D"
+    assert result["frictIndi"] is None
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "dfa"
+
+
+def test_parseSimName_all_defID_options():
+    """Test all defID options (_C_ and _D_)"""
+    name_C = "release1_a1b2c3_com1_C_ent_dfa"
+    result_C = cfgUtils.parseSimName(name_C)
+    assert result_C["defID"] == "C"
+
+    name_D = "release1_a1b2c3_com1_D_ent_dfa"
+    result_D = cfgUtils.parseSimName(name_D)
+    assert result_D["defID"] == "D"
+
+
+def test_parseSimName_all_frictIndi_options():
+    """Test all frictIndi options (_S_, _M_, _L_)"""
+    name_S = "release1_a1b2c3_com1_C_S_ent_dfa"
+    result_S = cfgUtils.parseSimName(name_S)
+    assert result_S["frictIndi"] == "S"
+
+    name_M = "release1_a1b2c3_com1_C_M_ent_dfa"
+    result_M = cfgUtils.parseSimName(name_M)
+    assert result_M["frictIndi"] == "M"
+
+    name_L = "release1_a1b2c3_com1_C_L_ent_dfa"
+    result_L = cfgUtils.parseSimName(name_L)
+    assert result_L["frictIndi"] == "L"
+
+
+def test_parseSimName_complex_releaseName():
+    """Test parsing with complex release names"""
+    name = "myRelease_Test_AF_a1b2c3_com1_C_ent_dfa"
+    result = cfgUtils.parseSimName(name)
+    assert result["releaseName"] == "myRelease_Test"
+
+    name2 = "rel123_a1b2c3_com1_ent_dfa"
+    result2 = cfgUtils.parseSimName(name2)
+    assert result2["releaseName"] == "rel123"
+
+
+def test_parseSimName_invalid_noSimHash():
+    """Test error handling when simHash is missing"""
+    name = "release1"
+    with pytest.raises(ValueError, match="Invalid simName format: no simHash found"):
+        cfgUtils.parseSimName(name)
+
+
+def test_parseSimName_invalid_missingComponents():
+    """Test error handling when required components are missing"""
+    name = "release1_a1b2c3_ent"  # Missing modelType
+    with pytest.raises(ValueError, match="Invalid simName format: missing required components"):
+        cfgUtils.parseSimName(name)
+
+
+def test_parseSimName_invalid_onlyHash():
+    """Test error handling when only hash exists"""
+    name = "release1_a1b2c3"
+    with pytest.raises(ValueError, match="Invalid simName format: missing required components"):
+        cfgUtils.parseSimName(name)
+
+
+def test_parseSimName_realWorld_examples():
+    """Test with realistic simulation names from codebase"""
+    # Typical old format from existing simulations
+    name1 = "release_9ae8f6_null_dfa"
+    result1 = cfgUtils.parseSimName(name1)
+    assert result1["releaseName"] == "release"
+    assert result1["simHash"] == "9ae8f6"
+    assert result1["modName"] == "NA"
+    assert result1["simType"] == "null"
+    assert result1["modelType"] == "dfa"
+
+    # Old format with all indicators
+    name2 = "avalanche_abc123_C_S_ent_dfa_ppr"
+    result2 = cfgUtils.parseSimName(name2)
+    assert result2["releaseName"] == "avalanche"
+    assert result2["simHash"] == "abc123"
+    assert result2["modName"] == "NA"
+    assert result2["defID"] == "C"
+    assert result2["frictIndi"] == "S"
+    assert result2["simType"] == "ent"
+    assert result2["modelType"] == "dfa"
+    assert result2["resType"] == "ppr"
+
+    # New format example
+    name3 = "testRel_xyz789_com1_D_M_ent_dfa"
+    result3 = cfgUtils.parseSimName(name3)
+    assert result3["releaseName"] == "testRel"
+    assert result3["simHash"] == "xyz789"
+    assert result3["modName"] == "com1"
+    assert result3["defID"] == "D"
+    assert result3["frictIndi"] == "M"
+    assert result3["simType"] == "ent"
+    assert result3["modelType"] == "dfa"

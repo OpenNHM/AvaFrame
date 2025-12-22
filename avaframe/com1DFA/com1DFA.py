@@ -9,6 +9,7 @@ import os
 import pathlib
 import pickle
 import platform
+import re
 import time
 from datetime import datetime
 from functools import partial
@@ -3070,8 +3071,10 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
         simType and contains full configuration configparser object for simulation run
     """
 
-    # extract the name of the module
-    modName = module.__name__.split(".")[-1]
+    # extract the full module name and short form (e.g., "com1DFA" -> "com1")
+    modName = module.__name__.split(".")[-1]  # Full name: com1DFA, com8MoTPSA, etc.
+    shortModMatch = re.match(r"^(com\d+)", modName)
+    modNameShort = shortModMatch.group(1) if shortModMatch else modName  # Short name: com1, com8, etc.
 
     # get list of simulation types that are desired
     if "simTypeList" in variationDict:
@@ -3304,6 +3307,7 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                 [
                     relNameSim,
                     simHash,
+                    modNameShort,
                     defID,
                     frictIndi or volIndi,
                     row._asdict()["simTypeList"],

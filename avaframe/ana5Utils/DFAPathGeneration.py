@@ -690,7 +690,7 @@ def saveSplitAndPath(avalancheDir, simDFrow, splitPoint, avaProfileMass, dem):
     avaProfileMass['y'] = avaProfileMass['y'] + dem['originalHeader']['yllcenter']
     # get projection from release shp layer
     simName = simDFrow['simName']
-    relName = simName.split('_')[0]
+    relName = cfgUtils.parseSimName(simName)["releaseName"]
     inProjection = pathlib.Path(avalancheDir, 'Inputs', 'REL', relName + '.prj')
     # save profile in Inputs
     pathAB = pathlib.Path(avalancheDir, 'Outputs', 'ana5Utils', 'DFAPath', 'massAvgPath_%s_AB_aimec' % simName)
