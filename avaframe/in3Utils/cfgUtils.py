@@ -1,5 +1,37 @@
 """
-Utilities for handling configuration files
+Utilities for handling configuration files and simulation naming
+
+This module provides functions for:
+- Configuration file reading, writing, and merging
+- Configuration comparison and hashing
+- Simulation name parsing and construction
+
+Simulation Name Format
+----------------------
+AvaFrame uses structured simulation names with two supported formats:
+
+**New format (with module name):**
+    relName_simHash_modName_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
+
+**Old format (without module name):**
+    relName_simHash_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
+
+Where:
+    - relName: Release area scenario name (required)
+    - simHash: Configuration hash (required, 10 characters)
+    - modName: Short module name - "com1", "com2", etc. (new format only)
+    - defID: Default indicator - "C" or "D" (optional, defaults to "C")
+    - frictIndi: Friction calibration - "S", "M", or "L" (optional)
+    - simType: Simulation type - "null", "ent", "res", "entres" (required)
+    - modelType: Model type - "dfa", etc. (required)
+    - resType: Result type - "ppr", "pft", "pfv", etc. (filename only)
+    - timeStep: Time step value (filename only)
+
+The module name in the new format uses SHORT form only (e.g., "com1" not "com1DFA").
+This was implemented in 2025-12 to support better organization and filtering of simulations.
+
+Use `parseSimName()` to extract components from any simulation name.
+Backward compatibility is maintained - old format names are still supported.
 
 """
 

@@ -54,14 +54,12 @@ def getMBInfo(avaDir, inputsDF, comMod, simName=''):
             log.error(message)
             raise FileNotFoundError(message)
         # Sort mass balance files by simName components using parseSimName
-        def sortKey(filepath):
-            """Extract sort key from mass balance filename"""
-            # Remove 'mass_' prefix from stem to get simName
-            simName = filepath.stem[5:]  # 'mass_' is 5 characters
-            parsed = cfgUtils.parseSimName(simName)
-            return (parsed["simHash"], parsed["modName"], parsed["simType"])
-
-        mbNames = sorted(set(mbFiles), key=sortKey)
+        mbNames = sorted(set(mbFiles), key=lambda f: (
+            # Extract simName by removing 'mass_' prefix (5 characters) and parse components
+            cfgUtils.parseSimName(f.stem[5:])["simHash"],
+            cfgUtils.parseSimName(f.stem[5:])["modName"],
+            cfgUtils.parseSimName(f.stem[5:])["simType"]
+        ))
 
         for mFile in mbNames:
             # Extract simName from filename (remove 'mass_' prefix)

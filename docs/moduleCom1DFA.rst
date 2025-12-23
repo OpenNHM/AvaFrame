@@ -271,17 +271,22 @@ Using the default configuration, the simulation results are saved to: *Outputs/c
         to be resumed without re-running simulations that have already been performed. For this, just restart the run.
 
 The naming of the output files has the following structure, shown with the example of
-*relAlr_ff5f9b78c6_C_L_null_dfa_ppr*:
+*relAlr_ff5f9b78c6_com1_C_L_null_dfa_ppr*:
 
 * *relAlr* - release area name, usually the name of the shapefile
 * *ff5f9b78c6* - individual hash of the configuration file used for the simulation. All files related to this simulation
   have the same hash in their name. This allows to identify which files belong to which simulation.
+* *com1* - short module name (com1 for com1DFA, com2 for com2AB, etc.). This component was added in 2025-12
+  to support better filtering and organization of simulations from different computational modules.
 * *C* - indicator of the setup used: D for default setup, C for custom setup, i.e. something was changed in the
   configuration file
 * *L* - indicator of the size category used for the friction model: L for large, M for medium, S for small
 * *null* - indicator of the run type: null for null variant, ent for entrainment variant, res for resistance variant, etc
 * *dfa* - indicator of the simulation type: dfa for dense flow avalanche
 * *ppr* - indicator of the result type: ppr for peak pressure, pfv for peak flow velocity, pft for peak flow thickness, etc
+
+**Note:** Older simulations may not have the module name component (*com1*). The system automatically detects
+and handles both formats for backward compatibility.
 
 
 Optional outputs
