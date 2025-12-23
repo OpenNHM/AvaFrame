@@ -203,3 +203,139 @@ def test_getParabolicFit():
 #    print(splitPoint)
 #    print(angle)
     assert splitPoint['s'] == 50
+
+
+def test_getSplitPoint_noPointFound():
+    """Test getSplitPoint when no point meets slope criteria - should return top point"""
+    cfg = configparser.ConfigParser()
+    cfg['PATH'] = {'slopeSplitPoint': '5', 'dsMin': '5'}  # Very low slope requirement
+
+    # Create profile with steep slope everywhere
+    avaProfile = {
+        'x': np.array([0, 10, 20, 30]),
+        'y': np.array([0, 10, 20, 30]),
+        'z': np.array([50, 30, 10, 0]),  # Steep slope throughout
+        's': np.array([0, 14.14, 28.28, 42.43]),
+        'indStartMassAverage': 0,
+        'indEndMassAverage': 3
+    }
+    # Parabolic fit with steep slope at bottom
+    parabolicFit = {'a': 0.01, 'b': -2, 'c': 50}
+
+    splitPoint = DFAPathGeneration.getSplitPoint(cfg['PATH'], avaProfile, parabolicFit)
+
+    # Should return top point when no split point found
+    assert splitPoint.get('isTopSplitPoint', False) is True
+    assert splitPoint['x'] == avaProfile['x'][0]
+    assert splitPoint['y'] == avaProfile['y'][0]
+    assert splitPoint['z'] == avaProfile['z'][0]
+
+
+def test_getMassAvgPathFromFields():
+    """Test computing mass-averaged path from field data"""
+    # Create simple 5x5 field with flow in the middle
+    fieldsList = [{
+        'FT': np.array([[0, 0, 0, 0, 0],
+                        [0, 1, 2, 1, 0],
+                        [0, 2, 3, 2, 0],
+                        [0, 1, 2, 1, 0],
+                        [0, 0, 0, 0, 0]]),  # Flow thickness
+        'FM': np.array([[0, 0, 0, 0, 0],
+                        [0, 5, 10, 5, 0],
+                        [0, 10, 15, 10, 0],
+                        [0, 5, 10, 5, 0],
+                        [0, 0, 0, 0, 0]]),  # Flow mass
+        'FV': np.array([[0, 0, 0, 0, 0],
+                        [0, 2, 3, 2, 0],
+                        [0, 3, 4, 3, 0],
+                        [0, 2, 3, 2, 0],
+                        [0, 0, 0, 0, 0]])   # Flow velocity
+    }]
+
+    fieldHeader = {
+        'ncols': 5,
+        'nrows': 5,
+        'xllcenter': 100,
+        'yllcenter': 200,
+        'cellsize': 5
+    }
+
+    dem = {
+        'rasterData': np.array([[50, 50, 50, 50, 50],
+                                [40, 40, 40, 40, 40],
+                                [30, 30, 30, 30, 30],
+                                [20, 20, 20, 20, 20],
+                                [10, 10, 10, 10, 10]])
+    }
+
+    result = DFAPathGeneration.getMassAvgPathFromFields(fieldsList, fieldHeader, dem)
+
+    # Verify structure
+    assert 'x' in result
+    assert 'y' in result
+    assert 'z' in result
+    assert 's' in result
+    assert 'xstd' in result
+    assert 'ystd' in result
+    assert 'zstd' in result
+
+    # Verify velocity info is included
+    assert 'u2' in result
+    assert 'ekin' in result
+    assert 'u2std' in result
+    assert 'ekinstd' in result
+    assert 'totEKin' in result
+
+    # Should have one time step
+    assert len(result['x']) == 1
+    assert len(result['y']) == 1
+    assert len(result['z']) == 1
+
+    # Coordinates should be relative to origin (xllcenter and yllcenter subtracted)
+    # Mass-weighted average should be close to center
+    assert result['x'][0] > 0  # Relative to xllcenter
+    assert result['y'][0] > 0  # Relative to yllcenter
+
+
+def test_getMassAvgPathFromFields_noVelocity():
+    """Test getMassAvgPathFromFields without velocity data"""
+    # Create simple field without velocity info
+    fieldsList = [{
+        'FT': np.array([[0, 1, 0],
+                        [0, 2, 0],
+                        [0, 0, 0]]),
+        'FM': np.array([[0, 5, 0],
+                        [0, 10, 0],
+                        [0, 0, 0]])
+        # No FV field
+    }]
+
+    fieldHeader = {
+        'ncols': 3,
+        'nrows': 3,
+        'xllcenter': 0,
+        'yllcenter': 0,
+        'cellsize': 10
+    }
+
+    dem = {
+        'rasterData': np.array([[30, 30, 30],
+                                [20, 20, 20],
+                                [10, 10, 10]])
+    }
+
+    result = DFAPathGeneration.getMassAvgPathFromFields(fieldsList, fieldHeader, dem)
+
+    # Verify basic structure
+    assert 'x' in result
+    assert 'y' in result
+    assert 'z' in result
+    assert 's' in result
+
+    # Velocity info should NOT be present
+    assert 'u2' not in result
+    assert 'ekin' not in result
+    assert 'totEKin' not in result
+
+    # Should have one time step
+    assert len(result['x']) == 1

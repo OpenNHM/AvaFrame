@@ -11,7 +11,7 @@ Simulation Name Format
 AvaFrame uses structured simulation names with two supported formats:
 
 **New format (with module name):**
-    relName_simHash_modName_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
+    relName_simHash_modName_defID_[frictIndi]_simType_modelType[_resType][_timeStep]
 
 **Old format (without module name):**
     relName_simHash_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
@@ -20,7 +20,7 @@ Where:
     - relName: Release area scenario name (required)
     - simHash: Configuration hash (required, 10 characters)
     - modName: Short module name - "com1", "com2", etc. (new format only)
-    - defID: Default indicator - "C" or "D" (optional, defaults to "C")
+    - defID: Default indicator - "C" or "D" (defaults to "C")
     - frictIndi: Friction calibration - "S", "M", or "L" (optional)
     - simType: Simulation type - "null", "ent", "res", "entres" (required)
     - modelType: Model type - "dfa", etc. (required)
@@ -444,8 +444,9 @@ def parseSimName(name):
     """Parse simulation name handling both old and new formats.
 
     Auto-detects:
-    - Old format: relName_simHash_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
-    - New format: relName_simHash_modName_[defID]_[frictIndi]_simType_modelType[_resType][_timeStep]
+    - Old format: relName_simHash_defID_[frictIndi]_simType_modelType[_resType][_timeStep]
+    - New format: relName_simHash_modName_defID_[frictIndi]_simType_modelType[_resType][_timeStep]
+    [ ] denotes optional items
 
     Parameters
     ----------

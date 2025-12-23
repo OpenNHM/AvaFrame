@@ -8,6 +8,7 @@ import pytest
 
 import avaframe.ana1Tests.analysisTools as anaTools
 import avaframe.ana1Tests.energyLineTest as energyLineTest
+import avaframe.ana1Tests.rotationTest as rotationTest
 import avaframe.com1DFA.com1DFA as com1DFA
 import avaframe.in3Utils.fileHandlerUtils as fU
 from avaframe.in3Utils import cfgHandling
@@ -229,3 +230,65 @@ def test_mainEnergyLineTest(tmp_path):
     assert abs(resultEnergyTest["runOutZError"]) < 0.02
     assert abs(resultEnergyTest["rmseVelocityElevation"]) < 0.02
     assert abs(resultEnergyTest["runOutAngleError"]) < 0.0003
+
+
+# ############# Test rotation test ##########
+# ############################################
+def test_initializeRotationTestReport(tmp_path):
+    """Test report initialization creates correct structure"""
+    avalancheDir = tmp_path / "testAva"
+    resTypeList = ["ppr", "pfv", "pft"]
+    comModule = "com1DFA"
+    refSimName = "testSim"
+    flagMass = False
+
+    report = rotationTest.initializeRotationTestReport(
+        avalancheDir, resTypeList, comModule, refSimName, flagMass
+    )
+
+    # Check report structure
+    assert "headerLine" in report
+    assert report["headerLine"]["type"] == "title"
+    assert report["headerLine"]["title"] == "Rotation Test for DFA Simulation"
+
+    assert "avaName" in report
+    assert report["avaName"]["type"] == "avaName"
+
+    assert "time" in report
+    assert report["time"]["type"] == "time"
+
+    assert "Simulation Parameters" in report
+    assert report["Simulation Parameters"]["type"] == "list"
+    assert report["Simulation Parameters"]["DFA module"] == comModule
+    assert report["Simulation Parameters"]["Reference simulation"] == refSimName
+
+    # Check column names for result tables
+    assert "Rotation test input simulations" in report
+    assert "simName" in report["Rotation test input simulations"]["column names"]
+
+    assert "Rotation test Energy line result table" in report
+    assert "sDiff" in report["Rotation test Energy line result table"]["column names"]
+
+    assert "Rotation test AIMEC result table" in report
+    assert "sRunout" in report["Rotation test AIMEC result table"]["column names"]
+
+    # Mass columns should not be present when flagMass is False
+    assert "relMass" not in report["Rotation test AIMEC result table"]["column names"]
+
+
+def test_initializeRotationTestReport_withMass(tmp_path):
+    """Test report initialization with mass analysis enabled"""
+    avalancheDir = tmp_path / "testAva"
+    resTypeList = ["ppr", "pfv", "pft"]
+    comModule = "com1DFA"
+    refSimName = "testSim"
+    flagMass = True
+
+    report = rotationTest.initializeRotationTestReport(
+        avalancheDir, resTypeList, comModule, refSimName, flagMass
+    )
+
+    # Mass columns should be present when flagMass is True
+    assert "relMass" in report["Rotation test AIMEC result table"]["column names"]
+    assert "finalMass" in report["Rotation test AIMEC result table"]["column names"]
+    assert "entMass" in report["Rotation test AIMEC result table"]["column names"]
