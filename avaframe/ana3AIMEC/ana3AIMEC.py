@@ -128,6 +128,7 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     log.debug("Creating new deskewed raster and preparing new raster assignment function")
     log.debug('Analyze and make domain transformation on Data-file %s' % demSource)
     rasterTransfo = aimecTools.makeDomainTransfo(pathDict, dem, refHeader['cellsize'], cfgSetup)
+    rasterTransfo["avaDir"] = pathDict["avalancheDir"]
 
     # ####################################################
     # visualisation
@@ -135,7 +136,7 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     slRaster = aimecTools.transform(refRaster, refResultSource, rasterTransfo, interpMethod)
     newRasters = {}
     log.debug("Assigning dem data to deskewed raster")
-    newRasters['newRasterDEM'] = aimecTools.transform(dem, demSource, rasterTransfo, interpMethod)
+    newRasters["newRasterDEM"] = aimecTools.transform(dem, demSource, rasterTransfo, interpMethod, dem=True)
 
     inputData = {}
     inputData['slRaster'] = slRaster

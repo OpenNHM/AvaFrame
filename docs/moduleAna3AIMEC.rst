@@ -30,14 +30,23 @@ Inputs
 *  DEM  (digital elevation model) as raster file with either `ESRI grid format <https://desktop.arcgis.com/en/arcmap/10.3/manage-data/raster-and-images/esri-ascii-raster-format.htm>`_
    or GeoTIFF format. The format of the DEM determines
 which format is used for the output.
+
 .. Note:: The spatial resolution of the DEM and its extent can differ from the result raster data.
           Spatial resolution can also differ between simulations. If this is the case, the spatial
           resolution of the reference simulation results raster is used (default) or, if provided,
           the resolution specified in the configuration file (``cellSizeSL``) is used.
           This is done to ensure that all simulations will be transformed and analyzed using the
           same spatial resolution.
+
 *  avalanche thalweg in LINES (as a shapefile named ``NameOfAvalanche/Inputs/LINES/path_aimec.shp``), the line needs to cover the entire affected area but is not allowed
    to exceed the DEM extent
+
+.. Note:: If the thalweg is strongly curved this can lead to overlaps in the transformed coordinate system. If this affects
+          areas where there is data to be analysed, this will lead to wrong/distorted results in the analysis.
+          This is the case if any of the lines normal to the thalweg in the domain transformation figure,
+          e.g. :numref:`fig-aimec-domain-transfo`, cross. If so, computations will still be performed but a
+          a warning will be prompted in the log.
+
 *  results from avalanche simulation (when using results from com1DFA,
    the helper function :py:func:`ana3AIMEC.dfa2Aimec.mainDfa2Aimec` in
    :py:mod:`ana3AIMEC.dfa2Aimec` fetches and prepares the input for Aimec)

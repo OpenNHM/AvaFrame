@@ -523,7 +523,9 @@ def makeDomainTransfo(pathDict, dem, refCellSize, cfgSetup):
     rasterTransfo, _ = geoTrans.projectOnRaster(dem, rasterTransfo)
 
     # check if any coordinate lines of new coordinate system are overlapping
-    _ = checkOverlapDBXY(rasterTransfo)
+    _ = checkOverlapDBXY(
+        rasterTransfo,
+    )
 
     # add surface parallel coordinate (sParallel)
     rasterTransfo = addSurfaceParalleCoord(rasterTransfo)
@@ -763,8 +765,8 @@ def getSArea(rasterTransfo, dem):
     return rasterTransfo
 
 
-def transform(data, name, rasterTransfo, interpMethod):
-    """ Transfer data from old raster to new raster
+def transform(data, name, rasterTransfo, interpMethod, dem=False):
+    """Transfer data from old raster to new raster
 
     Assign value to the points of the new raster (after domain transormation)
 
@@ -778,6 +780,8 @@ def transform(data, name, rasterTransfo, interpMethod):
         transformation information
     interpMethod: str
         interpolation method to chose between 'nearest' and 'bilinear'
+    dem: bool
+        indicator if field to be transformed is a DEM
 
     Returns
     -------
@@ -800,6 +804,21 @@ def transform(data, name, rasterTransfo, interpMethod):
     newData = Points['z'].reshape(n, m)
     log.debug('Data-file: %s - %d raster values transferred - %d out of original raster'
               'bounds!' % (name, iib-ioob, ioob))
+
+    # # TODO: only required if check of folding on coordinate system where data is to be analysed
+    # # check if data overlap in s, l coordinate system
+    # # first set no data (nan) values to zero for next check
+    # newDataInt = np.where(np.isnan(newData), 0, newData)
+    # newDataMask = np.where(rasterTransfo["intersectionPoints"], newDataInt, 0)
+    # if np.any(newDataMask) and not dem:
+    #     message = (
+    #         "New coordinate system has overlaps - "
+    #         "The provided path has too much curvature. "
+    #         "Try: (1) smoothing the path, (2) reducing the domain width, or (3) using fewer points."
+    #     )
+    #     outAimec.plotOverlap(rasterTransfo, newData, name, rasterTransfo["avaDir"])
+    #     log.error(message)
+    #     raise AssertionError(message)
 
     return newData
 
@@ -1850,10 +1869,16 @@ def checkOverlapDBXY(rasterTransfo):
     rasterTransfo: dict
         dict with gridx, gridy locations of new coordinates in old coordinate system
 
+    Returns
+    ---------
+    flagOverlap: bool
+        False if no folding of coordinate system
     """
 
     x = rasterTransfo["gridx"]
     y = rasterTransfo["gridy"]
+
+    flagOverlap = False
 
     # create lineStrings from coordinate points
     multiLine = []
@@ -1874,7 +1899,90 @@ def checkOverlapDBXY(rasterTransfo):
                     "Try: (1) smoothing the path, (2) reducing the domain width, or (3) using fewer points."
                     % intersectionPoints
                 )
-                log.error(message)
-                raise AssertionError(message)
+                log.warning(message)
+                flagOverlap = True
+                break
 
-    return True
+    return flagOverlap
+
+
+## CODE CURRENTLY NOT USED: MORE ADVANCED CHECKS
+def checkOverlapDBXYWithData(rasterTransfo, pointTolerance):
+    """check if x, y coordinates of new coordinate system overlap
+
+    TODO: this check is required if folding of cooridnate system only where there is data to be analysed shall we checked
+
+    Parameters
+    -----------
+    rasterTransfo: dict
+        dict with gridx, gridy locations of new coordinates in old coordinate system
+    pointTolerance: float
+        defines the absolute tolerance used to check whether coordinate locations are affected by the intersection
+        of coordinate grid lines (to check if overlap/folding in transformed coordinate system)
+
+    Returns
+    ---------
+    intPointsArray: numpy nd array
+        boolean array used as index array for coordinate arrays (rasterTransfo: gridx, gridy) where intersections occur
+        new coordinate system (s, l) has overlaps
+    """
+
+    x = rasterTransfo["gridx"]
+    y = rasterTransfo["gridy"]
+
+    # create lineStrings from coordinate points
+    multiLine = []
+    for i in range(x.shape[1]):
+        lineArray = np.zeros((x.shape[0], 2))
+        lineArray[:, 0] = x[:, i]
+        lineArray[:, 1] = y[:, i]
+        multiLine.append(shp.LineString(lineArray))
+
+    intPointsArray = np.zeros((x.shape[0], x.shape[1]))
+    # check for intersections of the individual lines in the multiline
+    for line1, line2 in iterT.combinations(multiLine, 2):
+        if line1.crosses(line2):
+            intersectionPoints = line1.intersection(line2)
+            if isinstance(intersectionPoints, shp.Point):
+                intPointsArray = findIntSectCoors(intersectionPoints, x, y, intPointsArray, pointTolerance)
+
+            elif isinstance(intersectionPoints, shp.MultiPoint):
+                for intPoint in intersectionPoints.geoms:
+                    intPointsArray = findIntSectCoors(intPoint, x, y, intPointsArray, pointTolerance)
+
+    # convert to boolean array for use as index array
+    intPointsArray = np.array(intPointsArray, dtype=bool)
+
+    return intPointsArray
+
+
+def findIntSectCoors(intersectionPoint, x, y, intPointsArray, pointTolerance):
+    """find in coordinate arrays (x, y) indices of points in intersectionPoints
+
+    Parameters
+    -----------
+    intersectionPoint: shapely Point
+        point where intersection is found
+    x, y: numpy nd array
+        x, y coordinates of s,l coordinate system
+    intPointsArray: numpy nd array
+        array with 1, 0 if point is intersecting
+
+    Returns
+    --------
+    intPointsArray: numpy nd array
+        updated array with 1, 0 if point is intersecting
+    """
+
+    # get x and y coordinate of intersection
+    y1 = intersectionPoint.y
+    x1 = intersectionPoint.x
+
+    # find corresponding coordinate of x, y arrays of coordinates in s, l system
+    yLoc = np.where(np.isclose(y, y1, atol=pointTolerance, rtol=0.0), y, np.nan)
+    xLoc = np.where(np.isclose(x, x1, atol=pointTolerance, rtol=0.0), x, np.nan)
+    indexArray = np.where(((np.isnan(yLoc) == False) & (np.isnan(xLoc) == False)))
+
+    intPointsArray[indexArray] = 1
+
+    return intPointsArray

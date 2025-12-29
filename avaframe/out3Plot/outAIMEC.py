@@ -20,6 +20,7 @@ import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
+import pathlib
 
 # Local imports
 import avaframe.out3Plot.plotUtils as pU
@@ -2020,3 +2021,63 @@ def defineColorcodingValues(dataDF, paraVar, nSamples):
         values = None
 
     return colorFlag, colorSuffix, minVal, maxVal, values, cmapSCVals
+
+
+def plotOverlap(rasterTransfo, newData, name, avaDir):
+    """plot where s,l coordinate system has overlaps and where this coincides with data to be analysed
+
+    Parameters
+    -----------
+    rasterTransfo: dict
+        dictionary with all the information about the coordinate transformation
+    newData: numpy nd array
+        current data field to be analysed and already transformed in s,l coordinate system
+    """
+
+    l = rasterTransfo["l"]
+    s = rasterTransfo["s"]
+
+    cmap1, _, ticks1, norm1 = pU.makeColorMap(
+        pU.colorMaps["prob"],
+        np.nanmin(newData),
+        np.nanmax(newData),
+        continuous=pU.contCmap,
+    )
+
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(pU.figW * 2, pU.figH * 3))
+
+    ax[0].set_title("Data field")
+    ref0, im = pU.NonUnifIm(
+        ax[0],
+        s,
+        l,
+        np.transpose(np.where((newData > 0), newData, np.nan)),
+        "$S_{XY}$ (thalweg) [m]",
+        "$L_{XY}$ (thalweg) [m]",
+        extent=[s.min(), s.max(), l.min(), l.max()],
+    )
+    ax[1].set_title("Overlap in coordinate system")
+    ref1, im1 = pU.NonUnifIm(
+        ax[1],
+        s,
+        l,
+        np.transpose(np.where(rasterTransfo["intersectionPoints"], 1, np.nan)),
+        "$S_{XY}$ (thalweg) [m]",
+        "$L_{XY}$ (thalweg) [m]",
+        extent=[s.min(), s.max(), l.min(), l.max()],
+    )
+
+    ax[2].set_title("Overlap coinciding with analysed data")
+    fieldOverlap = np.where(rasterTransfo["intersectionPoints"], newData, np.nan)
+    ref2, im2 = pU.NonUnifIm(
+        ax[2],
+        s,
+        l,
+        np.transpose(np.where(fieldOverlap > 0, newData, np.nan)),
+        "$S_{XY}$ (thalweg) [m]",
+        "$L_{XY}$ (thalweg) [m]",
+        extent=[s.min(), s.max(), l.min(), l.max()],
+    )
+
+    outFileName = "ErrorPlot_domainOverlap%s" % (name.stem)
+    pU.saveAndOrPlot({"pathResult": pathlib.Path(avaDir, "Outputs", "ana3AIMEC")}, outFileName, fig)
