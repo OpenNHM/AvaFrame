@@ -2122,6 +2122,6 @@ def checkDBOverlap(DBXl, DBXr, DBYl, DBYr):
 
     # check if either of the left or right domain boundary lineString is selfintersecting
     if not DBrLine.is_simple or not DBlLine.is_simple:
-        message = "Domain transformation not applicable for given line - curvature of provided line would lead to folding"
-        log.error(message)
-        raise AssertionError(message)
+        message = "Domain transformation for given path_aimec - curvature of provided line leads to folding"
+        log.warning(message)
+

@@ -327,11 +327,11 @@ def test_checkOverlapDBXY():
 
     flagOverlap = aT.checkOverlapDBXY(rasterTransfo)
 
-    assert flagOverlap is True
+    assert not flagOverlap
 
     X[:, 0] = np.arange(0, 8, 1)
     rasterTransfo = {"gridx": X, "gridy": Y}
 
-    with pytest.raises(AssertionError) as e:
-        assert aT.checkOverlapDBXY(rasterTransfo)
-    assert "New coordinate system has overlaps - first intersection at POINT (1 3)." in str(e.value)
+    flagOverlap = aT.checkOverlapDBXY(rasterTransfo)
+
+    assert flagOverlap

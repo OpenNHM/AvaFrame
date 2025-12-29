@@ -92,6 +92,7 @@ def test_analyzeArea(tmp_path):
     rasterTransfo["rasterArea"] = np.ones((500, 100))
     rasterTransfo["indStartOfRunout"] = 400
     rasterTransfo["startOfRunoutAreaAngle"] = 10
+    rasterTransfo["intersectionPoints"] = np.array(np.zeros((gridx.shape[0], gridy.shape[1])), dtype=bool)
     contourDict = {}
 
     # Analyze data
