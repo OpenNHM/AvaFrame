@@ -29,7 +29,9 @@ def test_prepareInputData(tmp_path):
     """test preparing input data"""
 
     # setup requuired input data
-    inputSimFiles = {"entResInfo": {"flagEnt": "Yes", "flagRes": "No", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "Yes", "flagRes": "No", "flagSecondaryRelease": "No"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / ".." / "data" / "avaAlr"
     relFile = avaDir / "Inputs" / "REL" / "relAlr.shp"
@@ -72,7 +74,9 @@ def test_prepareInputData(tmp_path):
     assert inputSimLines["entLine"]["initializedFrom"] == "shapefile"
 
     # call function to be tested
-    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / ".." / "data" / "avaParabola"
     relFile = avaDir / "Inputs" / "REL" / "release1PF.shp"
@@ -102,7 +106,9 @@ def test_prepareInputData(tmp_path):
     assert inputSimLines["resLine"]["initializedFrom"] == "shapefile"
 
     # call function to be tested
-    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / ".." / "data" / "avaParabola"
     relFile = avaDir / "Inputs" / "REL" / "release1PF.shp"
@@ -130,7 +136,9 @@ def test_prepareInputData(tmp_path):
     assert inputSimLines["relThField"] == ""
 
     # call function to be tested
-    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / ".." / "data" / "avaParabola"
     relFile = avaDir / "Inputs" / "REL" / "release1PF.shp"
@@ -159,11 +167,16 @@ def test_prepareInputData(tmp_path):
     assert inputSimLines["releaseLine"]["initializedFrom"] == "raster"
     assert inputSimLines["releaseLine"]["Name"] == "from raster"
     assert inputSimLines["releaseLine"]["thickness"] == "from raster"
-    assert inputSimLines["releaseLine"]["file"] == dirName / "data" / "relThFieldTestFile.asc"
+    assert (
+        inputSimLines["releaseLine"]["file"]
+        == dirName / "data" / "relThFieldTestFile.asc"
+    )
     assert inputSimLines["releaseLine"]["type"] == "Release from raster"
 
     # call function to be tested
-    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "No", "flagRes": "Yes", "flagSecondaryRelease": "No"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / ".." / "data" / "avaParabola"
     relFile = avaDir / "Inputs" / "REL" / "release1PF.shp"
@@ -205,7 +218,9 @@ def test_prepareInputData(tmp_path):
     # )
 
     # setup required input data
-    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "No"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / "data" / "avaTestRelTh"
     relFile = avaDir / "Inputs" / "REL" / "rel1.shp"
@@ -246,7 +261,9 @@ def test_prepareInputData(tmp_path):
     assert inputSimLines["releaseLine"]["initializedFrom"] == "raster"
 
     # setup requuired input data
-    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "Yes"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "Yes"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / "data" / "avaTestRelTh"
     relFile = avaDir / "Inputs" / "REL" / "rel1.shp"
@@ -255,7 +272,9 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["secondaryRelScenario"] = secrelFile
     inputSimFiles["demFile"] = avaDir / "Inputs" / "testDEM.asc"
     inputSimFiles["relThFile"] = None
-    inputSimFiles["secondaryRelThFile"] = avaDir / "Inputs" / "SECREL" / "testSecRel2.asc"
+    inputSimFiles["secondaryRelThFile"] = (
+        avaDir / "Inputs" / "SECREL" / "testSecRel2.asc"
+    )
     inputSimFiles["muFile"] = None
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
@@ -283,18 +302,24 @@ def test_prepareInputData(tmp_path):
     assert demOri["header"]["nrows"] == 22
     assert inputSimLines["releaseLine"]["thickness"] == ["1.5", "0.7"]
     assert np.array_equal(inputSimLines["releaseLine"]["Start"], np.asarray([0.0, 9.0]))
-    assert np.array_equal(inputSimLines["releaseLine"]["Length"], np.asarray([9.0, 5.0]))
+    assert np.array_equal(
+        inputSimLines["releaseLine"]["Length"], np.asarray([9.0, 5.0])
+    )
     assert inputSimLines["releaseLine"]["Name"] == ["releaseNew1", "releaseNew2"]
     assert inputSimLines["releaseLine"]["ci95"] == ["0.4", "0.1"]
     assert inputSimLines["secondaryReleaseLine"]["Name"] == "from raster"
     assert inputSimLines["secondaryReleaseLine"]["thickness"] == "from raster"
     assert inputSimLines["secondaryReleaseLine"]["initializedFrom"] == "raster"
-    assert inputSimLines["secondaryReleaseLine"]["type"] == "Secondary release from raster"
+    assert (
+        inputSimLines["secondaryReleaseLine"]["type"] == "Secondary release from raster"
+    )
     assert inputSimLines["releaseLine"]["type"] == "Release"
     assert inputSimLines["releaseLine"]["initializedFrom"] == "shapefile"
 
     # setup requuired input data
-    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "No"}
+    }
     dirName = pathlib.Path(__file__).parents[0]
     avaDir = dirName / "data" / "avaTestRelTh"
     relFile = avaDir / "Inputs" / "REL" / "testRel2.asc"
@@ -343,7 +368,10 @@ def test_prepareInputData(tmp_path):
 
     with pytest.raises(AssertionError) as e:
         assert com1DFA.prepareInputData(inputSimFiles, cfg)
-    assert "One or more release features in relAlr2.shp have holes - check error plots in" in str(e.value)
+    assert (
+        "One or more release features in relAlr2.shp have holes - check error plots in"
+        in str(e.value)
+    )
 
 
 def test_prepareReleaseEntrainment(tmp_path):
@@ -386,7 +414,9 @@ def test_prepareReleaseEntrainment(tmp_path):
     rel = pathlib.Path(tmp_path, "release1PF_test.shp")
 
     # call function to be tested
-    relName, inputSimLines, badName = com1DFA.prepareReleaseEntrainment(cfg, rel, inputSimLines)
+    relName, inputSimLines, badName = com1DFA.prepareReleaseEntrainment(
+        cfg, rel, inputSimLines
+    )
 
     assert relName == "release1PF_test"
     assert inputSimLines["entResInfo"]["flagSecondaryRelease"] == "Yes"
@@ -429,7 +459,9 @@ def test_prepareReleaseEntrainment(tmp_path):
     rel = pathlib.Path(tmp_path, "release1PF_test.shp")
 
     # call function to be tested
-    relName2, inputSimLines2, badName2 = com1DFA.prepareReleaseEntrainment(cfg, rel, inputSimLines)
+    relName2, inputSimLines2, badName2 = com1DFA.prepareReleaseEntrainment(
+        cfg, rel, inputSimLines
+    )
 
     assert relName2 == "release1PF_test"
     assert inputSimLines2["entResInfo"]["flagSecondaryRelease"] == "Yes"
@@ -473,7 +505,9 @@ def test_prepareReleaseEntrainment(tmp_path):
     rel = pathlib.Path(tmp_path, "release1PF_test.shp")
 
     # call function to be tested
-    relName2, inputSimLines2, badName2 = com1DFA.prepareReleaseEntrainment(cfg, rel, inputSimLines)
+    relName2, inputSimLines2, badName2 = com1DFA.prepareReleaseEntrainment(
+        cfg, rel, inputSimLines
+    )
 
     # print(
     #      "Test",
@@ -492,7 +526,9 @@ def test_prepareReleaseEntrainment(tmp_path):
 
     # call function to be tested
     cfg["GENERAL"]["secRelArea"] = "False"
-    relName3, inputSimLines3, badName3 = com1DFA.prepareReleaseEntrainment(cfg, rel, inputSimLines)
+    relName3, inputSimLines3, badName3 = com1DFA.prepareReleaseEntrainment(
+        cfg, rel, inputSimLines
+    )
 
     assert relName3 == "release1PF_test"
     assert inputSimLines3["entResInfo"]["flagSecondaryRelease"] == "No"
@@ -516,7 +552,9 @@ def test_prepareReleaseEntrainment(tmp_path):
     cfg["GENERAL"]["relTh"] = "1.32"
 
     # call function to test
-    relName4, inputSimLines4, badName4 = com1DFA.prepareReleaseEntrainment(cfg, rel, inputSimLines)
+    relName4, inputSimLines4, badName4 = com1DFA.prepareReleaseEntrainment(
+        cfg, rel, inputSimLines
+    )
 
     assert relName4 == "release1PF_test"
     assert inputSimLines4["entResInfo"]["flagSecondaryRelease"] == "No"
@@ -559,7 +597,9 @@ def test_prepareReleaseEntrainment(tmp_path):
         "id": ["0", "1"],
         "initializedFrom": "shapefile",
     }
-    relName5, inputSimLines5, badName5 = com1DFA.prepareReleaseEntrainment(cfg, rel, inputSimLines)
+    relName5, inputSimLines5, badName5 = com1DFA.prepareReleaseEntrainment(
+        cfg, rel, inputSimLines
+    )
 
     assert relName5 == "release1PF_test"
     assert inputSimLines5["entResInfo"]["flagSecondaryRelease"] == "No"
@@ -600,7 +640,9 @@ def test_setThickness():
 
     assert lineTh["thickness"] == [1.0, 1.0]
     assert lineTh["thicknessSource"] == ["ini file", "ini file"]
-    assert np.array_equal(lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0]))
+    assert np.array_equal(
+        lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0])
+    )
 
     # call function to be tested
     lineTh = {
@@ -617,7 +659,9 @@ def test_setThickness():
 
     assert lineTh["thickness"] == [1.0, 1.0]
     assert lineTh["thicknessSource"] == ["ini file", "ini file"]
-    assert np.array_equal(lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0]))
+    assert np.array_equal(
+        lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0])
+    )
 
     # call function to be tested
     cfg["GENERAL"]["entThFromFile"] = "True"
@@ -641,7 +685,9 @@ def test_setThickness():
 
     assert lineTh["thickness"] == [1.0, 0.7]
     assert lineTh["thicknessSource"] == ["shp file", "shp file"]
-    assert np.array_equal(lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0]))
+    assert np.array_equal(
+        lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0])
+    )
 
     # call function to be tested
     cfg["GENERAL"]["entThFromFile"] = "True"
@@ -661,7 +707,9 @@ def test_setThickness():
 
     assert lineTh["thickness"] == [1.2, 0.7]
     assert lineTh["thicknessSource"] == ["shp file", "shp file"]
-    assert np.array_equal(lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0]))
+    assert np.array_equal(
+        lineTh["x"], np.asarray([0, 10.0, 10.0, 0.0, 0.0, 20.0, 26.0, 26.0, 20.0, 20.0])
+    )
 
 
 def test_createReportDict():
@@ -698,7 +746,9 @@ def test_createReportDict():
     }
 
     # call function to be tested
-    reportST = com1DFA.createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInfo)
+    reportST = com1DFA.createReportDict(
+        avaDir, logName, relName, inputSimLines, cfg, reportAreaInfo
+    )
 
     assert "Simulation Parameters" in reportST
     assert "Program version" in reportST["Simulation Parameters"]
@@ -1071,12 +1121,28 @@ def test_initializeMesh():
     assert np.all(np.isnan(dem["rasterData"][0:5, 4]))
     assert abs(dem["Nx"][2, 2]) == abs(dem["Nz"][2, 2])
     assert np.isclose(dem["areaRaster"][2, 2], demTest["areaRaster"][2, 2])
-    assert dem["headerNeighbourGrid"]["xllcenter"] == demTest["headerNeighbourGrid"]["xllcenter"]
-    assert dem["headerNeighbourGrid"]["yllcenter"] == demTest["headerNeighbourGrid"]["yllcenter"]
-    assert dem["headerNeighbourGrid"]["ncols"] == demTest["headerNeighbourGrid"]["ncols"]
-    assert dem["headerNeighbourGrid"]["nrows"] == demTest["headerNeighbourGrid"]["nrows"]
-    assert dem["headerNeighbourGrid"]["cellsize"] == demTest["headerNeighbourGrid"]["cellsize"]
-    assert dem["headerNeighbourGrid"]["yllcenter"] == demTest["headerNeighbourGrid"]["yllcenter"]
+    assert (
+        dem["headerNeighbourGrid"]["xllcenter"]
+        == demTest["headerNeighbourGrid"]["xllcenter"]
+    )
+    assert (
+        dem["headerNeighbourGrid"]["yllcenter"]
+        == demTest["headerNeighbourGrid"]["yllcenter"]
+    )
+    assert (
+        dem["headerNeighbourGrid"]["ncols"] == demTest["headerNeighbourGrid"]["ncols"]
+    )
+    assert (
+        dem["headerNeighbourGrid"]["nrows"] == demTest["headerNeighbourGrid"]["nrows"]
+    )
+    assert (
+        dem["headerNeighbourGrid"]["cellsize"]
+        == demTest["headerNeighbourGrid"]["cellsize"]
+    )
+    assert (
+        dem["headerNeighbourGrid"]["yllcenter"]
+        == demTest["headerNeighbourGrid"]["yllcenter"]
+    )
 
 
 def test_getSimTypeList():
@@ -1086,10 +1152,14 @@ def test_getSimTypeList():
     standardCfg = configparser.ConfigParser()
     standardCfg["GENERAL"] = {"secRelArea": "False"}
     simTypeList = ["ent", "res", "null", "available", "entres"]
-    inputSimFiles = {"entResInfo": {"flagEnt": "Yes", "flagRes": "Yes", "flagSecondaryRelease": "No"}}
+    inputSimFiles = {
+        "entResInfo": {"flagEnt": "Yes", "flagRes": "Yes", "flagSecondaryRelease": "No"}
+    }
 
     # call function to be tested
-    standardCfg, simTypeList = com1DFA.getSimTypeList(standardCfg, simTypeList, inputSimFiles)
+    standardCfg, simTypeList = com1DFA.getSimTypeList(
+        standardCfg, simTypeList, inputSimFiles
+    )
 
     # setup test result
     simTypeListTest = ["ent", "null", "res", "entres"]
@@ -1100,7 +1170,9 @@ def test_getSimTypeList():
     # call function to be tested
     simTypeList = ["ent", "null", "available"]
     inputSimFiles["entResInfo"]["flagRes"] = "No"
-    standardCfg2, simTypeList2 = com1DFA.getSimTypeList(standardCfg, simTypeList, inputSimFiles)
+    standardCfg2, simTypeList2 = com1DFA.getSimTypeList(
+        standardCfg, simTypeList, inputSimFiles
+    )
 
     # setup test result
     simTypeListTest2 = ["ent", "null"]
@@ -1114,7 +1186,9 @@ def test_getSimTypeList():
     simTypeList = ["res", "null", "available"]
     inputSimFiles["entResInfo"]["flagEnt"] = "No"
     inputSimFiles["entResInfo"]["flagRes"] = "Yes"
-    standardCfg3, simTypeList3 = com1DFA.getSimTypeList(standardCfg, simTypeList, inputSimFiles)
+    standardCfg3, simTypeList3 = com1DFA.getSimTypeList(
+        standardCfg, simTypeList, inputSimFiles
+    )
 
     # setup test result
     simTypeListTest3 = ["res", "null"]
@@ -1336,11 +1410,19 @@ def test_releaseSecRelArea():
 
     #    print("particles IN pytest socond", particles2)
     assert particles["nPart"] == 6
-    assert np.array_equal(particles["x"], np.asarray([6.0, 7.0, 6.75, 7.25, 6.75, 7.25]))
-    assert np.array_equal(particles["totalEnthalpy"], np.asarray([6.0, 7.0, pEnt, pEnt, pEnt, pEnt]))
-    assert np.array_equal(particles["y"], np.asarray([6.0, 7.0, 6.75, 6.75, 7.25, 7.25]))
+    assert np.array_equal(
+        particles["x"], np.asarray([6.0, 7.0, 6.75, 7.25, 6.75, 7.25])
+    )
+    assert np.array_equal(
+        particles["totalEnthalpy"], np.asarray([6.0, 7.0, pEnt, pEnt, pEnt, pEnt])
+    )
+    assert np.array_equal(
+        particles["y"], np.asarray([6.0, 7.0, 6.75, 6.75, 7.25, 7.25])
+    )
     assert np.array_equal(zPartArray0New, np.asarray([2, 3, 1.0, 1.0, 1.0, 1.0]))
-    assert np.array_equal(particles["m"], np.asarray([1250.0, 1250.0, 50.0, 50.0, 50.0, 50.0]))
+    assert np.array_equal(
+        particles["m"], np.asarray([1250.0, 1250.0, 50.0, 50.0, 50.0, 50.0])
+    )
     assert particles["mTot"] == 2700.0
     assert particles2["nPart"] == 11
     assert np.array_equal(
@@ -1351,10 +1433,14 @@ def test_releaseSecRelArea():
         particles2["y"],
         np.asarray([6.0, 7.0, 9.1, 6.75, 6.75, 7.25, 7.25, 8.75, 8.75, 9.25, 9.25]),
     )
-    assert np.array_equal(zPartArray0New2, np.asarray([1, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1]))
+    assert np.array_equal(
+        zPartArray0New2, np.asarray([1, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1])
+    )
     assert np.array_equal(
         particles2["m"],
-        np.asarray([1250.0, 1250.0, 1250.0, 50.0, 50.0, 50.0, 50.0, 25.0, 25.0, 25.0, 25.0]),
+        np.asarray(
+            [1250.0, 1250.0, 1250.0, 50.0, 50.0, 50.0, 50.0, 25.0, 25.0, 25.0, 25.0]
+        ),
     )
     assert particles2["mTot"] == 4050.0
 
@@ -1365,18 +1451,28 @@ def test_getRelThFromPart():
     # setup required input
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {"relThFromFile": "True", "relTh": ""}
-    inputSimLines = {"releaseLine": {"thickness": ["1.2", "1.5"], "id": ["0", "1"], "type": "Release"}}
+    inputSimLines = {
+        "releaseLine": {
+            "thickness": ["1.2", "1.5"],
+            "id": ["0", "1"],
+            "type": "Release",
+        }
+    }
     relThField = ""
 
     # call function to be tested
-    relThFromPart = com1DFA.getRelThFromPart(cfg["GENERAL"], inputSimLines["releaseLine"], relThField, "rel")
+    relThFromPart = com1DFA.getRelThFromPart(
+        cfg["GENERAL"], inputSimLines["releaseLine"], relThField, "rel"
+    )
 
     assert relThFromPart == 1.5
 
     cfg["GENERAL"]["relThFromFile"] = "False"
     cfg["GENERAL"]["relTh"] = "2.0"
     # call function to be tested
-    relThFromPart = com1DFA.getRelThFromPart(cfg["GENERAL"], inputSimLines["releaseLine"], relThField, "rel")
+    relThFromPart = com1DFA.getRelThFromPart(
+        cfg["GENERAL"], inputSimLines["releaseLine"], relThField, "rel"
+    )
 
     assert relThFromPart == 2.0
 
@@ -1385,7 +1481,9 @@ def test_getRelThFromPart():
     relThField = np.zeros((10, 10))
     relThField[0:10, 1] = 10.0
     # call function to be tested
-    relThFromPart = com1DFA.getRelThFromPart(cfg["GENERAL"], inputSimLines["releaseLine"], relThField, "rel")
+    relThFromPart = com1DFA.getRelThFromPart(
+        cfg["GENERAL"], inputSimLines["releaseLine"], relThField, "rel"
+    )
 
     assert relThFromPart == 10.0
 
@@ -1812,7 +1910,9 @@ def test_exportFields(tmp_path):
     fieldsList = [fields1, fields2, fields3, fields4, fields5]
 
     # call function to be tested
-    com1DFA.exportFields(cfg, 10.00, fields2, dem, outDir, logName, TSave="intermediate")
+    com1DFA.exportFields(
+        cfg, 10.00, fields2, dem, outDir, logName, TSave="intermediate"
+    )
     com1DFA.exportFields(cfg, 40.00, fields5, dem, outDir, logName, TSave="final")
 
     # read fields
@@ -1848,9 +1948,15 @@ def test_exportFields(tmp_path):
     cfg["REPORT"] = {}
 
     com1DFA.exportFields(cfg, 0.00, fields1, dem, outDir2, logName, TSave="initial")
-    com1DFA.exportFields(cfg, 10.00, fields2, dem, outDir2, logName, TSave="intermediate")
-    com1DFA.exportFields(cfg, 15.00, fields3, dem, outDir2, logName, TSave="intermediate")
-    com1DFA.exportFields(cfg, 25.00, fields4, dem, outDir2, logName, TSave="intermediate")
+    com1DFA.exportFields(
+        cfg, 10.00, fields2, dem, outDir2, logName, TSave="intermediate"
+    )
+    com1DFA.exportFields(
+        cfg, 15.00, fields3, dem, outDir2, logName, TSave="intermediate"
+    )
+    com1DFA.exportFields(
+        cfg, 25.00, fields4, dem, outDir2, logName, TSave="intermediate"
+    )
     com1DFA.exportFields(cfg, 40.00, fields5, dem, outDir2, logName, TSave="final")
 
     # read fields
@@ -2519,7 +2625,9 @@ def test_runCom1DFA(tmp_path, caplog):
         "reportOneFile": "True",
         "debugPlot": "False",
     }
-    modCfg, modInfo = cfgUtils.getModuleConfig(com1DFA, fileOverride=cfgFile, modInfo=True)
+    modCfg, modInfo = cfgUtils.getModuleConfig(
+        com1DFA, fileOverride=cfgFile, modInfo=True
+    )
 
     dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile)
 
@@ -2609,16 +2717,26 @@ def test_runCom1DFA(tmp_path, caplog):
     #    print(simDF["simName"])
     outDir = avaDir / "Outputs" / "com1DFA"
     for ext in ["ppr", "pft", "pfv"]:
-        assert (outDir / "peakFiles" / ("%s_%s.asc" % (simDF["simName"].iloc[0], ext))).is_file()
-        assert (outDir / "peakFiles" / ("%s_%s.asc" % (simDF["simName"].iloc[1], ext))).is_file()
+        assert (
+            outDir / "peakFiles" / ("%s_%s.asc" % (simDF["simName"].iloc[0], ext))
+        ).is_file()
+        assert (
+            outDir / "peakFiles" / ("%s_%s.asc" % (simDF["simName"].iloc[1], ext))
+        ).is_file()
 
-    assert (outDir / "configurationFiles" / ("%s.ini" % (simDF["simName"].iloc[0]))).is_file()
-    assert (outDir / "configurationFiles" / ("%s.ini" % (simDF["simName"].iloc[1]))).is_file()
+    assert (
+        outDir / "configurationFiles" / ("%s.ini" % (simDF["simName"].iloc[0]))
+    ).is_file()
+    assert (
+        outDir / "configurationFiles" / ("%s.ini" % (simDF["simName"].iloc[1]))
+    ).is_file()
     assert (outDir / "configurationFiles" / ("allConfigurations.csv")).is_file()
 
     initProj.cleanModuleFiles(avaDir, com1DFA, deleteOutput=False)
     with caplog.at_level(logging.WARNING):
-        dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile)
+        dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(
+            cfgMain, cfgInfo=cfgFile
+        )
     assert "There is no simulation to be performed" in caplog.text
 
 
@@ -2635,7 +2753,9 @@ def test_runOrLoadCom1DFA(tmp_path, caplog):
     testDir = pathlib.Path(__file__).parents[0]
     avalancheDir = testDir / ".." / ".." / "benchmarks" / "avaHockeyChannelPytest"
     cfgMain = configparser.ConfigParser()
-    dem, simDF, resTypeList = com1DFA.runOrLoadCom1DFA(avalancheDir, cfgMain, runDFAModule=False, cfgFile="")
+    dem, simDF, resTypeList = com1DFA.runOrLoadCom1DFA(
+        avalancheDir, cfgMain, runDFAModule=False, cfgFile=""
+    )
     #    print(simDF.index)
     #    print(simDF.columns)
     assert "pft" in resTypeList
@@ -2674,7 +2794,9 @@ def test_fetchRelVolume(tmp_path):
     dem["rasterData"] = np.ones((10, 20))
     demPath = pathlib.Path(avaDir, "Inputs", "testDem.asc")
     fU.makeADir(pathlib.Path(avaDir, "Inputs"))
-    IOf.writeResultToRaster(dem["header"], dem["rasterData"], demPath.parent / demPath.stem, flip=False)
+    IOf.writeResultToRaster(
+        dem["header"], dem["rasterData"], demPath.parent / demPath.stem, flip=False
+    )
 
     # subprocess.run(["cat", demPath])
     # write relThField
@@ -2807,7 +2929,9 @@ def test_adaptDEM():
     dem = geoTrans.getNormalMesh(dem, num=cfg["GENERAL"].getfloat("methodMeshNormal"))
     dem = DFAtls.getAreaMesh(dem, cfg["GENERAL"].getfloat("methodMeshNormal"))
 
-    _, _, NzNormed = DFAtls.normalize(dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy())
+    _, _, NzNormed = DFAtls.normalize(
+        dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy()
+    )
 
     demInput = dem.copy()
     fieldsInput = fields.copy()
@@ -2942,17 +3066,21 @@ def test_tSteps_output_behavior(tmp_path, caplog):
 
     # Get main configuration
     cfgMain = cfgUtils.getGeneralConfig()
-    cfgMain['MAIN']['avalancheDir'] = str(avaDir1)
+    cfgMain["MAIN"]["avalancheDir"] = str(avaDir1)
     # Modify config to have empty tSteps and NO parameter variations
     cfg = cfgUtils.getModuleConfig(com1DFA, cfgFile1)
     cfg["GENERAL"]["tSteps"] = ""
     cfg["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg["GENERAL"]["dt"] = "0.1"  # Single value, no variations
-    cfg["GENERAL"]["simTypeList"] = "null"  # Simple simulation, no entrainment/resistance
+    cfg["GENERAL"]["simTypeList"] = (
+        "null"  # Simple simulation, no entrainment/resistance
+    )
     with open(cfgFile1, "w") as f:
         cfg.write(f)
 
-    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile1)
+    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(
+        cfgMain, cfgInfo=cfgFile1
+    )
 
     # Check that only final timestep files exist in timeSteps directory
     timeStepsDir1 = avaDir1 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
@@ -2961,38 +3089,46 @@ def test_tSteps_output_behavior(tmp_path, caplog):
         # Should only have final timestep files (one per result type: ppr, pft, pfv)
         # Not initial timestep at t=0
         for tFile in tStepFiles1:
-            assert "_t0.0" not in tFile.stem, f"Found initial timestep file {tFile} but tSteps was empty"
+            assert "_t0.0" not in tFile.stem, (
+                f"Found initial timestep file {tFile} but tSteps was empty"
+            )
 
     # Test 2: Explicit tSteps with t=0 should export t=0 timestep
     avaDir2 = pathlib.Path(tmp_path, "testExplicitTSteps")
     shutil.copytree(inputDir, avaDir2)
     cfgFile2 = avaDir2 / "test_com1DFACfg.ini"
 
-    cfgMain['MAIN']['avalancheDir'] = str(avaDir2)
+    cfgMain["MAIN"]["avalancheDir"] = str(avaDir2)
 
     # Modify config to have explicit tSteps including t=0 and NO parameter variations
     cfg2 = cfgUtils.getModuleConfig(com1DFA, cfgFile2)
     cfg2["GENERAL"]["tSteps"] = "0|5"
     cfg2["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg2["GENERAL"]["dt"] = "0.1"  # Single value, no variations
-    cfg2["GENERAL"]["simTypeList"] = "null"  # Simple simulation, no entrainment/resistance
+    cfg2["GENERAL"]["simTypeList"] = (
+        "null"  # Simple simulation, no entrainment/resistance
+    )
     with open(cfgFile2, "w") as f:
         cfg2.write(f)
 
-    dem2, plotDict2, reportDictList2, simDF2 = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile2)
+    dem2, plotDict2, reportDictList2, simDF2 = com1DFA.com1DFAMain(
+        cfgMain, cfgInfo=cfgFile2
+    )
 
     # Check that t=0 timestep files exist
     timeStepsDir2 = avaDir2 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
     assert timeStepsDir2.exists(), "timeSteps directory should exist"
     tStepFiles2 = list(timeStepsDir2.glob("*_t0.0*.asc"))
-    assert len(tStepFiles2) > 0, "Should have initial timestep files at t=0 when tSteps includes 0"
+    assert len(tStepFiles2) > 0, (
+        "Should have initial timestep files at t=0 when tSteps includes 0"
+    )
 
     # Test 3: exportData = False should trigger contour fetching in else block
     avaDir3 = pathlib.Path(tmp_path, "testExportDataFalse")
     shutil.copytree(inputDir, avaDir3)
     cfgFile3 = avaDir3 / "test_com1DFACfg.ini"
 
-    cfgMain['MAIN']['avalancheDir'] = str(avaDir3)
+    cfgMain["MAIN"]["avalancheDir"] = str(avaDir3)
 
     # Modify config to have exportData = False
     cfg3 = cfgUtils.getModuleConfig(com1DFA, cfgFile3)
@@ -3004,13 +3140,164 @@ def test_tSteps_output_behavior(tmp_path, caplog):
     with open(cfgFile3, "w") as f:
         cfg3.write(f)
 
-    dem3, plotDict3, reportDictList3, simDF3 = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile3)
+    dem3, plotDict3, reportDictList3, simDF3 = com1DFA.com1DFAMain(
+        cfgMain, cfgInfo=cfgFile3
+    )
 
     # Check that contour data was generated (stored in reportDict) instead of exported files
-    assert len(reportDictList3) > 0, "Should have report dict even with exportData=False"
+    assert len(reportDictList3) > 0, (
+        "Should have report dict even with exportData=False"
+    )
     # Verify that timeSteps directory doesn't exist (no data exported)
     timeStepsDir3 = avaDir3 / "Outputs" / "com1DFA" / "peakFiles" / "timeSteps"
     if timeStepsDir3.exists():
         tStepFiles3 = list(timeStepsDir3.glob("*.asc"))
         # With exportData=False, intermediate timesteps should not be exported
-        assert len(tStepFiles3) == 0, "No timestep files should be exported when exportData=False"
+        assert len(tStepFiles3) == 0, (
+            "No timestep files should be exported when exportData=False"
+        )
+
+
+def test_getModuleNames():
+    """Test getModuleNames function for extracting module names from call stack"""
+    import inspect
+    from unittest.mock import patch, MagicMock
+
+    # Test 1: Direct call from com1DFA module
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(
+                frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA.com1DFA"})
+            ),
+            MagicMock(frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA"})),
+        ]
+        result = com1DFA.getModuleNames(com1DFA)
+        assert result == ("com1DFA", "com1"), (
+            f"Expected ('com1DFA', 'com1'), got {result}"
+        )
+
+    # Test 2: Call from wrapper module com5SnowSlide
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(
+                frame=MagicMock(
+                    f_globals={"__name__": "avaframe.com5SnowSlide.com5SnowSlide"}
+                )
+            ),
+            MagicMock(
+                frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA.com1DFA"})
+            ),
+        ]
+        result = com1DFA.getModuleNames(com1DFA)
+        assert result == ("com5SnowSlide", "com5"), (
+            f"Expected ('com5SnowSlide', 'com5'), got {result}"
+        )
+
+    # Test 3: Call from wrapper module com6RockAvalanche
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(
+                frame=MagicMock(
+                    f_globals={
+                        "__name__": "avaframe.com6RockAvalanche.com6RockAvalanche"
+                    }
+                )
+            ),
+            MagicMock(
+                frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA.com1DFA"})
+            ),
+        ]
+        result = com1DFA.getModuleNames(com1DFA)
+        assert result == ("com6RockAvalanche", "com6"), (
+            f"Expected ('com6RockAvalanche', 'com6'), got {result}"
+        )
+
+    # Test 4: Call from wrapper module com8MoTPSA
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(
+                frame=MagicMock(
+                    f_globals={"__name__": "avaframe.com8MoTPSA.com8MoTPSA"}
+                )
+            ),
+            MagicMock(
+                frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA.com1DFA"})
+            ),
+        ]
+        result = com1DFA.getModuleNames(com1DFA)
+        assert result == ("com8MoTPSA", "com8"), (
+            f"Expected ('com8MoTPSA', 'com8'), got {result}"
+        )
+
+    # Test 5: Call from wrapper module com9MoTVoellmy
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(
+                frame=MagicMock(
+                    f_globals={"__name__": "avaframe.com9MoTVoellmy.com9MoTVoellmy"}
+                )
+            ),
+            MagicMock(
+                frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA.com1DFA"})
+            ),
+        ]
+        result = com1DFA.getModuleNames(com1DFA)
+        assert result == ("com9MoTVoellmy", "com9"), (
+            f"Expected ('com9MoTVoellmy', 'com9'), got {result}"
+        )
+
+    # Test 6: Non-com module (fallback to passed module)
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(frame=MagicMock(f_globals={"__name__": "some.other.module"})),
+            MagicMock(frame=MagicMock(f_globals={"__name__": "another.module"})),
+        ]
+        # Create a mock module object
+        mock_module = MagicMock()
+        mock_module.__name__ = "avaframe.someModule"
+        result = com1DFA.getModuleNames(mock_module)
+        assert result == ("someModule", "someModule"), (
+            f"Expected ('someModule', 'someModule'), got {result}"
+        )
+
+    # Test 7: Module without "com" prefix in name (fallback)
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(
+                frame=MagicMock(
+                    f_globals={"__name__": "avaframe.otherModule.otherModule"}
+                )
+            ),
+        ]
+        # Create a mock module object
+        mock_module = MagicMock()
+        mock_module.__name__ = "avaframe.otherModule"
+        result = com1DFA.getModuleNames(mock_module)
+        assert result == ("otherModule", "otherModule"), (
+            f"Expected ('otherModule', 'otherModule'), got {result}"
+        )
+
+    # Test 8: Deep call stack with multiple com modules (should pick first non-com1DFA.com1DFA)
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(
+                frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA.com1DFA"})
+            ),  # Should be skipped
+            MagicMock(
+                frame=MagicMock(
+                    f_globals={"__name__": "avaframe.com5SnowSlide.com5SnowSlide"}
+                )
+            ),  # Should be picked
+            MagicMock(
+                frame=MagicMock(
+                    f_globals={
+                        "__name__": "avaframe.com6RockAvalanche.com6RockAvalanche"
+                    }
+                )
+            ),  # Should be ignored
+            MagicMock(frame=MagicMock(f_globals={"__name__": "avaframe.com1DFA"})),
+        ]
+        result = com1DFA.getModuleNames(com1DFA)
+        assert result == ("com5SnowSlide", "com5"), (
+            f"Expected ('com5SnowSlide', 'com5'), got {result}"
+        )

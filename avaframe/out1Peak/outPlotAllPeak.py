@@ -53,11 +53,16 @@ def plotAllPeakFields(avaDir, cfgFLAGS, modName, demData=""):
     inputDir = avaDir / "Outputs" / modName / "peakFiles"
     inDir = avaDir / "Inputs"
     peakFilesDF = fU.makeSimDF(inputDir, avaDir=avaDir)
-    if modName in ["com1DFA", "com9MoTVoellmy"] and demData == "":
+    if (
+        modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche", "com9MoTVoellmy"]
+        and demData == ""
+    ):
         configurationDF = cfgUtils.createConfigurationInfo(avaDir, comModule=modName)
         configurationDF = configurationDF.rename(columns={"resType": "resTypeList"})
         peakFilesDF = (
-            peakFilesDF.reset_index().merge(configurationDF, on=["simName", "modelType"]).set_index("index")
+            peakFilesDF.reset_index()
+            .merge(configurationDF, on=["simName", "modelType"])
+            .set_index("index")
         )
 
     if demData == "":
@@ -104,7 +109,12 @@ def plotAllPeakFields(avaDir, cfgFLAGS, modName, demData=""):
         # this enables to append simulations to an already existing output without regenerating all plots
         if not plotName.is_file():
             # for comModules load DEM used for computation
-            if demData == "" and modName in ["com1DFA", "com9MoTVoellmy"]:
+            if demData == "" and modName in [
+                "com1DFA",
+                "com5SnowSlide",
+                "com6RockAvalanche",
+                "com9MoTVoellmy",
+            ]:
                 demFile = inDir / row["DEM"]
                 demDataRaster = IOf.readRaster(demFile, noDataToNan=True)
                 demDataField = demDataRaster["rasterData"]
@@ -161,7 +171,9 @@ def plotAllPeakFields(avaDir, cfgFLAGS, modName, demData=""):
                     elif fileSType in [".asc", ".tif"]:
                         sarea = IOf.readRaster(sFile, noDataToNan=True)
                         xGrid, yGrid, _, _ = gT.makeCoordGridFromHeader(sarea["header"])
-                        contourDictXY = pU.fetchContourCoords(xGrid, yGrid, sarea["rasterData"], 0.001)
+                        contourDictXY = pU.fetchContourCoords(
+                            xGrid, yGrid, sarea["rasterData"], 0.001
+                        )
                         for key in contourDictXY:
                             ax.plot(
                                 contourDictXY[key]["x"],
@@ -206,7 +218,9 @@ def plotAllPeakFields(avaDir, cfgFLAGS, modName, demData=""):
     return plotDict
 
 
-def addConstrainedDataField(fileName, resType, demField, ax, cellSize, alpha=1.0, oneColor=""):
+def addConstrainedDataField(
+    fileName, resType, demField, ax, cellSize, alpha=1.0, oneColor=""
+):
     """find fileName data, constrain data and demField to where there is data,
     create colormap, define extent, add hillshade contours, add to axes
     and add colorbar
@@ -391,7 +405,9 @@ def plotAllFields(avaDir, inputDir, outDir, unit="", constrainData=True):
                 aspect=nx / ny,
             )
         else:
-            extentCellCenters, extentCellCorners = pU.createExtentMinMax(data, header, originLLCenter=True)
+            extentCellCenters, extentCellCorners = pU.createExtentMinMax(
+                data, header, originLLCenter=True
+            )
             im1 = ax.imshow(
                 data,
                 cmap=cmap,

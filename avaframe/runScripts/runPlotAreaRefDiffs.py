@@ -1,6 +1,7 @@
 """
-    Run script for plotting a comparison of simulation result to reference polygon
+Run script for plotting a comparison of simulation result to reference polygon
 """
+
 # Load modules
 # importing general python modules
 import pathlib
@@ -21,13 +22,13 @@ import avaframe.com1DFA.DFAtools as DFAtls
 ################USER Input#############
 resType = "ppr"
 thresholdValueSimulation = 0.9
-modName = 'com1DFA'
+modName = "com1DFA"
 ############################################################
 
 # Load avalanche directory from general configuration file
 cfgMain = cfgUtils.getGeneralConfig()
 avalancheDir = cfgMain["MAIN"]["avalancheDir"]
-outDir = pathlib.Path(avalancheDir, 'Outputs', 'out1Peak')
+outDir = pathlib.Path(avalancheDir, "Outputs", "out1Peak")
 fU.makeADir(outDir)
 
 # Start logging
@@ -45,16 +46,18 @@ dem = gI.readDEM(avalancheDir)
 dem = gT.getNormalMesh(dem, num=1)
 # get real Area
 dem = DFAtls.getAreaMesh(dem, 1)
-dem['originalHeader'] = dem['header']
+dem["originalHeader"] = dem["header"]
 
 # read reference data set
-inDir = pathlib.Path(avalancheDir, 'Inputs')
+inDir = pathlib.Path(avalancheDir, "Inputs")
 referenceFile, availableFile, _ = gI.getAndCheckInputFiles(
     inDir, "REFDATA", "POLY", fileExt="shp", fileSuffix="POLY"
 )
 # convert polygon to raster with value 1 inside polygon and 0 outside the polygon
 referenceLine = shpConv.readLine(referenceFile, "reference", dem)
-referenceLine= gT.prepareArea(referenceLine, dem, np.sqrt(2),combine=True, checkOverlap=False)
+referenceLine = gT.prepareArea(
+    referenceLine, dem, np.sqrt(2), combine=True, checkOverlap=False
+)
 
 # if available zoom into area provided by crop shp file in Inputs/CROPSHAPE
 cropFile, cropInfo, _ = gI.getAndCheckInputFiles(
@@ -62,9 +65,11 @@ cropFile, cropInfo, _ = gI.getAndCheckInputFiles(
 )
 if cropInfo:
     cropLine = shpConv.readLine(cropFile, "cropFile", dem)
-    cropLine = gT.prepareArea(cropLine, dem, np.sqrt(2), combine=True, checkOverlap=False)
+    cropLine = gT.prepareArea(
+        cropLine, dem, np.sqrt(2), combine=True, checkOverlap=False
+    )
 
-if modName == 'com1DFA':
+if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
     # load dataFrame for all configurations of simulations in avalancheDir
     simDF = cfgUtils.createConfigurationInfo(avalancheDir)
     # create data frame that lists all available simulations and path to their result type result files
@@ -80,35 +85,60 @@ if modName == 'com1DFA':
     # compute referenceMask and simulationMask and true positive, false positive and false neg. arrays
     # here thresholdValueReference is set to 0.9 as when converting the polygon to a raster,
     # values inside polygon are set to 1 and outside to 0
-    refMask, compMask, indicatorDict = oPD.computeAreaDiff(referenceLine['rasterData'],
-                                                           simData['rasterData'],
-                                                           0.9,
-                                                           thresholdValueSimulation,
-                                                           dem,
-                                                           cropToArea=cropLine['rasterData'])
+    refMask, compMask, indicatorDict = oPD.computeAreaDiff(
+        referenceLine["rasterData"],
+        simData["rasterData"],
+        0.9,
+        thresholdValueSimulation,
+        dem,
+        cropToArea=cropLine["rasterData"],
+    )
 
     # plot differences
-    oPD.plotAreaDiff(referenceLine['rasterData'], refMask, simData['rasterData'], compMask, resType, simData['header'],
-                     thresholdValueSimulation, outDir,
-                     indicatorDict, row['simName'], cropFile=cropFile)
+    oPD.plotAreaDiff(
+        referenceLine["rasterData"],
+        refMask,
+        simData["rasterData"],
+        compMask,
+        resType,
+        simData["header"],
+        thresholdValueSimulation,
+        outDir,
+        indicatorDict,
+        row["simName"],
+        cropFile=cropFile,
+    )
 else:
     # load all result files
-    resultDir = pathlib.Path(avalancheDir, 'Outputs', modName, 'peakFiles')
-    peakFilesList = list(resultDir.glob("*_%s.tif" % resType)) + list(resultDir.glob("*_%s.asc" % resType))
+    resultDir = pathlib.Path(avalancheDir, "Outputs", modName, "peakFiles")
+    peakFilesList = list(resultDir.glob("*_%s.tif" % resType)) + list(
+        resultDir.glob("*_%s.asc" % resType)
+    )
     for pF in peakFilesList:
         simData = IOf.readRaster(pF)
         simName = pF.stem
 
         # compute referenceMask and simulationMask and true positive, false positive and false neg. arrays
-        refMask, compMask, indicatorDict = oPD.computeAreaDiff(referenceLine['rasterData'],
-                                                               simData['rasterData'],
-                                                               0.9,
-                                                               thresholdValueSimulation,
-                                                               dem,
-                                                               cropToArea=cropLine['rasterData'])
+        refMask, compMask, indicatorDict = oPD.computeAreaDiff(
+            referenceLine["rasterData"],
+            simData["rasterData"],
+            0.9,
+            thresholdValueSimulation,
+            dem,
+            cropToArea=cropLine["rasterData"],
+        )
 
         # plot differences
-        oPD.plotAreaDiff(referenceLine['rasterData'], refMask, simData['rasterData'], compMask, resType,
-                         simData['header'],
-                         thresholdValueSimulation, outDir,
-                         indicatorDict, simName, cropFile=cropFile)
+        oPD.plotAreaDiff(
+            referenceLine["rasterData"],
+            refMask,
+            simData["rasterData"],
+            compMask,
+            resType,
+            simData["header"],
+            thresholdValueSimulation,
+            outDir,
+            indicatorDict,
+            simName,
+            cropFile=cropFile,
+        )
