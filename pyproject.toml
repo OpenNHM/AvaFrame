@@ -122,6 +122,11 @@ python = "==3.13.7"
 #[tool.pixi.feature.rcs.pypi-dependencies]
 #avaframe = "==1.13rc4"
 
+[tool.pixi.tasks]
+build = "python setup.py build_ext --inplace"
+clean = "find avaframe -type f \\( -name '*.so' -o -name '*.c' \\) -delete"
+rebuild = { depends-on = ["clean", "build"] }
+
 #Feature qgis
 [tool.pixi.feature.qgis.dependencies]
 numpy = "<2.0"
