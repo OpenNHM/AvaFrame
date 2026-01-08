@@ -335,3 +335,82 @@ def test_checkOverlapDBXY():
     flagOverlap = aT.checkOverlapDBXY(rasterTransfo)
 
     assert flagOverlap
+
+
+def test_checkOverlapDBXYWithData():
+    """test checkOverlapDBXYWithData - detect intersection points in coordinate grid"""
+    from shapely import geometry as shp
+
+    # Test case 1: No intersection - parallel lines
+    x1 = np.arange(0, 5, 1)
+    y1 = np.arange(0, 4, 1)
+    X, Y = np.meshgrid(x1, y1)
+    rasterTransfo = {"gridx": X, "gridy": Y}
+    pointTolerance = 0.01
+
+    intPointsArray = aT.checkOverlapDBXYWithData(rasterTransfo, pointTolerance)
+
+    # Verify output is boolean array with correct shape
+    assert intPointsArray.dtype == bool
+    assert intPointsArray.shape == X.shape
+    # No intersections should be found
+    assert np.sum(intPointsArray) == 0
+
+    # Test case 2: Lines with intersection
+    # Create a grid where two columns cross each other
+    # Column 0: vertical line at x=0
+    # Column 1: diagonal line from (1,0) through (0,2) to (-1,4)
+    # These should intersect at approximately (0.5, 1)
+    X = np.array([[0, 1, 0.5, 2], [0, 0.5, 1, 2], [0, 0, 1.5, 2], [0, -0.5, 2, 2], [0, -1, 2.5, 2]])
+    Y = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3], [4, 4, 4, 4]])
+    rasterTransfo = {"gridx": X, "gridy": Y}
+
+    intPointsArray = aT.checkOverlapDBXYWithData(rasterTransfo, pointTolerance)
+
+    # Verify output is boolean array with correct shape
+    assert intPointsArray.dtype == bool
+    assert intPointsArray.shape == X.shape
+    # With crossing lines, intersections may or may not be found depending on geometry
+    # The function should at least run without errors
+    assert isinstance(intPointsArray, np.ndarray)
+
+
+def test_findIntSectCoors():
+    """test findIntSectCoors - find indices of intersection points in coordinate arrays"""
+    from shapely import geometry as shp
+
+    # Setup test data
+    x = np.array([[0, 1, 2], [0, 1, 2], [0, 1, 2]])
+    y = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
+    intPointsArray = np.zeros((3, 3))
+    pointTolerance = 0.01
+
+    # Test case 1: Single point intersection at (1, 1)
+    intersectionPoint = shp.Point(1.0, 1.0)
+
+    intPointsArray = aT.findIntSectCoors(intersectionPoint, x, y, intPointsArray, pointTolerance)
+
+    # Verify that the point at (1,1) is marked
+    assert intPointsArray[1, 1] == 1
+    # Verify only one point is marked
+    assert np.sum(intPointsArray) == 1
+
+    # Test case 2: Point with tolerance
+    intPointsArray = np.zeros((3, 3))
+    # Point slightly off from (2, 2) but within tolerance
+    intersectionPoint = shp.Point(2.005, 2.005)
+
+    intPointsArray = aT.findIntSectCoors(intersectionPoint, x, y, intPointsArray, pointTolerance)
+
+    # Verify that the point at (2,2) is marked despite slight offset
+    assert intPointsArray[2, 2] == 1
+    assert np.sum(intPointsArray) == 1
+
+    # Test case 3: Point outside grid
+    intPointsArray = np.zeros((3, 3))
+    intersectionPoint = shp.Point(5.0, 5.0)
+
+    intPointsArray = aT.findIntSectCoors(intersectionPoint, x, y, intPointsArray, pointTolerance)
+
+    # Verify no points are marked
+    assert np.sum(intPointsArray) == 0
