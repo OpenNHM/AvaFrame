@@ -20,7 +20,7 @@ Where:
     - relName: Release area scenario name (required)
     - simHash: Configuration hash (required, 10 characters)
     - modName: Short module name - "com1", "com2", etc. (new format only)
-    - defID: Default indicator - "C" or "D" (defaults to "C")
+    - defID: Default indicator - "C" or "D" (defaults to "C") (required)
     - frictIndi: Friction calibration - "S", "M", or "L" (optional)
     - simType: Simulation type - "null", "ent", "res", "entres" (required)
     - modelType: Model type - "dfa", etc. (required)

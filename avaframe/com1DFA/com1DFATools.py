@@ -53,17 +53,12 @@ def getPartInitMethod(cfg, csz, relThForPart):
     # derive mass per particle to define number of particles per cell:
     if massPerParticleDeterminationMethod == "MPPDIR":
         massPerPart = cfg.getfloat("massPerPart")
-        log.debug(
-            "Number of particles defined by: mass per particle %s" % cfg["massPerPart"]
-        )
+        log.debug("Number of particles defined by: mass per particle %s" % cfg["massPerPart"])
     elif massPerParticleDeterminationMethod == "MPPDH":
         deltaTh = cfg.getfloat("deltaTh")
         ds = min(csz, cfg.getfloat("sphKernelRadius"))
         massPerPart = rho * ds * ds * deltaTh
-        log.debug(
-            "Number of particles defined by: release thickness per particle: %s"
-            % cfg["deltaTh"]
-        )
+        log.debug("Number of particles defined by: release thickness per particle: %s" % cfg["deltaTh"])
         log.debug("mass per particle is %.2f" % massPerPart)
     elif massPerParticleDeterminationMethod == "MPPKR":
         sphKernelRadius = cfg.getfloat("sphKernelRadius")
@@ -145,25 +140,14 @@ def compareSimCfgToDefaultCfgCom1DFA(simCfg, module=com1DFA):
 
     # If entrainment is requested, and it is set in shapefile, check if it contains the default entrainment thickness
     # in ALL features of the shapefile
-    if (
-        simCfg["GENERAL"]["simTypeList"] == "ent"
-        and simCfg["GENERAL"]["entThFromFile"] == "True"
-    ):
+    if simCfg["GENERAL"]["simTypeList"] == "ent" and simCfg["GENERAL"]["entThFromFile"] == "True":
         defaultEntTh = defCfg["GENERAL"]["entThIfMissingInShp"]
 
         # this try handles raster instead of shapefile
         try:
-            if not all(
-                [
-                    x == defaultEntTh
-                    for x in simCfg["INPUT"]["entThThickness"].split("|")
-                ]
-            ):
+            if not all([x == defaultEntTh for x in simCfg["INPUT"]["entThThickness"].split("|")]):
                 defaultIdentifierString = "C"
-                log.info(
-                    "Non-default entrainment value(s) used: %s"
-                    % simCfg["INPUT"]["entThThickness"]
-                )
+                log.info("Non-default entrainment value(s) used: %s" % simCfg["INPUT"]["entThThickness"])
         except KeyError:
             defaultIdentifierString = "D"
 
@@ -179,19 +163,14 @@ def compareSimCfgToDefaultCfgCom1DFA(simCfg, module=com1DFA):
     # as changed if default is set to meshCellSize
     if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
         if defCfg["GENERAL"]["sphKernelRadius"] == "meshCellSize":
-            if (
-                simCfg["GENERAL"]["sphKernelRadius"]
-                == simCfg["GENERAL"]["meshCellSize"]
-            ):
+            if simCfg["GENERAL"]["sphKernelRadius"] == simCfg["GENERAL"]["meshCellSize"]:
                 excludeItems.append("root['GENERAL']['sphKernelRadius']")
 
     # do the diff and analyse
     # this is the deepdiff > 8.0 version
     # TODO: remove this again in the future when deepdiff > 8.0 is wider established
     try:
-        diff = DeepDiff(
-            defCfg, simCfg, exclude_paths=excludeItems, threshold_to_diff_deeper=0
-        )
+        diff = DeepDiff(defCfg, simCfg, exclude_paths=excludeItems, threshold_to_diff_deeper=0)
     # for older deepdiff versions which don't know threshold_to_diff_deeper
     except ValueError:
         diff = DeepDiff(defCfg, simCfg, exclude_paths=excludeItems)
@@ -299,9 +278,7 @@ def createSimDictFromCfgs(cfgMain, cfgPath, module=com1DFA):
 
     # fetch input data and create work and output directories
     # TODO: so for now remeshed dir is cleaned before a run
-    inputSimFilesAll, outDir, simDFExisting, simNameExisting = initializeInputs(
-        avalancheDir, True, module
-    )
+    inputSimFilesAll, outDir, simDFExisting, simNameExisting = initializeInputs(avalancheDir, True, module)
 
     # save dem file path as it is deleted from input sim files dict once it is set in the config
     demFile = inputSimFilesAll["demFile"]
@@ -310,9 +287,7 @@ def createSimDictFromCfgs(cfgMain, cfgPath, module=com1DFA):
     cfgDir = pathlib.Path(cfgPath)
     cfgFilesAll = list(cfgDir.glob("*.ini"))
     if len(cfgFilesAll) == 0:
-        message = "No configuration file found to create simulation runs in: %s" % str(
-            cfgDir
-        )
+        message = "No configuration file found to create simulation runs in: %s" % str(cfgDir)
         log.error(message)
         raise FileNotFoundError(message)
     else:
@@ -324,16 +299,12 @@ def createSimDictFromCfgs(cfgMain, cfgPath, module=com1DFA):
     # loop over all cfgFiles and create simDict
     for index, cfgFile in enumerate(cfgFilesAll):
         # read configuration
-        cfgFromFile = cfgUtils.getModuleConfig(
-            module, fileOverride=cfgFile, toPrint=False
-        )
+        cfgFromFile = cfgUtils.getModuleConfig(module, fileOverride=cfgFile, toPrint=False)
 
         # create dictionary with one key for each simulation that shall be performed
         # NOTE: sims that are added don't need to be added to the simNameExisting list as
         # if new identical sims are added the simDict entry is just updated and not a duplicate one added
-        simDict = dP.createSimDict(
-            avalancheDir, module, cfgFromFile, inputSimFilesAll, simNameExisting
-        )
+        simDict = dP.createSimDict(avalancheDir, module, cfgFromFile, inputSimFilesAll, simNameExisting)
         simDictAll.update(simDict)
 
         # reset dem file
@@ -457,18 +428,10 @@ def updateResCoeffFields(fields, cfg):
     thMax = cfg.getfloat("forestThMax")
 
     # create new rasters using FV, FT and thresholds to mask
-    detRasterInt = np.where(
-        ((fields["FV"] <= vMin) | (fields["FT"] <= thMin)), detOrig, 0.0
-    )
-    detRaster = np.where(
-        ((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, detRasterInt
-    )
-    cResRasterInt = np.where(
-        ((fields["FV"] > vMin) & (fields["FT"] > thMin)), cResOrig, 0.0
-    )
-    cResRaster = np.where(
-        ((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, cResRasterInt
-    )
+    detRasterInt = np.where(((fields["FV"] <= vMin) | (fields["FT"] <= thMin)), detOrig, 0.0)
+    detRaster = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, detRasterInt)
+    cResRasterInt = np.where(((fields["FV"] > vMin) & (fields["FT"] > thMin)), cResOrig, 0.0)
+    cResRaster = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, cResRasterInt)
 
     if len(np.where((detRaster > 0) & (cResRaster > 0))[0]) > 0:
         message = "Detrainment and increased friction within same cell!"
@@ -478,9 +441,7 @@ def updateResCoeffFields(fields, cfg):
     # if max thresholds are exceeded: forest destroyed remove forest
     lTh = len(np.where((fields["FV"] > vMax) | (fields["FT"] > thMax))[0])
     if lTh > 0:
-        cResOrig = np.where(
-            ((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, cResOrig
-        )
+        cResOrig = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, cResOrig)
         detOrig = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, detOrig)
         fields["cResRasterOrig"] = cResOrig
         fields["detRasterOrig"] = detOrig
@@ -541,8 +502,6 @@ def updateTimeField(fields, timeStep):
     FT = fields["FT"]
 
     # set time step to previously not affected cells
-    fields["timeInfo"] = np.where(
-        ((fields["timeInfo"] == 0) & (FT != 0)), timeStep, fields["timeInfo"]
-    )
+    fields["timeInfo"] = np.where(((fields["timeInfo"] == 0) & (FT != 0)), timeStep, fields["timeInfo"])
 
     return fields

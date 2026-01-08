@@ -55,9 +55,7 @@ referenceFile, availableFile, _ = gI.getAndCheckInputFiles(
 )
 # convert polygon to raster with value 1 inside polygon and 0 outside the polygon
 referenceLine = shpConv.readLine(referenceFile, "reference", dem)
-referenceLine = gT.prepareArea(
-    referenceLine, dem, np.sqrt(2), combine=True, checkOverlap=False
-)
+referenceLine = gT.prepareArea(referenceLine, dem, np.sqrt(2), combine=True, checkOverlap=False)
 
 # if available zoom into area provided by crop shp file in Inputs/CROPSHAPE
 cropFile, cropInfo, _ = gI.getAndCheckInputFiles(
@@ -65,11 +63,9 @@ cropFile, cropInfo, _ = gI.getAndCheckInputFiles(
 )
 if cropInfo:
     cropLine = shpConv.readLine(cropFile, "cropFile", dem)
-    cropLine = gT.prepareArea(
-        cropLine, dem, np.sqrt(2), combine=True, checkOverlap=False
-    )
+    cropLine = gT.prepareArea(cropLine, dem, np.sqrt(2), combine=True, checkOverlap=False)
 
-if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
+if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche", "com8MoTPSA", "com9MoTVoellmy"]:
     # load dataFrame for all configurations of simulations in avalancheDir
     simDF = cfgUtils.createConfigurationInfo(avalancheDir)
     # create data frame that lists all available simulations and path to their result type result files
@@ -111,9 +107,7 @@ if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
 else:
     # load all result files
     resultDir = pathlib.Path(avalancheDir, "Outputs", modName, "peakFiles")
-    peakFilesList = list(resultDir.glob("*_%s.tif" % resType)) + list(
-        resultDir.glob("*_%s.asc" % resType)
-    )
+    peakFilesList = list(resultDir.glob("*_%s.tif" % resType)) + list(resultDir.glob("*_%s.asc" % resType))
     for pF in peakFilesList:
         simData = IOf.readRaster(pF)
         simName = pF.stem

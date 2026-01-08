@@ -58,9 +58,7 @@ def createComModConfig(cfgProb, avaDir, modName):
     variationsDict = makeDictFromVars(cfgProb["PROBRUN"])
 
     if cfgProb["PROBRUN"].getint("samplingStrategy") == 2:
-        log.info(
-            "Probability run performed by varying one parameter at a time - local approach."
-        )
+        log.info("Probability run performed by varying one parameter at a time - local approach.")
         cfgFiles = cfgFilesLocalApproach(variationsDict, cfgProb, modName, outDir)
     else:
         log.info("Probability run perfromed drawing parameter set from full sample.")
@@ -105,9 +103,7 @@ def cfgFilesGlobalApproach(avaDir, cfgProb, modName, outDir):
             if len(paramValuesD["varParNamesInitial"]) == 2:
                 sP.plotThSampleFromVals(paramValuesD, plotDir)
         else:
-            log.debug(
-                "More or less than two parameters have been varied - no plot of sample available"
-            )
+            log.debug("More or less than two parameters have been varied - no plot of sample available")
 
     # write cfg files one for each parameter set drawn from full sample
     cfgFiles = createCfgFiles(paramValuesDList, modName, cfgProb, cfgPath=outDir)
@@ -195,13 +191,9 @@ def updateCfgRange(cfg, cfgProb, varName, varDict):
             fileOverride="",
             modInfo=False,
             toPrint=False,
-            onlyDefault=cfgProb["in1Data_computeFromDistribution_override"].getboolean(
-                "defaultConfig"
-            ),
+            onlyDefault=cfgProb["in1Data_computeFromDistribution_override"].getboolean("defaultConfig"),
         )
-        cfgDist, cfgProb = cfgHandling.applyCfgOverride(
-            cfgDist, cfgProb, cP, addModValues=False
-        )
+        cfgDist, cfgProb = cfgHandling.applyCfgOverride(cfgDist, cfgProb, cP, addModValues=False)
 
     # set variation in configuration
     if varName in ["relTh", "entTh", "secondaryRelTh"]:
@@ -258,9 +250,7 @@ def updateCfgRange(cfg, cfgProb, varName, varDict):
             cfgDist = {
                 "sampleSize": valSteps,
                 "mean": valVal,
-                "buildType": cfgProb["in1Data_computeFromDistribution_override"][
-                    "buildType"
-                ],
+                "buildType": cfgProb["in1Data_computeFromDistribution_override"]["buildType"],
                 "buildValue": valVariation,
                 "minMaxInterval": cfgDist["GENERAL"]["minMaxInterval"],
                 "support": cfgDist["GENERAL"]["support"],
@@ -374,10 +364,7 @@ def checkIfParameterInConfig(cfg, varPar):
 
     # Check for duplicates
     if len(exactKeyMatch) != 1:
-        message = (
-            "Parameter '%s' does not uniquely match a single configuration parameter."
-            % varPar
-        )
+        message = "Parameter '%s' does not uniquely match a single configuration parameter." % varPar
         log.error(message)
         raise AssertionError(message)
 
@@ -426,25 +413,17 @@ def checkForNumberOfReferenceValues(cfgGen, varPar):
     thRCiV = varPar + "RangeFromCiVariation"
 
     # check if variation is set
-    if (
-        cfgGen[thPV] != ""
-        or cfgGen[thRV] != ""
-        or cfgGen[thDV] != ""
-        or cfgGen[thRCiV] != ""
-    ):
-        message = (
-            "Only one reference value is allowed for %s: but %s %s, %s %s, %s %s, %s %s is given"
-            % (
-                varPar,
-                thPV,
-                cfgGen[thPV],
-                thRV,
-                cfgGen[thRV],
-                thDV,
-                cfgGen[thDV],
-                thRCiV,
-                cfgGen[thRCiV],
-            )
+    if cfgGen[thPV] != "" or cfgGen[thRV] != "" or cfgGen[thDV] != "" or cfgGen[thRCiV] != "":
+        message = "Only one reference value is allowed for %s: but %s %s, %s %s, %s %s, %s %s is given" % (
+            varPar,
+            thPV,
+            cfgGen[thPV],
+            thRV,
+            cfgGen[thRV],
+            thDV,
+            cfgGen[thDV],
+            thRCiV,
+            cfgGen[thRCiV],
         )
         log.error(message)
         raise AssertionError(message)
@@ -452,9 +431,7 @@ def checkForNumberOfReferenceValues(cfgGen, varPar):
     return True
 
 
-def probAnalysis(
-    avaDir, cfg, modName, parametersDict="", inputDir="", probConf="", simDFActual=""
-):
+def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf="", simDFActual=""):
     """Compute probability map of a given set of simulation result exceeding a particular threshold and save to outDir
 
     Parameters
@@ -484,10 +461,8 @@ def probAnalysis(
     fU.makeADir(outDir)
 
     # fetch all result files and filter simulations according to parametersDict
-    if modName.lower() in ["com1dfa", "com5snowslide", "com6rockavalanche"]:
-        simNameList = cfgHandling.filterSims(
-            avaDir, parametersDict, specDir=inputDir, simDF=simDFActual
-        )
+    if modName.lower() in ["com1dfa", "com5snowslide", "com6rockavalanche", "com8motpsa", "com9motvoellmy"]:
+        simNameList = cfgHandling.filterSims(avaDir, parametersDict, specDir=inputDir, simDF=simDFActual)
         filtering = True
     else:
         simNameList = []
@@ -539,10 +514,7 @@ def probAnalysis(
 
                 # check if extent is the same as first loaded dataset
                 # if not - remesh and print warning
-                if (
-                    fileData["header"]["nrows"] != nRows
-                    or fileData["header"]["ncols"] != nCols
-                ):
+                if fileData["header"]["nrows"] != nRows or fileData["header"]["ncols"] != nCols:
                     log.warning(
                         "datasets used to create probMap do not match in extent - remeshing: %s to cellSize %s"
                         % (fileName, header["cellsize"])
@@ -562,10 +534,7 @@ def probAnalysis(
                 )
                 contourDict[fileName.stem] = contourDictXY
 
-                log.info(
-                    "File Name: %s , simulation parameter %s "
-                    % (fileName, cfg["GENERAL"]["peakVar"])
-                )
+                log.info("File Name: %s , simulation parameter %s " % (fileName, cfg["GENERAL"]["peakVar"]))
 
                 # Check if peak values exceed desired threshold
                 dataLim[data > float(cfg["GENERAL"]["peakLim"])] = 1.0
@@ -577,8 +546,7 @@ def probAnalysis(
     unit = pU.cfgPlotUtils["unit%s" % cfg["GENERAL"]["peakVar"]]
     log.info(
         "probability analysis performed for peak parameter: %s and a peak value "
-        "threshold of: %s %s"
-        % (cfg["GENERAL"]["peakVar"], cfg["GENERAL"]["peakLim"], unit)
+        "threshold of: %s %s" % (cfg["GENERAL"]["peakVar"], cfg["GENERAL"]["peakLim"], unit)
     )
     log.info("%s peak fields added to analysis" % count)
 
@@ -629,12 +597,7 @@ def makeDictFromVars(cfg):
         log.error(message)
         raise AssertionError(message)
 
-    if (
-        len(varParList)
-        == len(varValues)
-        == len(cfg[lengthsPar].split("|"))
-        == len(varTypes)
-    ) is False:
+    if (len(varParList) == len(varValues) == len(cfg[lengthsPar].split("|")) == len(varTypes)) is False:
         message = (
             "For every parameter in varParList a variationValue, %s and variationType needs to be provided"
             % lengthsPar
@@ -730,6 +693,7 @@ def createSampleFromConfig(avaDir, cfgProb, comMod):
         "com5snowslide",
         "com6rockavalanche",
         "com8motpsa",
+        "com9motvoellmy",
     ]:
         # check if thickness parameters are actually read from shp file
         _, thReadFromShp = checkParameterSettings(cfgStart, varParList)
@@ -762,9 +726,7 @@ def createSampleFromConfig(avaDir, cfgProb, comMod):
     return paramValuesDList
 
 
-def createSampleWithVariationStandardParameters(
-    cfgProb, cfgStart, varParList, valVariationValue, varType
-):
+def createSampleWithVariationStandardParameters(cfgProb, cfgStart, varParList, valVariationValue, varType):
     """create a sample for a parameter variation using latin hypercube sampling
 
     Parameters
@@ -893,9 +855,7 @@ def createSampleWithVariationForThParameters(
                 )
                 # add to list all the parameter names
                 fullListOfParameters = fullListOfParameters + thFeatureNames
-                parentParameterId = parentParameterId + [
-                    varParList.index(varPar)
-                ] * len(thFeatureNames)
+                parentParameterId = parentParameterId + [varParList.index(varPar)] * len(thFeatureNames)
                 thValues = np.append(thValues, thV)
                 ciValues = np.append(ciValues, ciV)
             else:
@@ -919,9 +879,7 @@ def createSampleWithVariationForThParameters(
         )
         fullValVar = np.asarray(
             [
-                float(valVariationValue[i])
-                if valVariationValue[i] != "ci95"
-                else np.nan
+                float(valVariationValue[i]) if valVariationValue[i] != "ci95" else np.nan
                 for i in parentParameterId
             ]
         )
@@ -930,16 +888,12 @@ def createSampleWithVariationForThParameters(
         upperBounds = np.asarray([None] * len(fullListOfParameters))
 
         # set lower and upper bounds depending on varType (percent, range, rangefromci)
-        lowerBounds[fullVarType == "percent"] = varValList[
+        lowerBounds[fullVarType == "percent"] = varValList[fullVarType == "percent"] - varValList[
             fullVarType == "percent"
-        ] - varValList[fullVarType == "percent"] * (
-            fullValVar[fullVarType == "percent"] / 100.0
-        )
-        upperBounds[fullVarType == "percent"] = varValList[
+        ] * (fullValVar[fullVarType == "percent"] / 100.0)
+        upperBounds[fullVarType == "percent"] = varValList[fullVarType == "percent"] + varValList[
             fullVarType == "percent"
-        ] + varValList[fullVarType == "percent"] * (
-            fullValVar[fullVarType == "percent"] / 100.0
-        )
+        ] * (fullValVar[fullVarType == "percent"] / 100.0)
 
         lowerBounds[fullVarType == "range"] = (
             varValList[fullVarType == "range"] - fullValVar[fullVarType == "range"]
@@ -949,12 +903,10 @@ def createSampleWithVariationForThParameters(
         )
 
         lowerBounds[fullVarType == "rangefromci"] = (
-            varValList[fullVarType == "rangefromci"]
-            - ciValues[fullVarType == "rangefromci"]
+            varValList[fullVarType == "rangefromci"] - ciValues[fullVarType == "rangefromci"]
         )
         upperBounds[fullVarType == "rangefromci"] = (
-            varValList[fullVarType == "rangefromci"]
-            + ciValues[fullVarType == "rangefromci"]
+            varValList[fullVarType == "rangefromci"] + ciValues[fullVarType == "rangefromci"]
         )
 
         # create a sample of parameter values using scipy latin hypercube or morris sampling
@@ -971,9 +923,7 @@ def createSampleWithVariationForThParameters(
                 )
             )
         else:
-            fullSample = np.zeros(
-                (int(cfgProb["PROBRUN"]["nSample"]), len(fullListOfParameters))
-            )
+            fullSample = np.zeros((int(cfgProb["PROBRUN"]["nSample"]), len(fullListOfParameters)))
 
         for idx, varPar in enumerate(fullListOfParameters):
             lB = [0] * len(varParList)
@@ -984,9 +934,7 @@ def createSampleWithVariationForThParameters(
             fullSample[:, idx] = parSample[:, parentParameterId[idx]]
 
         # create dictionary with all the info
-        thFromIni = cfgUtils.convertToCfgList(
-            list(set(varParList).symmetric_difference(set(staParameter)))
-        )
+        thFromIni = cfgUtils.convertToCfgList(list(set(varParList).symmetric_difference(set(staParameter))))
         paramValuesD = {
             "names": fullListOfParameters,
             "values": fullSample,
@@ -1043,10 +991,7 @@ def createSample(cfgProb, varParList):
         sample = sampler.random(n=int(cfgProb["PROBRUN"]["nSample"]))
         log.info("Parameter sample created using latin hypercube sampling")
     else:
-        message = (
-            "Sampling method: %s not a valid option"
-            % cfgProb["PROBRUN"]["sampleMethod"]
-        )
+        message = "Sampling method: %s not a valid option" % cfgProb["PROBRUN"]["sampleMethod"]
         log.error(message)
         raise AssertionError(message)
 
@@ -1144,9 +1089,7 @@ def createCfgFiles(paramValuesDList, comMod, cfg, cfgPath=""):
                 cfgStart["VISUALISATION"]["scenario"] = str(count1)
                 cfgStart["INPUT"]["thFromIni"] = paramValuesD["thFromIni"]
                 if "releaseScenario" in paramValuesD.keys():
-                    cfgStart["INPUT"]["releaseScenario"] = paramValuesD[
-                        "releaseScenario"
-                    ]
+                    cfgStart["INPUT"]["releaseScenario"] = paramValuesD["releaseScenario"]
             cfgF = pathlib.Path(cfgPath, ("%d_%sCfg.ini" % (countS, modName)))
             with open(cfgF, "w") as configfile:
                 cfgStart.write(configfile)
@@ -1182,15 +1125,11 @@ def fetchStartCfg(comMod, cfgProb):
         comMod,
         fileOverride="",
         toPrint=False,
-        onlyDefault=cfgProb["%s_%s_override" % (modP, modName)].getboolean(
-            "defaultConfig"
-        ),
+        onlyDefault=cfgProb["%s_%s_override" % (modP, modName)].getboolean("defaultConfig"),
     )
 
     # override with parameters set in in the cfgProb comMod_override section
-    cfgStart, cfgProb = cfgHandling.applyCfgOverride(
-        cfgStart, cfgProb, comMod, addModValues=False
-    )
+    cfgStart, cfgProb = cfgHandling.applyCfgOverride(cfgStart, cfgProb, comMod, addModValues=False)
 
     return cfgStart
 
