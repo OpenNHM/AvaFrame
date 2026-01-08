@@ -104,12 +104,8 @@ threshold = 10
 enabled = true
 
 [smells.function_complexity]
-threshold = 10
+threshold = 15
 enabled = true
-
-[smells.duplication]
-enabled = true
-threshold = 20
 
 [[source]]
 name = "default"

@@ -438,7 +438,6 @@ def test_error_message_attribute_names():
     # the same attribute names that are actually used in the code
 
     import avaframe.com6RockAvalanche.scarp as scarp_module
-    import inspect
 
     # Read the scarp.py file to check error messages
     scarp_path = pathlib.Path(scarp_module.__file__)

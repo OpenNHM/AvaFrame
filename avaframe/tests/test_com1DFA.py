@@ -3160,7 +3160,6 @@ def test_tSteps_output_behavior(tmp_path, caplog):
 
 def test_getModuleNames():
     """Test getModuleNames function for extracting module names from call stack"""
-    import inspect
     from unittest.mock import patch, MagicMock
 
     # Test 1: Direct call from com1DFA module
