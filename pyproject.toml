@@ -1,7 +1,7 @@
 [build-system]
 # Cython dependency is optional, see setup.py for details.
 # For the package (run-time) dependencies, see setup.cfg.
-requires = ["setuptools", "numpy", "Cython", "setuptools-scm"]
+requires = ["setuptools", "numpy<2.0", "Cython>=3.0.10", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -26,13 +26,13 @@ classifiers = [
 requires-python = ">=3.9,<3.14"
 dependencies = [
     "numpy<2.0", # numpy 2.0 introduces breaking changes in relation to qgis versions
-    "salib<1.5.1", # this is the last aversion that works with numpy <2.
-    "pyshp<3.0", # pin until 3.0.3 is out, there's a known bug for certain polygon types
+    "salib", # this is the last aversion that works with numpy <2.
+    "pyshp>=3.0.3", # pin until 3.0.3 is out, there's a known bug for certain polygon types
     "matplotlib",
     "scipy",
     "cmcrameri",
     "seaborn",
-    "cython<3.0", # cython 3.x compiles code that needs numpy > 2.0
+    "cython>=3.0.10", # Cython 3.x is required for Python 3.12/3.13, configured for numpy < 2.0 in setup.py
     "pandas",
     "shapely",
     "configUpdater",
@@ -64,7 +64,7 @@ version_file = "avaframe/RELEASE-VERSION.txt"
 #build = ["cp312-*"]
 skip = ["*musllinux*","*-win32"]
 build-verbosity = 1
-before-build = "pip install cython numpy"
+before-build = "pip install 'cython>=3.0.10' 'numpy<2.0'"
 
 
 [tool.cibuildwheel.linux]
@@ -86,7 +86,7 @@ channels = ["https://prefix.dev/conda-forge"]
 platforms = ["linux-64", "win-64", "osx-64"]
 
 [tool.pixi.dependencies]
-python = "<3.14"
+python = ">=3.9,<3.14"
 setuptools = "*"
 setuptools-scm = "*"
 cibuildwheel = "*"
@@ -114,17 +114,13 @@ sphinxcontrib-bibtex = "*"
 [tool.pixi.feature.prod.pypi-dependencies]
 avaframe = "*"
 
-#Feature py313
-[tool.pixi.feature.py313.dependencies]
-python = "==3.13.7"
-
 #Feature rcs
 #[tool.pixi.feature.rcs.pypi-dependencies]
 #avaframe = "==1.13rc4"
 
 [tool.pixi.tasks]
 build = "python setup.py build_ext --inplace"
-clean = "find avaframe -type f \\( -name '*.so' -o -name '*.c' \\) -delete"
+clean = "python -c \"import pathlib; [f.unlink() for f in pathlib.Path('avaframe').rglob('*.so')]; [f.unlink() for f in pathlib.Path('avaframe').rglob('*.c')]\""
 rebuild = { depends-on = ["clean", "build"] }
 
 #Feature qgis
@@ -139,6 +135,4 @@ dev = ["dev"]
 doc = ["doc", "dev"]
 prod = ["prod"]
 #rcs = ["rcs"]
-py313 = ["py313", "dev"]
 qgis = ["qgis", "dev"]
-
