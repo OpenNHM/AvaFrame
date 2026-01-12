@@ -10,7 +10,7 @@ guide is described for **Linux**. For *Windows*, see :ref:`developinstallwin:Adv
 Requirements
 ^^^^^^^^^^^^
 
-Install `git <https://github.com/git-guides/install-git>`_, python and `pixi <https://pixi.sh/latest/#installation>`_.
+Install `git <https://github.com/git-guides/install-git>`_ and `pixi <https://pixi.sh/latest/#installation>`_.
 Some operating systems might require the python headers (e.g python-dev on ubuntu) or other supporting
 libraries/packages (e.g. Visual Studio on Windows needs the c++ compiler components).
 
