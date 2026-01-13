@@ -10,7 +10,7 @@ guide is described for **Windows**. For *Linux*, see :ref:`developinstall:Advanc
 Requirements
 ^^^^^^^^^^^^
 
-Install `git <https://github.com/git-guides/install-git>`_, python and `pixi <https://pixi.sh/latest/#installation>`_.
+Install `git <https://github.com/git-guides/install-git>`_ and `pixi <https://pixi.sh/latest/#installation>`_.
 
 Install `Microsoft C++ compiler <https://wiki.python.org/moin/WindowsCompilers>`_.
 Follow the installation steps for the version corresponding to the installed python version.
@@ -43,7 +43,7 @@ Compile the cython com1DFA part::
    You will have to do this compilation every time something changes in the cython code. We also suggest
    to do this everytime updates from the repositories are pulled.
 
-   **Before** compilation in Windows, make sure to delete ``AvaFrame/build`` directory, in addition to any .pyd, .c, and
+   **Before** compilation in Windows, make sure to delete ``AvaFrame/build`` directory, in addition to any .pyc, .c, and
    .pycache files in ``AvaFrame/avaframe/com1DFA``
 
 This installs avaframe in editable mode, so every time you import avaframe the
