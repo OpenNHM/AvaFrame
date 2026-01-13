@@ -285,6 +285,85 @@ def hockey(cfg):
 
     return x, y, zv
 
+def genericTopo(cfg):
+    """
+    Compute coordinates of an S-shaped slope as a generic topography for debris-flow simulations
+    defined by a 4th-degree polynomial: ax**4 + bx**3 + cx**2 + dx + e
+    The parameters of the polynomial function are derived from real watershed profiles (Kessler 2019)
+    """
+    # input parameters
+    cff = float(cfg["CHANNELS"]["cff"])
+    cRadius = float(cfg["CHANNELS"]["cRadius"])
+    cInit = float(cfg["CHANNELS"]["cInit"])
+    cMustart = float(cfg["CHANNELS"]["cMustart"])
+    cMuend = float(cfg["CHANNELS"]["cMuend"])
+
+    # Get grid definitons
+    dx, xEnd, yEnd = getGridDefs(cfg)
+
+    # Compute coordinate grid
+    xv, yv, zv, x, y, nRows, nCols = computeCoordGrid(dx, xEnd, yEnd)
+
+    # Set surface elevation
+    zv = np.ones((nRows, nCols))
+    # longitudinal profile along function
+    zv = zv * (-2.949E-10 * xv ** 4 + 1.21E-06 * xv ** 3 - 0.001462 * xv ** 2 + 0.007059 * xv + 1219)
+    # TODO: modify to extend topography
+
+    # If a channel shall be introduced
+    # Get parabola Parameters
+    [A, B, fLen] = getParabolaParams(cfg)
+
+    # initialize superimposed channel
+    superChannel = np.zeros(np.shape(xv))
+
+    if cfg["TOPO"].getboolean("channel"):
+        # c1 and c2 on length of fLen
+        c1 = norm.cdf(xv, cMustart * fLen, cff)
+        c2 = 1.0 - norm.cdf(xv, cMuend * fLen, cff)
+
+        # combine both into one function separated at the the middle of
+        #  the channel longprofile location
+        mask = np.zeros(np.shape(xv)) 
+        mask[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1 
+        c0 = c1 * mask
+
+        mask = np.zeros(np.shape(xv)) 
+        mask[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1 
+        c0 = c0 + c2 * mask
+
+        # Is the channel of constant width or narrowing
+        if cfg["TOPO"].getboolean("narrowing"):
+            cExtent = cInit * (1 - c0[:]) + (c0[:] * cRadius)
+        else:
+            cExtent = np.zeros(nCols) + cRadius
+
+        # Add surface elevation modification introduced by channel
+        mask = np.zeros(np.shape(y))
+        mask[np.where(abs(y) < cExtent)] = 1
+        if cfg["TOPO"].getboolean("topoAdd"):
+            superChannel = (
+                    superChannel
+                    + cExtent * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask
+            )
+            # outside of the channel, add layer of channel thickness
+            mask = np.zeros(np.shape(y))
+            mask[np.where(abs(y) >= cExtent)] = 1
+            cExtent = c2 * cRadius #TODO: added
+            superChannel = superChannel + mask * cExtent # * c0 #TODO: add or delete c0
+        else:
+            superChannel = (
+                    superChannel - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
+            )
+
+    # add channel and dam
+    zv = zv + superChannel
+
+    # Log info here
+    log.info("Generic topography with s-shaped slope coordinates computed")
+
+    return x, y, zv
+
 
 def parabola(cfg):
     """
@@ -707,6 +786,9 @@ def generateTopo(cfg, avalancheDir):
 
     elif demType == "PY":
         [x, y, z] = pyramid(cfg)
+
+    elif demType == "GT":
+        [x, y, z] = genericTopo(cfg)
 
     # If a drop shall be introduced
     if cfg["TOPO"].getboolean("drop"):
