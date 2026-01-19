@@ -95,32 +95,33 @@ def getGeneralConfig(nameFile=""):
     return cfg
 
 
-def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDefault=False):
+def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDefault=False, avalancheDir=""):
     """Returns the configuration for a given module
     returns a configParser object
 
-    module object: module : the calling function provides the already imported
-           module eg.:
-           from avaframe.com2AB import com2AB
-           leads to getModuleConfig(com2AB)
-           whereas
-           from avaframe.com2AB import com2AB as c2
-           leads to getModuleConfig(c2)
-           OR: pathlib Path to module (python file)
+    Parameters
+    ----------
+    module : module object or pathlib.Path
+        The calling function provides the already imported module eg.:
+        from avaframe.com2AB import com2AB leads to getModuleConfig(com2AB)
+        OR: pathlib Path to module (python file)
+    fileOverride : str or pathlib.Path
+        Allows for a completely different file location. Missing values from the
+        default cfg will always be added. Takes highest priority.
+    modInfo : bool
+        If True, return tuple (cfg, modDict) with info on differences to standard config
+    toPrint : bool
+        If True, print configuration info
+    onlyDefault : bool
+        If True, only use the default configuration (skip all overrides)
+    avalancheDir : str or pathlib.Path
+        Path to avalanche directory. If provided and {avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini
+        exists, that config takes priority over local_* files. Default "" skips this check.
 
-    Str: fileOverride : allows for a completely different file location. However note:
-        missing values from the default cfg will always be added!
-
-    modInfo: bool
-        true if dictionary with info on differences to standard config
-    onlyDefault: bool
-        if True, only use the default configuration
-
-    Order is as follows:
-    fileOverride -> local_MODULECfg.ini -> MODULECfg.ini
+    Priority order:
+        fileOverride -> expert config (CFGs/) -> local_MODULECfg.ini -> MODULECfg.ini
 
     """
-
     if isinstance(onlyDefault, bool) == False:
         message = "OnlyDefault parameter is not a boolean but %s" % type(onlyDefault)
         log.error(message)
@@ -128,7 +129,6 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
 
     if isinstance(module, pathlib.Path):
         modPath = module.parent
-        # get filename of module
         modName = module.stem
     else:
         modPath, modName = getModPathName(module)
@@ -139,7 +139,17 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
     log.debug("localFile: %s", localFile)
     log.debug("defaultFile: %s", defaultFile)
 
-    # Decide which one to take
+    # Handle onlyDefault escape hatch - skip all overrides
+    if onlyDefault:
+        if defaultFile.is_file():
+            cfg, modDict = readCompareConfig(defaultFile, modName, compare=False, toPrint=toPrint)
+            if modInfo:
+                return cfg, modDict
+            return cfg
+        else:
+            raise FileNotFoundError("Default config file does not exist: " + str(defaultFile))
+
+    # Handle fileOverride (ultimate override)
     if fileOverride:
         fileOverride = fU.checkPathlib(fileOverride)
         if fileOverride.is_file():
@@ -147,18 +157,37 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
             compare = True
         else:
             raise FileNotFoundError("Provided fileOverride does not exist: " + str(fileOverride))
+        cfg, modDict = readCompareConfig(iniFile, modName, compare, toPrint)
+        if modInfo:
+            return cfg, modDict
+        return cfg
 
-    elif localFile.is_file() and not onlyDefault:
-        iniFile = localFile
+    # Check for expert config in avalancheDir/Inputs/CFGs/
+    expertFile = None
+    if avalancheDir:
+        avalanchePath = pathlib.Path(avalancheDir)
+        expertPath = avalanchePath / "Inputs" / "CFGs" / (modName + "Cfg.ini")
+        if expertPath.is_file():
+            expertFile = expertPath
+            log.info("Using expert config from %s", expertFile)
+
+    # Determine config source based on priority
+    if expertFile:
+        # Expert config exists - ignore local_*, merge with default only
+        iniFile = [defaultFile, expertFile]
+        compare = True
+    elif localFile.is_file():
+        # No expert config - use normal local_* behavior
         iniFile = [defaultFile, localFile]
         compare = True
     elif defaultFile.is_file():
+        # Only default
         iniFile = defaultFile
         compare = False
     else:
         raise FileNotFoundError("None of the provided cfg files exist ")
 
-    # Finally read it
+    # Read and merge configs
     cfg, modDict = readCompareConfig(iniFile, modName, compare, toPrint)
     if modInfo:
         return cfg, modDict

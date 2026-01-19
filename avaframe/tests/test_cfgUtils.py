@@ -46,6 +46,119 @@ def test_getModuleConfig():
     assert cfg['GOODSECTION2']['goodKey4'] == 'False'
 
 
+def test_getModuleConfigExpertDir():
+    """Test expert config from avalancheDir/Inputs/CFGs/ takes priority over local_*"""
+    from avaframe.tests import test_logUtils
+
+    # Setup: avalanche directory with expert config
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+
+    # Load config with avalancheDir - should use expert config
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+    # Expert config sets inputDir = "expert/override/path" and fullLog = False
+    # This should override both default AND local_ values
+    assert cfg["GENERAL"]["inputDir"] == "expert/override/path"
+    assert cfg["GENERAL"]["fullLog"] == "False"
+
+    # Other values should come from default config (not local_*)
+    # The default test_logUtilsCfg.ini has goodKey1 = 1
+    assert cfg["GOODSECTION1"]["goodKey1"] == "1"
+
+
+def test_getModuleConfigEmptyAvalancheDir():
+    """Test that empty avalancheDir uses normal local_* behavior"""
+    from avaframe.tests import test_logUtils
+
+    # Load config without avalancheDir - should use local_* as before
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir="")
+
+    # Should match original behavior - local_ overrides default
+    # local_test_logUtilsCfg.ini has inputDir = "path/to/avalanche"
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+    assert cfg["GENERAL"]["fullLog"] == "True"
+
+
+def test_getModuleConfigMissingExpertConfig():
+    """Test that missing expert config falls back to local_* behavior"""
+    from avaframe.tests import test_logUtils
+
+    # Use avalanche dir that exists but has no expert config for this module
+    testDir = pathlib.Path(__file__).parent
+    # avaTestInputs exists but has no CFGs/ directory
+    avalancheDir = testDir / "data" / "avaTestInputs"
+
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+    # Should fall back to local_* behavior
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+    assert cfg["GENERAL"]["fullLog"] == "True"
+
+
+def test_getModuleConfigOnlyDefaultSkipsExpert():
+    """Test that onlyDefault=True skips expert config"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+
+    # With onlyDefault=True, should ignore expert config
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir, onlyDefault=True)
+
+    # Should use default values, not expert config values
+    # Default test_logUtilsCfg.ini has inputDir = "path/to/avalanche"
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+
+
+def test_getModuleConfigFileOverrideBeatsExpert():
+    """Test that fileOverride takes priority over expert config"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+    fileOverride = testDir / "local_test_logUtilsCfg.ini"
+
+    # fileOverride should win over expert config
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir, fileOverride=fileOverride)
+
+    # Should use fileOverride values, not expert config
+    # local_test_logUtilsCfg.ini has inputDir = "path/to/avalanche"
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+    assert cfg["GENERAL"]["fullLog"] == "True"
+
+
+def test_getModuleConfigMalformedExpertConfig():
+    """Test that malformed expert config raises ConfigParser error"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaMalformedCfgTest"
+
+    with pytest.raises(configparser.Error):
+        cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+
+def test_getModuleConfigExpertPartialOverride():
+    """Test that expert config with partial parameters merges with default"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+    # Expert config only sets [GENERAL] inputDir and fullLog
+    # All other sections/values should come from default
+    assert cfg["GENERAL"]["inputDir"] == "expert/override/path"  # from expert
+    assert cfg["GENERAL"]["fullLog"] == "False"  # from expert
+
+    # These should come from default config
+    assert "GOODSECTION1" in cfg.sections()
+    assert "GOODSECTION2" in cfg.sections()
+    assert cfg["GOODSECTION1"]["goodKey1"] == "1"
+
+
 def test_getGeneralConfig():
     '''Test for module getGeneralConfig'''
 
