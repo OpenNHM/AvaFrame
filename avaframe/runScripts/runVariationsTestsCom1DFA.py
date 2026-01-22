@@ -127,7 +127,7 @@ for test in testList:
     # load configuration
     aimecCfg = refDir / ('%s_AIMECCfg.ini' % test['AVANAME'])
     if aimecCfg.is_file():
-        cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, aimecCfg)
+        cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, fileOverride=aimecCfg)
     else:
         cfgAimec = cfgUtils.getDefaultModuleConfig(ana3AIMEC)
     cfgAimec['AIMECSETUP']['resType'] = aimecResType

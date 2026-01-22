@@ -3137,7 +3137,7 @@ def test_tSteps_output_behavior(tmp_path, caplog):
     cfgMain = cfgUtils.getGeneralConfig()
     cfgMain["MAIN"]["avalancheDir"] = str(avaDir1)
     # Modify config to have empty tSteps and NO parameter variations
-    cfg = cfgUtils.getModuleConfig(com1DFA, cfgFile1)
+    cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=cfgFile1)
     cfg["GENERAL"]["tSteps"] = ""
     cfg["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg["GENERAL"]["dt"] = "0.1"  # Single value, no variations
@@ -3170,7 +3170,7 @@ def test_tSteps_output_behavior(tmp_path, caplog):
     cfgMain["MAIN"]["avalancheDir"] = str(avaDir2)
 
     # Modify config to have explicit tSteps including t=0 and NO parameter variations
-    cfg2 = cfgUtils.getModuleConfig(com1DFA, cfgFile2)
+    cfg2 = cfgUtils.getModuleConfig(com1DFA, fileOverride=cfgFile2)
     cfg2["GENERAL"]["tSteps"] = "0|5"
     cfg2["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg2["GENERAL"]["dt"] = "0.1"  # Single value, no variations
@@ -3200,7 +3200,7 @@ def test_tSteps_output_behavior(tmp_path, caplog):
     cfgMain["MAIN"]["avalancheDir"] = str(avaDir3)
 
     # Modify config to have exportData = False
-    cfg3 = cfgUtils.getModuleConfig(com1DFA, cfgFile3)
+    cfg3 = cfgUtils.getModuleConfig(com1DFA, fileOverride=cfgFile3)
     cfg3["GENERAL"]["tSteps"] = ""
     cfg3["GENERAL"]["tEnd"] = "5"  # Very short simulation
     cfg3["GENERAL"]["dt"] = "0.1"

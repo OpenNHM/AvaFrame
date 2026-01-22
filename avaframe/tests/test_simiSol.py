@@ -30,7 +30,7 @@ def test_mainCompareSimSolCom1DFA(tmp_path):
 
     cfgMain = cfgUtils.getGeneralConfig()
     cfgMain['MAIN']['avalancheDir'] = str(avalancheDir)
-    cfg = cfgUtils.getModuleConfig(com1DFA, simiSolCfg)
+    cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=simiSolCfg)
     # adjust settings for faster computation times
     cfg["GENERAL"]["cMax"] = "0.04"
     cfg["GENERAL"]["sphKernelRadius"] = "8"

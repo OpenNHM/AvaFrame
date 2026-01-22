@@ -34,7 +34,7 @@ def test_probAnalysis(tmp_path):
 
     # set configurations
     testCfg = os.path.join(inputDir, "%sProbAna_com1DFACfg.ini" % avaName)
-    cfgMain = cfgUtils.getModuleConfig(com1DFA, testCfg)
+    cfgMain = cfgUtils.getModuleConfig(com1DFA, fileOverride=testCfg)
 
     # Initialise input in correct format
     cfg = configparser.ConfigParser()

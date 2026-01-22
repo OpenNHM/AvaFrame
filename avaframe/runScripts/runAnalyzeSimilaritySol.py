@@ -42,7 +42,7 @@ log.info('Current avalanche: %s', avalancheDir)
 
 # Load configuration for similarity solution test
 simiSolCfg = pathlib.Path(avalancheDir, 'Inputs', 'simiSol_com1DFACfg.ini')
-cfg = cfgUtils.getModuleConfig(com1DFA, simiSolCfg)
+cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=simiSolCfg)
 
 # create output directory for test result plots
 outDirTest = pathlib.Path(avalancheDir, 'Outputs', 'ana1Tests')
