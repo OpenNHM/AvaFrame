@@ -304,15 +304,62 @@ def genericTopo(cfg):
     # Compute coordinate grid
     xv, yv, zv, x, y, nRows, nCols = computeCoordGrid(dx, xEnd, yEnd)
 
-    # Set surface elevation
-    zv = np.ones((nRows, nCols))
-    # longitudinal profile along function
-    zv = zv * (-2.949E-10 * xv ** 4 + 1.21E-06 * xv ** 3 - 0.001462 * xv ** 2 + 0.007059 * xv + 1219)
-    # TODO: modify to extend topography
-
     # If a channel shall be introduced
     # Get parabola Parameters
     [A, B, fLen] = getParabolaParams(cfg)
+
+    # Set surface elevation
+    zv = np.zeros((nRows, nCols))
+
+    ## 2.
+    # # longitudinal profile along regresission functions
+    # # fan: xv = [xapex,x0]
+    # xapex = 922.6
+    # x0 = 1895
+    # a = 0.0002315
+    # b = -0.877
+    # # y0 = a*x0**2 + b*x0 + 1323 #TODO
+    # y0 = 492.4
+    # mask = np.zeros(np.shape(xv))
+    # mask[np.where(xv >= xapex)] = 1
+    # mask[np.where(xv >= x0)] = 0
+    # zv = zv + (a*xv**2 + b*xv + 1323 - y0) * mask
+    # # watershed: xv = [0,xapex]
+    # mask = np.ones(np.shape(xv))
+    # mask[np.where(xv >= xapex)] = 0
+    # # shift = a*xapex**2 + b*xapex + 1323 - (-0.6603*xapex + 1318) #TODO
+    # shift = 2.2 #TODO
+    # zv = zv + (-0.6603*xv + 1318 + shift - y0) * mask
+    
+    ## 1.
+    # xv = xv + 200 # relative position on x-axis according to polynomial function
+    # zv = zv * (-2.949E-10 * xv ** 4 + 1.21E-06 * xv ** 3 - 0.001462 * xv ** 2 + 0.007059 * xv + 1219)
+    # TODO: modify to extend topography
+
+    def polynomial(x):
+        z = 1.193e-15*x**6 - 6.573e-12*x**5 + \
+               1.399e-08*x**4 - 1.432e-05*x**3 + 0.007335*x**2 - 2.42*x + 1471
+        return z
+    y0 = polynomial(xv[np.where(xv==fLen)]) # elevation at right boundary of polynomial function
+
+    def line(x):
+        z = -0.6603*x + 1318
+        return z
+    
+    x_int = 220 # intersection point of polynomial and line function
+
+    mask = np.zeros(np.shape(xv))
+    mask[np.where(xv<x_int)] = 1
+    dzv = line(x_int)-polynomial(x_int) # elevation difference at intersection point
+    zv = zv + (line(xv) - dzv - y0)*mask
+
+    mask = np.zeros(np.shape(xv))
+    mask[np.where(xv>=x_int)] = 1
+    zv = zv + (polynomial(xv) - y0)*mask
+
+    mask = np.ones(np.shape(xv))
+    mask[np.where(xv>=fLen)] = 0
+    zv = zv * mask
 
     # initialize superimposed channel
     superChannel = np.zeros(np.shape(xv))
@@ -360,7 +407,7 @@ def genericTopo(cfg):
     zv = zv + superChannel
 
     # Log info here
-    log.info("Generic topography with s-shaped slope coordinates computed")
+    log.info("Generic debris-flow topography is computed")
 
     return x, y, zv
 
