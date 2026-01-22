@@ -53,7 +53,7 @@ for sphKernelRadius in [5, 3]:
     updater['GENERAL']['meshCellSize'].value = sphKernelRadius
     updater.update_file()
 
-    cfg = cfgUtils.getModuleConfig(com1DFA, simiSolCfg)
+    cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=simiSolCfg)
     # Define release thickness distribution
     demFile = gI.getDEMPath(avalancheDir)
     relDict = simiSolTest.getReleaseThickness(avalancheDir, cfg, demFile)

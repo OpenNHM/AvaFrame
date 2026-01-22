@@ -95,7 +95,7 @@ def getGeneralConfig(nameFile=""):
     return cfg
 
 
-def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDefault=False, avalancheDir=""):
+def getModuleConfig(module, avalancheDir="", fileOverride="", modInfo=False, toPrint=True, onlyDefault=False):
     """Returns the configuration for a given module
     returns a configParser object
 
@@ -105,6 +105,9 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
         The calling function provides the already imported module eg.:
         from avaframe.com2AB import com2AB leads to getModuleConfig(com2AB)
         OR: pathlib Path to module (python file)
+    avalancheDir : str or pathlib.Path
+        Path to avalanche directory. If provided and {avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini
+        exists, that config takes priority over local_* files. Default "" skips this check.
     fileOverride : str or pathlib.Path
         Allows for a completely different file location. Missing values from the
         default cfg will always be added. Takes highest priority.
@@ -114,9 +117,6 @@ def getModuleConfig(module, fileOverride="", modInfo=False, toPrint=True, onlyDe
         If True, print configuration info
     onlyDefault : bool
         If True, only use the default configuration (skip all overrides)
-    avalancheDir : str or pathlib.Path
-        Path to avalanche directory. If provided and {avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini
-        exists, that config takes priority over local_* files. Default "" skips this check.
 
     Priority order:
         fileOverride -> expert config (CFGs/) -> local_MODULECfg.ini -> MODULECfg.ini

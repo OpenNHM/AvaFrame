@@ -65,7 +65,7 @@ if cfg.getboolean('aimec'):
     initProj.cleanModuleFiles(avaDir, ana3AIMEC)
     # run aimec
     statsAimecCfg = pathlib.Path('..', 'benchmarks', avaNameTest, '%sStats_ana3AIMECCfg.ini' % (avaName))
-    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC, statsAimecCfg)
+    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC, fileOverride=statsAimecCfg)
     cfgAimecSetup = cfgAIMEC['AIMECSETUP']
 
     # Setup input from com1DFA
