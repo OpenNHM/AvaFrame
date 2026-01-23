@@ -79,11 +79,12 @@ for test in testList:
     if "snowglide" in test["NAME"].lower():
         snowSlideCfgFile = refDir / ("%s_com5SnowGlideCfg.ini" % test["AVANAME"])
         # load snow slide tool config
-        snowSlideCfg = cfgUtils.getModuleConfig(com5SnowSlide, fileOverride=snowSlideCfgFile)
+        snowSlideCfg = cfgUtils.getModuleConfig(com5SnowSlide, avaDir, fileOverride=snowSlideCfgFile)
         # ++++++++++ set configurations for com1DFA and override ++++++++++++
         # get comDFA configuration and update with snow slide parameter set
         standardCfg = cfgUtils.getModuleConfig(
             com1DFA,
+            avaDir,
             fileOverride="",
             modInfo=False,
             toPrint=False,

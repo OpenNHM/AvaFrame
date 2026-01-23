@@ -30,7 +30,7 @@ log = logUtils.initiateLogger(avalancheDir, logName)
 log.info('MAIN SCRIPT')
 log.info('Current avalanche: %s', avalancheDir)
 modName = 'com1DFA'
-cfg = cfgUtils.getModuleConfig(com1DFA)
+cfg = cfgUtils.getModuleConfig(com1DFA, avalancheDir)
 # Create output and work directories
 outputDir = pathlib.Path(avalancheDir, 'Outputs', modName)
 inDirPart = outputDir / 'particles'

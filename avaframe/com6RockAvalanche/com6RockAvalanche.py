@@ -29,10 +29,13 @@ def com6RockAvalancheMain(cfgMain, rockAvalancheCfg):
 
     """
 
+    avalancheDir = cfgMain["MAIN"]["avalancheDir"]
+
     # ++++++++++ set configurations for com1DFA and override ++++++++++++
     # get comDFA configuration and update with snow slide parameter set
     com1DFACfg = cfgUtils.getModuleConfig(
         com1DFA,
+        avalancheDir,
         fileOverride="",
         modInfo=False,
         toPrint=False,

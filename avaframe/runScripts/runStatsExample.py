@@ -36,7 +36,7 @@ flagShow = cfgMain['FLAGS'].getboolean('showPlot')
 
 avaDir = 'data/avaHockeyChannel'
 cfgMain['MAIN']['avalancheDir'] = avaDir
-cfgStats = cfgUtils.getModuleConfig(getStats)
+cfgStats = cfgUtils.getModuleConfig(getStats, avaDir)
 cfg = cfgStats['GENERAL']
 # Clean input directory(ies) of old work and output files
 initProj.cleanSingleAvaDir(avaDir)

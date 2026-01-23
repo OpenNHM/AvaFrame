@@ -59,7 +59,7 @@ def runAna5DFAPathGeneration(avalancheDir='', runDFAModule=''):
     log.info('Current avalanche: %s', avalancheDir)
 
     # load config for path generation (from DFAPathGenerationCfg.ini or its local)
-    cfgDFAPath = cfgUtils.getModuleConfig(DFAPathGeneration)
+    cfgDFAPath = cfgUtils.getModuleConfig(DFAPathGeneration, avalancheDir)
 
     # Clean DFAPath output in avalanche directory
     # If you just created the directory this one should be clean but if you

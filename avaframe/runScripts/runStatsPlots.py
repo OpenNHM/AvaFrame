@@ -37,7 +37,7 @@ cfgMain = cfgUtils.getGeneralConfig()
 flagShow = cfgMain['FLAGS'].getboolean('showPlot')
 
 avaDir = cfgMain['MAIN']['avalancheDir']
-cfgStats = cfgUtils.getModuleConfig(getStats)
+cfgStats = cfgUtils.getModuleConfig(getStats, avaDir)
 cfg = cfgStats['GENERAL']
 
 # set output directory, first ava in list
@@ -56,7 +56,7 @@ if cfgStats['GENERAL'].getboolean('aimec'):
     # clean all existing aimec files first
     initProj.cleanModuleFiles(avaDir, ana3AIMEC)
     # fetch config for aimec
-    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC)
+    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC, avaDir)
     # run aimec
     pathDict, rasterTransfo, resAnalysisDF, plotDict = rAimec.runAna3AIMEC(avaDir, cfgAIMEC)
 

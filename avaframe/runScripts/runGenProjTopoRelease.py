@@ -46,8 +46,8 @@ log = logUtils.initiateLogger(avalancheDir, logName)
 log.info('MAIN SCRIPT')
 
 # Load input parameters from configuration file
-cfgT = cfgUtils.getModuleConfig(gT)
-cfgR = cfgUtils.getModuleConfig(gR)
+cfgT = cfgUtils.getModuleConfig(gT, avalancheDir)
+cfgR = cfgUtils.getModuleConfig(gR, avalancheDir)
 
 # Call main function to generate DEMs
 [z, name_ext, outDir] = gT.generateTopo(cfgT, avalancheDir)

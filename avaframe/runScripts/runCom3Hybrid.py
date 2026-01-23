@@ -33,5 +33,5 @@ log.info('Current avalanche: %s', avalancheDir)
 initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=True)
 
 # Load configuration for hybrid model
-cfgHybrid = cfgUtils.getModuleConfig(com3Hybrid)
+cfgHybrid = cfgUtils.getModuleConfig(com3Hybrid, avalancheDir)
 com3Hybrid.maincom3Hybrid(cfgMain, cfgHybrid)

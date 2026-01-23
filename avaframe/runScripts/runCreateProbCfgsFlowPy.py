@@ -30,7 +30,7 @@ log.info('Current avalanche: %s', avalancheDir)
 initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
 # Load configuration file for probabilistic run and analysis
-cfgProb = cfgUtils.getModuleConfig(probAna)
+cfgProb = cfgUtils.getModuleConfig(probAna, avalancheDir)
 
 # create configuration files for com1DFA simulations including parameter
 # variation - defined in the probabilistic config
@@ -42,6 +42,6 @@ cfgFiles, cfgPath = probAna.createComModConfig(cfgProb, avalancheDir, com4FlowPy
 # loop over all cfgFiles
 for index, cfgF in enumerate(cfgFiles):
     # read configuration
-    cfgFromFile = cfgUtils.getModuleConfig(com4FlowPy, fileOverride=cfgF, toPrint=False)
+    cfgFromFile = cfgUtils.getModuleConfig(com4FlowPy, avalancheDir, fileOverride=cfgF, toPrint=False)
 
     log.info('exp: %s, alpha: %s' % (cfgFromFile['GENERAL']['exp'], cfgFromFile['GENERAL']['alpha']))

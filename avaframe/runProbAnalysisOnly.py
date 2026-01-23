@@ -59,7 +59,7 @@ def runProbAna(avalancheDir="", modName=""):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Load configuration file for probabilistic run and analysis
-    cfgProb = cfgUtils.getModuleConfig(probAna)
+    cfgProb = cfgUtils.getModuleConfig(probAna, avalancheDir)
     if modName == "":
         modName = cfgProb["GENERAL"]["modName"]
 

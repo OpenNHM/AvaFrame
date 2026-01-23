@@ -141,6 +141,7 @@ def getTotalNumberOfSims(avaDirs, cfgMain, cfgCom7):
         # Get com1DFA config with regional overrides (same as in processAvaDirCom1Regional)
         cfgCom1DFA = cfgUtils.getModuleConfig(
             com1DFA,
+            str(avaDir),
             fileOverride="",
             toPrint=False,
             onlyDefault=cfgCom7["com1DFA_com1DFA_override"].getboolean("defaultConfig"),
@@ -194,6 +195,7 @@ def processAvaDirCom1Regional(cfgMain, cfgCom7, avalancheDir):
     # Create com1DFA configuration for the current avalanche directory and override with regional settings
     cfgCom1DFA = cfgUtils.getModuleConfig(
         com1DFA,
+        str(avalancheDir),
         fileOverride="",
         toPrint=False,
         onlyDefault=cfgCom7["com1DFA_com1DFA_override"].getboolean("defaultConfig"),

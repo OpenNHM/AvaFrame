@@ -49,7 +49,7 @@ log.info('Current avalanche: %s', avalancheDir)
 # Load all input Parameters from config file
 # get the configuration of an already imported module
 # write config to log file
-cfgRangeTime = cfgUtils.getModuleConfig(dtAna)
+cfgRangeTime = cfgUtils.getModuleConfig(dtAna, avalancheDir)
 cfgRangeTime['GENERAL']['avalancheDir'] = avalancheDir
 
 if preProcessedData:
