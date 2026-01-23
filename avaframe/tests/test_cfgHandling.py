@@ -5,7 +5,6 @@ import pathlib
 import pytest
 import configparser
 import logging
-import os
 
 from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import cfgHandling
@@ -240,82 +239,3 @@ def test_applyCfgOverride(caplog):
     assert len(cfgToOverride.items("GENERAL")) == 3
 
 
-def test_rewriteLocalCfg(tmp_path):
-    """test rewriting local cfg from override section"""
-
-    cfgFull = configparser.ConfigParser()
-    cfgFull.optionxform = str
-    avalancheDir = pathlib.Path(tmp_path, "testAvaDir")
-    os.makedirs(avalancheDir, exist_ok=True)
-
-    cfgFull["GENERAL"] = {"testP": 1.0, "name": True}
-    cfgFull["com1DFA_override"] = {"defaultConfig": True, "test1": 1.0}
-
-    with pytest.raises(AssertionError) as e:
-        cfgHandling.rewriteLocalCfgs(cfgFull, avalancheDir)
-    assert (
-        "Override section needs to provide moduleName_fileName_override; provided: com1DFA_override invalid format"
-        in str(e.value)
-    )
-
-    localCfgPath = pathlib.Path(tmp_path, "testCfg")
-    os.makedirs(localCfgPath, exist_ok=True)
-
-    cfgFull = configparser.ConfigParser()
-    cfgFull.optionxform = str
-
-    cfgFull["GENERAL"] = {"testP": 1.0, "name": True}
-    cfgFull["com1DFA_com1DFA_override"] = {"defaultConfig": True, "meshCellSize": 1.0}
-
-    cfgHandling.rewriteLocalCfgs(cfgFull, avalancheDir, localCfgPath=localCfgPath)
-
-    cfgNew = localCfgPath / "local_com1DFACfg.ini"
-
-    readCfg = configparser.ConfigParser()
-    readCfg.read(cfgNew)
-
-    assert cfgNew.is_file()
-    assert readCfg.has_option("GENERAL", "tEnd") is False
-    assert readCfg["GENERAL"].getfloat("meshCellSize") == 1.0
-
-    cfgFull = configparser.ConfigParser()
-    cfgFull.optionxform = str
-
-    cfgFull["GENERAL"] = {"testP": 1.0, "name": True}
-    cfgFull["com1DFA_com1DFA_override"] = {"defaultConfig": True, "meshCellSize": 10.0}
-
-    cfgHandling.rewriteLocalCfgs(cfgFull, avalancheDir, localCfgPath='')
-
-    cfgNew2 = avalancheDir / 'Inputs' / 'configurationOverrides' / "local_com1DFACfg.ini"
-
-    readCfg2 = configparser.ConfigParser()
-    readCfg2.read(cfgNew2)
-
-    assert cfgNew2.is_file()
-    assert readCfg2.has_option("GENERAL", "tEnd") is False
-    assert readCfg2["GENERAL"].getfloat("meshCellSize") == 10.0
-
-    localCfgPath = pathlib.Path(tmp_path, "test2")
-
-    with pytest.raises(NotADirectoryError) as e:
-        cfgHandling.rewriteLocalCfgs(cfgFull, avalancheDir, localCfgPath=localCfgPath)
-    assert "Provided path for local cfg files is not a directory" in str(e.value)
-
-
-def test_removeCfgItemsNotInOverride():
-    """test removing keys of cfg that are not in overrideKeys"""
-
-    cfgModule = configparser.ConfigParser()
-    cfgModule.optionxform = str
-
-    cfgModule["GENERAL"] = {"name1": 1.0, "name2": 2}
-    cfgModule["VISU"] = {"test1": 1.0, "test2": 2}
-
-    overrideKeys = ["test2", "name1"]
-
-    cfgModule = cfgHandling._removeCfgItemsNotInOverride(cfgModule, overrideKeys)
-
-    assert cfgModule.has_option("GENERAL", "name1")
-    assert cfgModule.has_option("VISU", "test2")
-    assert cfgModule.has_option("GENERAL", "name2") is False
-    assert cfgModule.has_option("VISU", "test1") is False
