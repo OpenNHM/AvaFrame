@@ -127,7 +127,7 @@ for test in testList:
     # load configuration
     aimecCfg = refDir / ('%s_AIMECCfg.ini' % test['AVANAME'])
     if aimecCfg.is_file():
-        cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, fileOverride=aimecCfg)
+        cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, avaDir, fileOverride=aimecCfg)
     else:
         cfgAimec = cfgUtils.getDefaultModuleConfig(ana3AIMEC)
     cfgAimec['AIMECSETUP']['resType'] = aimecResType
@@ -158,7 +158,7 @@ for test in testList:
 
     # Create plots for report
     # Load input parameters from configuration file
-    cfgRep = cfgUtils.getModuleConfig(generateCompareReport)
+    cfgRep = cfgUtils.getModuleConfig(generateCompareReport, avaDir)
 
     plotListRep = {}
     reportD['Simulation Difference'] = {}

@@ -35,6 +35,7 @@ def com5SnowSlideMain(cfgMain, snowSlideCfg):
     # get comDFA configuration and update with snow slide parameter set
     com1DFACfg = cfgUtils.getModuleConfig(
         com1DFA,
+        avalancheDir,
         fileOverride="",
         modInfo=False,
         toPrint=False,

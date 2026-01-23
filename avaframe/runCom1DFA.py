@@ -61,7 +61,7 @@ def runCom1DFA(avalancheDir='', calibration=''):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Set friction model according to cmd argument
-    cfgCom1DFA = cfgUtils.getModuleConfig(com1DFA, toPrint=False)
+    cfgCom1DFA = cfgUtils.getModuleConfig(com1DFA, avalancheDir, toPrint=False)
 
     if calibration.lower() == 'small':
         cfgCom1DFA['GENERAL']['frictModel'] = 'samosATSmall'

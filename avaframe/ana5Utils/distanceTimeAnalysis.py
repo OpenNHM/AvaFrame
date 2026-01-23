@@ -583,10 +583,11 @@ def initializeRangeTime(modName, cfg, dem, simHash):
     """
 
     # fetch configuration and add info
-    cfgRangeTime = cfgUtils.getModuleConfig(modName)
+    avalancheDir = cfg['GENERAL']['avalancheDir']
+    cfgRangeTime = cfgUtils.getModuleConfig(modName, avalancheDir)
 
     cfgRangeTime['GENERAL']['tEnd'] = cfg['GENERAL']['tEnd']
-    cfgRangeTime['GENERAL']['avalancheDir'] = cfg['GENERAL']['avalancheDir']
+    cfgRangeTime['GENERAL']['avalancheDir'] = avalancheDir
     cfgRangeTime['GENERAL']['simHash'] = simHash
     # fetch time steps for creating range time diagram
     dtRangeTime = fU.splitTimeValueToArrayInterval(cfgRangeTime['GENERAL']['distanceTimeSteps'],

@@ -38,11 +38,11 @@ log.info('Current avalanche: %s', avalancheDir)
 iP.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 workPath = pathlib.Path(avalancheDir, 'Work', 'energyLineTest')
 fU.makeADir(workPath)
-energyLineTestCfg = cfgUtils.getModuleConfig(energyLineTest)
+energyLineTestCfg = cfgUtils.getModuleConfig(energyLineTest, avalancheDir)
 
 # ++++++++++ set configurations for all the used modules and override ++++++++++++
 # get comDFA configuration and save to file
-com1DFACfg = cfgUtils.getModuleConfig(com1DFA, fileOverride='', modInfo=False, toPrint=False,
+com1DFACfg = cfgUtils.getModuleConfig(com1DFA, avalancheDir, fileOverride='', modInfo=False, toPrint=False,
                                       onlyDefault=energyLineTestCfg['com1DFA_com1DFA_override'].getboolean('defaultConfig'))
 com1DFACfg, energyLineTestCfg = cfgHandling.applyCfgOverride(com1DFACfg, energyLineTestCfg, com1DFA, addModValues=False)
 com1DFACfgFile = cfgUtils.writeCfgFile(avalancheDir, com1DFA, com1DFACfg, fileName='com1DFA_settings',

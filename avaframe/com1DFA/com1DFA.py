@@ -97,7 +97,7 @@ def com1DFAPreprocess(cfgMain, typeCfgInfo, cfgInfo, module=com1DFA):
 
     # read initial configuration
     if typeCfgInfo in ["cfgFromFile", "cfgFromDefault"]:
-        cfgStart = cfgUtils.getModuleConfig(module, fileOverride=cfgInfo, toPrint=False)
+        cfgStart = cfgUtils.getModuleConfig(module, avalancheDir, fileOverride=cfgInfo, toPrint=False)
     elif typeCfgInfo == "cfgFromObject":
         cfgStart = cfgInfo
 

@@ -26,7 +26,7 @@ fU.makeADir(workingDir)
 
 # Load input parameters from configuration file
 cfgMain = cfgUtils.getGeneralConfig()
-cfg = cfgUtils.getModuleConfig(cF)
+cfg = cfgUtils.getModuleConfig(cF, avalancheDir)
 cfgGen = cfg['GENERAL']
 
 # log file name; leave empty to use default runLog.log

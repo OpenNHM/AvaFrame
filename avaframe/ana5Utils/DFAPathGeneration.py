@@ -51,7 +51,7 @@ def generatePathAndSplitpoint(avalancheDir, cfgDFAPath, cfgMain, runDFAModule):
             # Clean avalanche directory of old work and output files from module
             initProj.cleanModuleFiles(avalancheDir, com1DFA, deleteOutput=True)
             # create and read the default com1DFA config (no local is read)
-            com1DFACfg = cfgUtils.getModuleConfig(com1DFA, fileOverride='', modInfo=False, toPrint=False,
+            com1DFACfg = cfgUtils.getModuleConfig(com1DFA, avalancheDir, fileOverride='', modInfo=False, toPrint=False,
                                                   onlyDefault=cfgDFAPath['com1DFA_com1DFA_override'].getboolean(
                                                       'defaultConfig'))
             # and override with settings from DFAPath config

@@ -58,7 +58,7 @@ def runCom8MoTPSA(avalancheDir=''):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Get module config
-    cfgCom8MoTPSA = cfgUtils.getModuleConfig(com8MoTPSA, toPrint=False)
+    cfgCom8MoTPSA = cfgUtils.getModuleConfig(com8MoTPSA, avalancheDir, toPrint=False)
 
     # ----------------
     # Run psa

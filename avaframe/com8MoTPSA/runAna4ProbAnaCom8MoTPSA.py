@@ -59,7 +59,7 @@ def runProbAna(avalancheDir=''):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Load configuration file for probabilistic run and analysis
-    cfgProb = cfgUtils.getModuleConfig(probAna)
+    cfgProb = cfgUtils.getModuleConfig(probAna, avalancheDir)
 
     # create configuration files for com8MoTPSA simulations including parameter
     # variation - defined in the probabilistic config

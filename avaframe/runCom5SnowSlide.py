@@ -56,7 +56,7 @@ def runCom5SnowSlide(avalancheDir=""):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # load snow slide tool config
-    snowSlideCfg = cfgUtils.getModuleConfig(com5SnowSlide)
+    snowSlideCfg = cfgUtils.getModuleConfig(com5SnowSlide, avalancheDir)
 
     # perform com1DFA simulation with snow slide settings
     _, plotDict, reportDictList, _ = com5SnowSlide.com5SnowSlideMain(cfgMain, snowSlideCfg)

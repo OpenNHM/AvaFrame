@@ -84,7 +84,7 @@ def runOperational(avalancheDir=''):
         com2AB.readABinputs(avalancheDir)
 
         # if not: Run Alpha Beta
-        cfgAB = cfgUtils.getModuleConfig(com2AB)
+        cfgAB = cfgUtils.getModuleConfig(com2AB, avalancheDir)
         pathDict, dem, splitPoint, eqParams, resAB = com2AB.com2ABMain(cfgAB, avalancheDir)
         abShpFile = outAB.writeABtoSHP(pathDict, resAB)
 

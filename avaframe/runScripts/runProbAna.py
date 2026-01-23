@@ -45,7 +45,7 @@ for avaDir in avalancheDirectories:
     initProj.cleanSingleAvaDir(avaDir)
 
     # Load configuration file for probabilistic run and analysis
-    cfgProb = cfgUtils.getModuleConfig(probAna, fileOverride=probAnaCfg)
+    cfgProb = cfgUtils.getModuleConfig(probAna, avaDir, fileOverride=probAnaCfg)
 
     # create configuration files for com1DFA simulations including parameter
     # variation - defined in the probabilistic config

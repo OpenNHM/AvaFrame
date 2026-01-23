@@ -20,7 +20,7 @@ log.info('Current avalanche: %s', avalancheDir)
 # Load all input Parameters from config file
 # get the configuration of an already imported module
 # Write config to log file
-cfg = cfgUtils.getModuleConfig(tmp1Ex)
+cfg = cfgUtils.getModuleConfig(tmp1Ex, avalancheDir)
 
 # Different ways to call functions
 tmp1Ex.tmp1ExMain(cfg)

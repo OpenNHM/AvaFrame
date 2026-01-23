@@ -49,7 +49,7 @@ def runScarpAnalysisWorkflow(inputDir="", method=""):
     initProj.cleanSingleAvaDir(inputDir, deleteOutput=False)
 
     # load scarp config
-    scarpCfg = cfgUtils.getModuleConfig(scarp)
+    scarpCfg = cfgUtils.getModuleConfig(scarp, inputDir)
 
     # Set method according to cmd argument
     if method.lower() == "plane":
