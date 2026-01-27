@@ -107,10 +107,11 @@ def getModuleConfig(module, avalancheDir="", fileOverride="", modInfo=False, toP
         OR: pathlib Path to module (python file)
     avalancheDir : str or pathlib.Path
         Path to avalanche directory. If provided and {avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini
-        exists, that config takes priority over local_* files. Default "" skips this check.
+        exists, that config is taken and only filled up with missing values from the default config.
+        The local_{moduleName}Cfg.ini file is ignored for moduleName then. Default "" skips this check.
     fileOverride : str or pathlib.Path
         Allows for a completely different file location. Missing values from the
-        default cfg will always be added. Takes highest priority.
+        default cfg will always be added. Takes highest priority UNLESS onlyDefault is true.
     modInfo : bool
         If True, return tuple (cfg, modDict) with info on differences to standard config
     toPrint : bool

@@ -48,13 +48,13 @@ logName = 'runAnalyzeParicleProps'
 modName = 'com1DFA'
 # -----------------------
 
-# load configuration of particle analysis using com1DFA as computational module
-cfgPartAna = cfgUtils.getModuleConfig(oPartAna, "")
-resTypePlots = fU.splitIniValueToArraySteps(cfgPartAna['GENERAL']['resTypePlots'])
 # Load avalanche directory from general configuration file
 cfgMain = cfgUtils.getGeneralConfig()
 avalancheDir = cfgMain['MAIN']['avalancheDir']
 avaDir = pathlib.Path(avalancheDir)
+# load configuration of particle analysis using com1DFA as computational module
+cfgPartAna = cfgUtils.getModuleConfig(oPartAna, avalancheDir)
+resTypePlots = fU.splitIniValueToArraySteps(cfgPartAna['GENERAL']['resTypePlots'])
 # create outDir
 outDir = avaDir / 'Outputs' / 'out3Plot' / 'particleAnalysis'
 fU.makeADir(outDir)
@@ -68,7 +68,7 @@ log.info('Current avalanche: %s', avalancheDir)
 if cfgPartAna['GENERAL'].getboolean('runCom1DFA'):
     log.info('Perform com1DFA runs using the override section in the outParticlesAnalysis ini file')
     # get the configuration of com1DFA using overrides
-    cfgCom1DFA = cfgUtils.getModuleConfig(com1DFA, avalancheDir, fileOverride='', modInfo=False, toPrint=False,
+    cfgCom1DFA = cfgUtils.getModuleConfig(com1DFA, avalancheDir, toPrint=False,
         onlyDefault=cfgPartAna['com1DFA_com1DFA_override'].getboolean('defaultConfig'))
     cfgCom1DFA, cfgPartAna = cfgHandling.applyCfgOverride(cfgCom1DFA, cfgPartAna, com1DFA, addModValues=False)
 
@@ -80,7 +80,7 @@ else:
     SimDF, _ = cfgUtils.readAllConfigurationInfo(avalancheDir)
 
 # get the configuration of aimec using overrides
-cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, avalancheDir, fileOverride='', modInfo=False, toPrint=False,
+cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, avalancheDir, toPrint=False,
     onlyDefault=cfgPartAna['ana3AIMEC_ana3AIMEC_override'].getboolean('defaultConfig'))
 cfgAimec, cfgPartAna = cfgHandling.applyCfgOverride(cfgAimec, cfgPartAna, ana3AIMEC, addModValues=False)
 # fetch anaMod from aimec settings
@@ -172,7 +172,7 @@ for i, simIndex in enumerate(SimDF.index):
     _, resAnalysisDF, _, newRasters, _ = ana3AIMEC.fullAimecAnalysis(avalancheDir, cfgAimec)
 
     # create mtiInfo dicts for tt-diagram
-    cfgRangeTime = cfgUtils.getModuleConfig(dtAna, avalancheDir, fileOverride='', modInfo=False, toPrint=False,
+    cfgRangeTime = cfgUtils.getModuleConfig(dtAna, avalancheDir, toPrint=False,
             onlyDefault=cfgPartAna['ana5Utils_distanceTimeAnalysis_override'].getboolean('defaultConfig'))
     cfgRangeTime, cfgPartAna = cfgHandling.applyCfgOverride(cfgRangeTime, cfgPartAna, dtAna, addModValues=False)
     cfgRangeTime['GENERAL']['avalancheDir'] = avalancheDir

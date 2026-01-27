@@ -3111,7 +3111,8 @@ def _findWrapperModuleInStack():
             # Extract the last component (the actual module name)
             moduleName = frameModule.split(".")[-1]
             # Check if it matches the comN pattern (starts with "com" followed by a digit)
-            if re.match(r"^com\d+", moduleName) and not frameModule.endswith("com1DFA.com1DFA"):
+            # Exclude all modules in the com1DFA package (com1DFA.com1DFA, com1DFA.com1DFATools, etc.)
+            if re.match(r"^com\d+", moduleName) and not frameModule.startswith("avaframe.com1DFA"):
                 return moduleName
     return None
 
