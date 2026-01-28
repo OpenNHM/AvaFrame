@@ -24,8 +24,6 @@ from shapely.geometry import Polygon as sPolygon
 
 if os.name == "nt":
     from multiprocessing.pool import ThreadPool as Pool
-elif platform.system() == "Darwin":
-    from multiprocessing.pool import ThreadPool as Pool
 else:
     from multiprocessing import Pool
 
