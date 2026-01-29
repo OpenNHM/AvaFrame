@@ -11,7 +11,7 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 
-def readRaster(fname, noDataToNan=True):
+def readRaster(fname, noDataToNan=True, flip=True):
     """Read raster file in .asc or .tif format.
     Returns a dict with a header and the data in it.
     Header is based on avaframe header info with llcenter info
@@ -46,7 +46,10 @@ def readRaster(fname, noDataToNan=True):
     if noDataToNan:
         rasterData[rasterData == header["nodata_value"]] = np.nan
         data["header"]["nodata_value"] = np.nan
-    data["rasterData"] = np.flipud(rasterData)
+    if flip:
+        data["rasterData"] = np.flipud(rasterData)
+    else:
+        data["rasterData"] = rasterData
 
     return data
 
