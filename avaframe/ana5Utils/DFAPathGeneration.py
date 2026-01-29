@@ -59,12 +59,12 @@ def generatePathAndSplitpoint(avalancheDir, cfgDFAPath, cfgMain, runDFAModule):
                                                                          addModValues=False)
             outDir = pathlib.Path(avalancheDir, 'Outputs', 'ana5Utils', 'DFAPath')
             fU.makeADir(outDir)
-            # write configuration to file
+            # write configuration to file for documentation
             com1DFACfgFile = outDir / 'com1DFAPathGenerationCfg.ini'
             with open(com1DFACfgFile, 'w') as configfile:
                 com1DFACfg.write(configfile)
             # call com1DFA and perform simulations
-            dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=com1DFACfgFile)
+            dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=com1DFACfg)
     else: # read existing simulation results
         # read simulation dem
         demOri = gI.readDEM(avalancheDir)

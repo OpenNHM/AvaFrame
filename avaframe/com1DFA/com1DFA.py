@@ -2,6 +2,7 @@
 Main functions for python DFA kernel
 """
 
+import configparser
 import copy
 import inspect
 import logging
@@ -65,7 +66,7 @@ cfgAVA = cfgUtils.getGeneralConfig()
 debugPlot = cfgAVA["FLAGS"].getboolean("debugPlot")
 
 
-def com1DFAPreprocess(cfgMain, typeCfgInfo, cfgInfo, module=com1DFA):
+def com1DFAPreprocess(cfgMain, cfgInfo, module=com1DFA):
     """preprocess information from configuration, read input data and gather into inputSimFiles,
     create one config object for each of all desired simulations,
     create dataFrame with one line per simulations of already existing sims in avalancheDir
@@ -74,12 +75,9 @@ def com1DFAPreprocess(cfgMain, typeCfgInfo, cfgInfo, module=com1DFA):
     ------------
     cfgMain: configparser object
         main configuration of AvaFrame
-    typeCfgInfo: str
-        name of type of cfgInfo (cfgFromFile or cfgFromObject)
     cfgInfo: str or pathlib Path or configparser object
-        path to configuration file if overwrite is desired - optional
-        if not local (if available) or default configuration will be loaded
-        if cfgInfo is a configparser object take this as initial config
+        if ConfigParser object: use directly as initial config
+        if str/Path: path to configuration file override (empty string uses default/local config)
     module: module
         module to be used for task (optional)
 
@@ -96,10 +94,11 @@ def com1DFAPreprocess(cfgMain, typeCfgInfo, cfgInfo, module=com1DFA):
     avalancheDir = cfgMain["MAIN"]["avalancheDir"]
 
     # read initial configuration
-    if typeCfgInfo in ["cfgFromFile", "cfgFromDefault"]:
-        cfgStart = cfgUtils.getModuleConfig(module, avalancheDir, fileOverride=cfgInfo, toPrint=False)
-    elif typeCfgInfo == "cfgFromObject":
+    if isinstance(cfgInfo, configparser.ConfigParser):
         cfgStart = cfgInfo
+    else:
+        # cfgInfo is file path (str or Path) or empty string
+        cfgStart = cfgUtils.getModuleConfig(module, avalancheDir, fileOverride=cfgInfo, toPrint=False)
 
     # fetch input data and create work and output directories
     inputSimFilesAll, outDir, simDFExisting, simNameExisting = com1DFATools.initializeInputs(
@@ -140,14 +139,13 @@ def com1DFAMain(cfgMain, cfgInfo=""):
 
     avalancheDir = cfgMain["MAIN"]["avalancheDir"]
 
-    # fetch type of cfgInfo
-    typeCfgInfo = com1DFATools.checkCfgInfoType(cfgInfo)
-    if typeCfgInfo == "cfgFromDir":
-        # preprocessing to create configuration objects for all simulations to run by reading multiple cfg files
+    # Route based on cfgInfo type: directory Path = batch mode, otherwise single config mode
+    if isinstance(cfgInfo, pathlib.Path) and cfgInfo.is_dir():
+        # Batch mode - cfgInfo is directory path (from getModuleConfig with batchCfgDir)
         simDict, inputSimFiles, simDFExisting, outDir = com1DFATools.createSimDictFromCfgs(cfgMain, cfgInfo)
     else:
-        # preprocessing to create configuration objects for all simulations to run
-        simDict, outDir, inputSimFiles, simDFExisting = com1DFAPreprocess(cfgMain, typeCfgInfo, cfgInfo)
+        # Single config mode - cfgInfo is ConfigParser, file path string, or empty string
+        simDict, outDir, inputSimFiles, simDFExisting = com1DFAPreprocess(cfgMain, cfgInfo)
 
     log.info("The following simulations will be performed")
     for key in simDict:

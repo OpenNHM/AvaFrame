@@ -159,6 +159,76 @@ def test_getModuleConfigExpertPartialOverride():
     assert cfg["GOODSECTION1"]["goodKey1"] == "1"
 
 
+def test_getModuleConfigBatchCfgDir(tmp_path):
+    """Test that batchCfgDir returns pathlib.Path when valid directory with .ini files"""
+    from avaframe.tests import test_logUtils
+
+    # Setup: create temp dir with .ini files
+    cfgDir = tmp_path / "cfgs"
+    cfgDir.mkdir()
+    (cfgDir / "test1.ini").write_text("[GENERAL]\nkey = value1\n")
+    (cfgDir / "test2.ini").write_text("[GENERAL]\nkey = value2\n")
+
+    result = cfgUtils.getModuleConfig(test_logUtils, batchCfgDir=cfgDir)
+
+    assert isinstance(result, pathlib.Path)
+    assert result == cfgDir
+
+
+def test_getModuleConfigBatchCfgDirNotExists(tmp_path):
+    """Test that batchCfgDir raises FileNotFoundError for non-existent directory"""
+    from avaframe.tests import test_logUtils
+
+    nonExistentDir = tmp_path / "does_not_exist"
+
+    with pytest.raises(FileNotFoundError, match="batchCfgDir does not exist"):
+        cfgUtils.getModuleConfig(test_logUtils, batchCfgDir=nonExistentDir)
+
+
+def test_getModuleConfigBatchCfgDirEmpty(tmp_path):
+    """Test that batchCfgDir raises FileNotFoundError for directory without .ini files"""
+    from avaframe.tests import test_logUtils
+
+    emptyDir = tmp_path / "empty_cfgs"
+    emptyDir.mkdir()
+    # Create a non-ini file to ensure it's not just checking for "any file"
+    (emptyDir / "readme.txt").write_text("not a config")
+
+    with pytest.raises(FileNotFoundError, match="batchCfgDir contains no .ini files"):
+        cfgUtils.getModuleConfig(test_logUtils, batchCfgDir=emptyDir)
+
+
+def test_getModuleConfigBatchCfgDirPriority(tmp_path):
+    """Test that batchCfgDir takes priority and ignores fileOverride and expert config"""
+    from avaframe.tests import test_logUtils
+
+    # Setup: batchCfgDir with .ini files
+    cfgDir = tmp_path / "batch_cfgs"
+    cfgDir.mkdir()
+    (cfgDir / "batch.ini").write_text("[GENERAL]\nkey = batch\n")
+
+    # Setup: fileOverride that would normally be used
+    overrideFile = tmp_path / "override.ini"
+    overrideFile.write_text("[GENERAL]\nkey = override\n")
+
+    # Setup: avalancheDir with expert config that would normally be used
+    avalancheDir = tmp_path / "avaTest"
+    expertDir = avalancheDir / "Inputs" / "CFGs"
+    expertDir.mkdir(parents=True)
+    (expertDir / "test_logUtilsCfg.ini").write_text("[GENERAL]\nkey = expert\n")
+
+    # batchCfgDir should win - returns Path, not ConfigParser
+    result = cfgUtils.getModuleConfig(
+        test_logUtils,
+        avalancheDir=avalancheDir,
+        fileOverride=overrideFile,
+        batchCfgDir=cfgDir
+    )
+
+    assert isinstance(result, pathlib.Path)
+    assert result == cfgDir
+
+
 def test_getGeneralConfig():
     '''Test for module getGeneralConfig'''
 

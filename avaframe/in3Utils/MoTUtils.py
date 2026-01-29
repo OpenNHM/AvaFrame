@@ -7,7 +7,7 @@ import shutil
 
 import numpy as np
 
-from avaframe.com1DFA import com1DFATools as com1DFATools, com1DFA as com1DFA
+from avaframe.com1DFA import com1DFA as com1DFA
 from avaframe.in2Trans import rasterUtils as rU
 
 log = logging.getLogger(__name__)
@@ -148,12 +148,9 @@ def MoTGenerateConfigs(cfgMain, cfgInfo, currentModule):
         dictionary with input files info
     """
 
-    # fetch type of cfgInfo
-    typeCfgInfo = com1DFATools.checkCfgInfoType(cfgInfo)
-
     # preprocessing to create configuration objects for all simulations to run
     simDict, outDir, inputSimFiles, simDFExisting = com1DFA.com1DFAPreprocess(
-        cfgMain, typeCfgInfo, cfgInfo, module=currentModule
+        cfgMain, cfgInfo, module=currentModule
     )
 
     return simDict, inputSimFiles

@@ -150,7 +150,7 @@ def getTotalNumberOfSims(avaDirs, cfgMain, cfgCom7):
 
         # Get simulations for this directory
         try:
-            simDict, _, _, _ = com1DFA.com1DFAPreprocess(cfgMainCopy, "cfgFromObject", cfgCom1DFA)
+            simDict, _, _, _ = com1DFA.com1DFAPreprocess(cfgMainCopy, cfgCom1DFA)
             totalSims += len(simDict)
         except Exception as e:
             log.warning(f"Could not get simulations for {avaDir}: {e}")
