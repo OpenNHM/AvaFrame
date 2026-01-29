@@ -2697,7 +2697,7 @@ def test_runCom1DFA(tmp_path, caplog):
         com1DFA, fileOverride=cfgFile, modInfo=True
     )
 
-    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile)
+    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=modCfg)
 
     print("DONE")
 
@@ -3369,3 +3369,47 @@ def test_getModuleNames():
         assert result == ("com5SnowSlide", "com5"), (
             f"Expected ('com5SnowSlide', 'com5'), got {result}"
         )
+
+
+def test_com1DFAMainWithPathCfgInfo(tmp_path, caplog):
+    """Test that com1DFAMain handles pathlib.Path directory cfgInfo for batch mode
+
+    When cfgInfo is a pathlib.Path pointing to a directory, com1DFAMain should route
+    directly to batch mode (createSimDictFromCfgs).
+    This is the code path used when getModuleConfig is called with batchCfgDir parameter.
+    """
+    from unittest.mock import patch
+
+    # Setup avalanche directory structure
+    avaDir = tmp_path / "avaTest"
+    avaDir.mkdir()
+    (avaDir / "Inputs").mkdir()
+    (avaDir / "Outputs").mkdir()
+    (avaDir / "Work").mkdir()
+
+    # Setup batch config directory with .ini files
+    cfgDir = tmp_path / "batch_cfgs"
+    cfgDir.mkdir()
+    (cfgDir / "sim1.ini").write_text("[GENERAL]\nrelThPercentile = 50\n")
+
+    # Create cfgMain
+    cfgMain = configparser.ConfigParser()
+    cfgMain["MAIN"] = {"avalancheDir": str(avaDir)}
+
+    # Pass pathlib.Path directly as cfgInfo
+    cfgInfoPath = pathlib.Path(cfgDir)
+
+    with patch("avaframe.com1DFA.com1DFA.com1DFATools.createSimDictFromCfgs") as mockCreateSimDict:
+
+        mockCreateSimDict.return_value = ({}, {}, None, tmp_path / "out")
+
+        # Call with directory Path - should route to createSimDictFromCfgs
+        try:
+            com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgInfoPath)
+        except Exception:
+            pass  # We expect it to fail due to missing simulations, but that's OK
+
+        # createSimDictFromCfgs should be called with the Path
+        mockCreateSimDict.assert_called_once()
+        callArgs = mockCreateSimDict.call_args
+        assert callArgs[0][1] == cfgInfoPath

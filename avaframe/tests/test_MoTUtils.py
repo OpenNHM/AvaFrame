@@ -605,10 +605,8 @@ def test_MoTGenerateConfigs(tmp_path):
         "relFiles": []
     }
 
-    with patch('avaframe.in3Utils.MoTUtils.com1DFATools.checkCfgInfoType') as mockCheckType, \
-         patch('avaframe.in3Utils.MoTUtils.com1DFA.com1DFAPreprocess') as mockPreprocess:
+    with patch('avaframe.in3Utils.MoTUtils.com1DFA.com1DFAPreprocess') as mockPreprocess:
 
-        mockCheckType.return_value = "None"
         mockPreprocess.return_value = (mockSimDict, tmp_path / "out", mockInputSimFiles, None)
 
         # Call function
@@ -617,7 +615,6 @@ def test_MoTGenerateConfigs(tmp_path):
         # Verify results
         assert simDict == mockSimDict
         assert inputSimFiles == mockInputSimFiles
-        mockCheckType.assert_called_once_with(cfgInfo)
         mockPreprocess.assert_called_once()
 
 

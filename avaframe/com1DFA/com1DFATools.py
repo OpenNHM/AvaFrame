@@ -357,48 +357,6 @@ def initializeInputs(avalancheDir, cleanRemeshedRasters, module=com1DFA):
     return inputSimFilesAll, outDir, simDFExisting, simNameExisting
 
 
-def checkCfgInfoType(cfgInfo):
-    """check if cfgInfo is a configparser object, a file or a directory
-
-    Parameters
-    ------------
-    cfgInfo: configparser object, str or pathlib path
-
-    Returns
-    ---------
-    typeCfgInfo: str
-        name of type of cfgInfo
-    """
-
-    if cfgInfo == "":
-        typeCfgInfo = "cfgFromDefault"
-
-    elif isinstance(cfgInfo, (pathlib.Path, str)):
-        # if path is provided check if file or directory
-        cfgInfoPath = pathlib.Path(cfgInfo)
-        if cfgInfoPath.is_dir():
-            typeCfgInfo = "cfgFromDir"
-            log.info("----- CFG override from directory is used -----")
-        elif cfgInfo.is_file():
-            typeCfgInfo = "cfgFromFile"
-            log.info("----- CFG override from file is used ----")
-
-    elif isinstance(cfgInfo, configparser.ConfigParser):
-        typeCfgInfo = "cfgFromObject"
-        log.info("---- CFG override object is used ----")
-
-    else:
-        message = (
-            "cfgInfo is not of valid format, needs to be a path to a cfg file, \
-            directory, configparser object or an empty str, cfgInfo is: %s"
-            % cfgInfo
-        )
-        log.error(message)
-        raise AssertionError(message)
-
-    return typeCfgInfo
-
-
 def updateResCoeffFields(fields, cfg):
     """update fields of cRes and detK, coefficients of resistance parameter and detrainment parameter
     according to the thresholds of FV and FT

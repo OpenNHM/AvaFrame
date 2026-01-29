@@ -33,10 +33,9 @@ def test_mainCompareSimSolCom1DFA(tmp_path):
     cfgMain = cfgUtils.getGeneralConfig()
     cfgMain["MAIN"]["avalancheDir"] = str(avalancheDir)
     cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=damBreakCfg)
-    # call com1DFA to perform simulations - provide configuration file and release thickness function
-    # (may be multiple sims)
+    # call com1DFA to perform simulations
     try:
-        _, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=damBreakCfg)
+        _, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfg)
     except NotImplementedError as e:
         if "iniStep=True is currently not supported" in str(e):
             pytest.skip(

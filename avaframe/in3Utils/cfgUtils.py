@@ -95,9 +95,15 @@ def getGeneralConfig(nameFile=""):
     return cfg
 
 
-def getModuleConfig(module, avalancheDir="", fileOverride="", modInfo=False, toPrint=True, onlyDefault=False):
+def getModuleConfig(
+    module, avalancheDir="", fileOverride="", batchCfgDir="", modInfo=False, toPrint=True, onlyDefault=False
+):
     """Returns the configuration for a given module
-    returns a configParser object
+    returns a configParser object OR pathlib.Path (when batchCfgDir is used)
+
+    Priority order:
+        batchCfgDir (returns Path) -> onlyDefault -> fileOverride -> expert config (CFGs/) ->
+        local_MODULECfg.ini -> MODULECfg.ini
 
     Parameters
     ----------
@@ -112,15 +118,26 @@ def getModuleConfig(module, avalancheDir="", fileOverride="", modInfo=False, toP
     fileOverride : str or pathlib.Path
         Allows for a completely different file location. Missing values from the
         default cfg will always be added. Takes highest priority UNLESS onlyDefault is true.
+    batchCfgDir : str or pathlib.Path
+        Path to directory containing multiple .ini config files for batch processing.
+        When provided, validates the directory exists and contains .ini files,
+        then returns the path as pathlib.Path (not a ConfigParser).
+        Takes highest priority - all other config resolution is skipped.
     modInfo : bool
-        If True, return tuple (cfg, modDict) with info on differences to standard config
+        If True, return tuple (cfg, modDict) with info on differences to standard config.
+        Ignored when batchCfgDir is provided.
     toPrint : bool
         If True, print configuration info
     onlyDefault : bool
-        If True, only use the default configuration (skip all overrides)
+        If True, only use the default configuration (skip all overrides).
+        Ignored when batchCfgDir is provided.
 
-    Priority order:
-        fileOverride -> expert config (CFGs/) -> local_MODULECfg.ini -> MODULECfg.ini
+    Returns
+    -------
+    configparser.ConfigParser or pathlib.Path
+        ConfigParser object with merged configuration, OR
+        pathlib.Path when batchCfgDir is provided
+
 
     """
     if isinstance(onlyDefault, bool) == False:
@@ -139,6 +156,17 @@ def getModuleConfig(module, avalancheDir="", fileOverride="", modInfo=False, toP
 
     log.debug("localFile: %s", localFile)
     log.debug("defaultFile: %s", defaultFile)
+
+    # Handle batchCfgDir - return Path for batch processing (highest priority)
+    if batchCfgDir:
+        batchPath = pathlib.Path(batchCfgDir)
+        if not batchPath.is_dir():
+            raise FileNotFoundError("batchCfgDir does not exist: %s" % batchPath)
+        iniFiles = list(batchPath.glob("*.ini"))
+        if len(iniFiles) == 0:
+            raise FileNotFoundError("batchCfgDir contains no .ini files: %s" % batchPath)
+        log.info("Using batch config directory with %d .ini files: %s", len(iniFiles), batchPath)
+        return batchPath
 
     # Handle onlyDefault escape hatch - skip all overrides
     if onlyDefault:
