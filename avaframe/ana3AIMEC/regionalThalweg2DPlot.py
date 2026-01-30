@@ -8,15 +8,17 @@ from avaframe.in3Utils import fileHandlerUtils as fU
 
 def regionalThalweg2DPlotMain(avalanchedir, cfg, size=None):
     """
-    shows and potentially saves Plot of thalweg:
+    saves Plot of thalweg:
     top pannel of the position in the raster
     bottom panel of the 2 dimensional representation
     #TODO: instead of startRow and startCol take PRA ID
 
     Parameters
     -----------
-    path: str
-        Path to the output folder of the FlowPy simulation
+    avalanchedir: str
+        Path to the th avalanche directory
+    cfg: configparser Object
+        contains configuration settings
     size: float
         avalanche size of the pathaxs[1]
     """
@@ -24,18 +26,64 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg, size=None):
     module = cfg["GENERAL"].get("modName")
     avalanchedir = pathlib.Path(avalanchedir)
 
-    startRow = cfg["GENERAL"].getint("startRow")
-    startCol = cfg["GENERAL"].getint("startCol")
-    variable = cfg["GENERAL"].get("plotVariable")
+    startRow = cfg["GENERAL"].get("startRow")
+    startCol = cfg["GENERAL"].get("startCol")
+    if startCol == "" or startRow == "":
+        plotAllPras = True
+    else:
+        plotAllPras = False
+        startCol = np.int16(startCol)
+        startRow = np.int16(startRow)
+
     centerOf = cfg["GENERAL"].get("centerOfVariable")
-    thalwegPra = cfg["GENERAL"].getboolean("thalwegPra")
+    if centerOf == "":
+        plotAllThalwegs = True
+    else:
+        plotAllThalwegs = False
 
     pathToOutput = avalanchedir / "Outputs" / module / "peakFiles" / f"res_{simhash}"
     savePath = pathToOutput / "ThalwegPlots"
     fU.makeADir(savePath)
 
     # FlowPy output: thalweg data
-    dataThalweg = tools.readThalwegData(pathToOutput / "thalwegData", startRow, startCol, centerOf=centerOf)
+    if plotAllThalwegs:
+        files = sorted(list((pathToOutput / "thalwegData").glob(f"thalwegData_*.pickle")))
+    elif plotAllPras:
+        files = sorted(list((pathToOutput / "thalwegData").glob(f"thalwegData_{centerOf}_*.pickle")))
+    else:
+        dataThalweg = tools.readThalwegData(
+            pathToOutput / "thalwegData", startRow, startCol, centerOf=centerOf
+        )
+        plotThalweg2D(
+            avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startRow, startCol, centerOf, size=size
+        )
+
+    if plotAllPras or plotAllThalwegs:
+        for thalwegDataFile in files:
+            stem = thalwegDataFile.stem
+            _, centerOf, startRow, startCol = stem.split("_")
+            startRow = int(startRow)
+            startCol = int(startCol)
+            dataThalweg = np.load(thalwegDataFile, allow_pickle="TRUE")
+            plotThalweg2D(
+                avalanchedir,
+                cfg,
+                pathToOutput,
+                savePath,
+                dataThalweg,
+                startRow,
+                startCol,
+                centerOf,
+                size=size,
+            )
+
+
+def plotThalweg2D(
+        avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startRow, startCol, centerOf, size=None
+):
+    """ """
+    variable = cfg["GENERAL"].get("plotVariable")
+    thalwegPra = cfg["GENERAL"].getboolean("thalwegPra")
 
     if thalwegPra:
         folder = pathlib.Path(pathToOutput / "thalwegData")

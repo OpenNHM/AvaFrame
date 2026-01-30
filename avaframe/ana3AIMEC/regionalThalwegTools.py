@@ -25,7 +25,7 @@ def getRasterFile(path):
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         path to raster file or folder containing raster
 
     Returns:
@@ -54,7 +54,7 @@ def createExtent(rowsMin, rowsMax, colsMin, colsMax, header, originLLCenter=True
     Parameters
     -----------
     colsMin, colsMax, rowsMin, rowsMax: int
-        index of minimum column and row and maximum column and row of data array
+        indices of minimum column and row and maximum column and row of data array
         Note: max is the index of the maximum column that should still be INCLUDED
     header: dict
         header of data array: llcenter coordinates, cellsize
@@ -317,7 +317,7 @@ def readThalwegData(path, startRow, startCol, centerOf="CoE"):
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         OutputPath of the FlowPy simulation
     startRow: int
         row number (y coordinate of raster) of the starting cell of the thalweg/path
@@ -334,41 +334,13 @@ def readThalwegData(path, startRow, startCol, centerOf="CoE"):
     return data
 
 
-def getInputPath(path):
-    """
-    get Path of Inputs folder
-    if there are more, the first is picked
-
-    Parameters:
-    -----------
-    path: str
-        OutputPath of the FlowPy simulation
-
-    Returns:
-    -----------
-    path_inputs: str
-        path of Inputs folder
-    """
-
-    # Find the index of the last occurrence of '/'
-    output_index = path.rfind("Outputs")
-    if output_index >= 0:
-        pathFolder = f"{path[:output_index]}"
-    elif output_index == -1:
-        pathFolder = path
-    # Path to Inputs folder
-    path_inputs = f"{pathFolder}/Inputs"
-
-    return path_inputs
-
-
 def getOutputFile(path, variable):
     """
     find output-raster file (*.asc or *.tif)
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         path to raster file or folder containing raster
     variable: str
         output variable that is searched for (name is in file name)
@@ -392,7 +364,7 @@ def parameterOfAllThalwegs(path, variable):
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         Thalweg-Output Path of the FlowPy simulation
     variable: str
         name of thalweg parameter
@@ -410,7 +382,6 @@ def parameterOfAllThalwegs(path, variable):
             # Construct full file path
             file_path = os.path.join(path, filename)
             data = np.load(file_path, allow_pickle="TRUE")
-            # print(data)
             variableValues.append(data[variable])
     return variableValues
 
@@ -421,7 +392,7 @@ def maxParameterOfAllThalwegs(path, variableList, centerOf):
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         Thalweg-Output Path of the FlowPy simulation
     variable: str
         name of thalweg parameter
@@ -502,7 +473,7 @@ def getDataBoxplots(path, variable, centerOf):
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         OutputPath of the FlowPy simulation
     variable: str
         name of output variable that is analysed and plotted (e.g, impressure, travelLength)
@@ -547,7 +518,7 @@ def plotBoxplot(
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         OutputPath of the FlowPy simulation
     varName: str
         name of output variable that is analysed and plotted (e.g, impressure, travelLength)
@@ -561,7 +532,7 @@ def plotBoxplot(
         which center of is used (possible:'CoE' (default), 'CoZd', 'CoF')
     log_scale: bool
         yaxis could be logarithmic (if log_scale == True)
-    savePath: str
+    savePath: pathlib.Path
         if not None (=default), the Figure is saved at this path
     title: str
         title for the plot
@@ -671,8 +642,10 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
         axis in which the hillshade and output raster is plotted
     fig: matplotlib figure
         figure to that the plot belongs to
-    path: str
+    path: pathlib.Path
         Path to the avalanche directory
+    pathToOutput: pathlib.Path
+        path to the output directory
     variable: str
         output variable that is plotted (of whole simulation)
 
@@ -681,7 +654,6 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
     ax: matplotlib axis
         axis containing hillshade and output raster of simulation
     """
-
     pathInput = path / "Inputs"
     demPath = getRasterFile(pathInput)
     praPath = getRasterFile(pathInput / "REL")
@@ -789,7 +761,7 @@ def segmentationPra(path, variable, method_thalweg='max', method_PRA='max', retu
 
     Parameters:
     ---------------
-    path: str
+    path: pathlib.Path
         Path to the output folder of the FlowPy simulation
     variable: str
         parameter name (in thalweg data) that is analysed (returned)
@@ -870,7 +842,7 @@ def makeFieldPlot(ax, fig, path, pathToOutput, variable, xThalweg, yThalweg, cen
         Axis for the plot
     fig: matplotlib figure
         Figure for the plot
-    path: str
+    path: pathlib.Path
         Path to the avalanche directory
     pathToOutput: Path
         Path to Output folder
@@ -903,7 +875,7 @@ def makeFieldPlot(ax, fig, path, pathToOutput, variable, xThalweg, yThalweg, cen
 
 
 def makeThalwegPlot(ax, dataThalweg, centerOf=""):
-    """make a twodimensional thalweg plot for FlowPy output
+    """make a 2D thalweg plot for FlowPy output
 
     Parameters
     -----------
@@ -1022,7 +994,7 @@ def plotThalweg_wetAndDry(path, resName, startRow, startCol, size=None, centerOf
 
     Parameters:
     -----------
-    path: str
+    path: pathlib.Path
         path to the data folder
     resName: str
         name of the folder containing the FlowPy results
@@ -1034,7 +1006,7 @@ def plotThalweg_wetAndDry(path, resName, startRow, startCol, size=None, centerOf
         avalanche size of the path
     centerOf: str
         which center of is used (possible:'CoE' (default), 'CoZd', 'CoF')
-    savePath: str
+    savePath: pathlib.Path
         if not None (=default), the Figure is saved at this path
     """
 
