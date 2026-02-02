@@ -21,7 +21,7 @@ import avaframe.out3Plot.plotUtils as pU
 log = logging.getLogger(__name__)
 
 
-def getRasterFile(path):
+def getRasterFile(path, variable=""):
     """
     read in raster (*.asc or *.tif)
 
@@ -29,11 +29,13 @@ def getRasterFile(path):
     -----------
     path: pathlib.Path
         path to raster file or folder containing raster
+    variable: str
+        test part that is searched for (name is in file name)
 
     Returns:
     -----------
-    output: numpy array
-        raster
+    filePath: pathlib Path
+        path to raster file in the folder
     """
     path = pathlib.Path(path)
 
@@ -41,9 +43,9 @@ def getRasterFile(path):
         raster = rasterio.open(path)
         filePath = path
     except:
-        files = sorted(list(path.glob("*.asc")))
+        files = sorted(list(path.glob(f"*{variable}.asc")))
         if len(files) == 0:
-            files = sorted(list(path.glob("*.tif")))
+            files = sorted(list(path.glob(f"*{variable}.tif")))
         raster = rasterio.open(files[0])
         # filePath = pathlib.Path(files[0])
         filePath = files[0]
@@ -94,32 +96,9 @@ def readThalwegData(path, startRow, startCol, centerOf="CoE"):
     return data
 
 
-def getOutputFile(path, variable):
-    """
-    find output-raster file (*.asc or *.tif)
-
-    Parameters:
-    -----------
-    path: pathlib.Path
-        path to raster file or folder containing raster
-    variable: str
-        output variable that is searched for (name is in file name)
-
-    Returns:
-    -----------
-    files[0]: str
-        file name of searched output file
-    """
-
-    path = pathlib.Path(path)
-    files = sorted(list(path.glob(f"*{variable}.asc")))
-    if len(files) == 0:
-        files = sorted(list(path.glob(f"*{variable}.tif")))
-    return files[0]
-
-
 def parameterOfAllThalwegs(path, variable):
     """
+    TODO: no usage!
     get the thalweg data
 
     Parameters:
@@ -148,6 +127,7 @@ def parameterOfAllThalwegs(path, variable):
 
 def maxParameterOfAllThalwegs(path, variableList, centerOf):
     """
+    TODO: no usage!
     get thalweg data (maximum per thalweg)
 
     Parameters:
@@ -181,7 +161,7 @@ def maxParameterOfAllThalwegs(path, variableList, centerOf):
 
 def plot_hists(region, variable, xlabel, bins=[]):
     """
-    brauch ma die??
+    TODO: no usage!
     """
     path = get_path_output(region)
     var = np.loadtxt(f"{path}/values_{variable}.csv", delimiter=",")
@@ -229,6 +209,7 @@ def plot_hists(region, variable, xlabel, bins=[]):
 
 def getDataBoxplots(path, variable, centerOf):
     """
+    TODO: no usage!
     get the thalweg data
 
     Parameters:
@@ -274,6 +255,7 @@ def plotBoxplot(
         path, varName, ylabel, size_class=None, centerOf="CoE", log_scale=False, savePath=None, title=""
 ):
     """
+    TODO: no usage!
     shows and potentially saves Violinplot and Boxplot
 
     Parameters:
@@ -429,9 +411,7 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
         "velocityMax": "velocity [m/s]",
     }
 
-    # TODO: can we use addConstrainedDataField(fileName, resType, demField, ax, cellSize, alpha=1.0, oneColor="") here?
-
-    file = getOutputFile(pathToOutput, variable)
+    file = getRasterFile(pathToOutput, variable=variable)
     rasterDict = rasterUtils.readRaster(file, flip=False)
     raster = rasterDict["rasterData"]
     rasterPraDict = rasterUtils.readRaster(praPath, flip=False)
@@ -852,4 +832,4 @@ def plotThalweg_wetAndDry(path, resName, startRow, startCol, size=None, centerOf
 
     axs.set_title(f"size: {size}")
     if savePath is not None:
-        fig.savefig(f"{savePath}/{avaframeName}_Thalweg{centerOf}_wetAndDry_{startRow}_{startCol}.png")
+        fig.savefig(f"{savePath}/Thalweg{centerOf}_wetAndDry_{startRow}_{startCol}.png")

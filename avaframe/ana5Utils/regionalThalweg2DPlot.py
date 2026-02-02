@@ -3,7 +3,7 @@ import pathlib
 import matplotlib.pyplot as plt
 import logging
 
-import avaframe.ana3AIMEC.regionalThalwegTools as tools
+import avaframe.ana5Utils.regionalThalwegTools as tools
 from avaframe.in3Utils import fileHandlerUtils as fU
 
 log = logging.getLogger(__name__)
@@ -48,15 +48,15 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
 
     # FlowPy output: thalweg data
     if plotAllCenterOf:
-        log.info(f"Plot all thalweg data that can be found in {pathToOutput / "ThalwegData"}.")
+        log.info(f"Plot all thalweg data that can be found in {pathToOutput}/ThalwegData.")
         files = sorted(list((pathToOutput / "thalwegData").glob(f"thalwegData_*.pickle")))
     elif plotAllThalwegs:
         log.info(
-            f"Plot all thalwegs averaged with {centerOf} that can be found in {pathToOutput / "ThalwegData"}."
+            f"Plot all thalwegs averaged with {centerOf} that can be found in {pathToOutput}/ThalwegData."
         )
         files = sorted(list((pathToOutput / "thalwegData").glob(f"thalwegData_{centerOf}_*.pickle")))
         if len(files) == 0:
-            message = f"There is no thalweg data computed with {centerOf} in {pathToOutput / "thalwegData"}"
+            message = f"There is no thalweg data computed with {centerOf} in{pathToOutput}/ThalwegData."
             log.error(message)
             raise FileNotFoundError(message)
     else:
@@ -145,3 +145,4 @@ def plotThalweg2D(avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startR
     if size != "":
         axs[0].set_title(f"Avalanche size: {size}")
     fig.savefig(f"{savePath}/Thalweg{centerOf}_{startRow}_{startCol}.png")
+    log.info(f"saved plot: {savePath}/Thalweg{centerOf}_{startRow}_{startCol}.png")

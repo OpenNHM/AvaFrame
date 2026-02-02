@@ -5,7 +5,7 @@ import logging
 
 from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import logUtils
-from avaframe.ana3AIMEC import regionalThalweg2DPlot
+from avaframe.ana5Utils import regionalThalweg2DPlot
 
 log = logging.getLogger(__name__)
 logName = 'runRegionalThalweg2DPlot'
