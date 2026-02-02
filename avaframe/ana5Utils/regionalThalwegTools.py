@@ -375,7 +375,7 @@ def plotBoxplot(
     """
 
 
-def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
+def plotField(ax, fig, pathDict, variable, thalwegPra=False):
     """plots hillshade of the DEM and the output raster of the simulation zoomed in to the simulation extent
 
     Parameters:
@@ -384,10 +384,8 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
         axis in which the hillshade and output raster is plotted
     fig: matplotlib figure
         figure to that the plot belongs to
-    path: pathlib.Path
-        Path to the avalanche directory
-    pathToOutput: pathlib.Path
-        path to the output directory
+    pathDict: dict
+        contains simulation paths
     variable: str
         output variable that is plotted (of whole simulation)
 
@@ -396,10 +394,10 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
     ax: matplotlib axis
         axis containing hillshade and output raster of simulation
     """
-    pathInput = path / "Inputs"
+    pathInput = pathDict["avalancheDir"] / "Inputs"
     # TODO: avaframe function to replace getRasterFile?
     praPath = getRasterFile(pathInput / "REL")
-    demDict = gI.readDEM(path)
+    demDict = gI.readDEM(pathDict["avalancheDir"])
     # TODO: Check if flipping DEM is needed!(gI.readDem flips the raster.)
     dem = np.flipud(demDict["rasterData"])
     header = demDict["header"]
@@ -411,7 +409,7 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
         "velocityMax": "velocity [m/s]",
     }
 
-    file = getRasterFile(pathToOutput, variable=variable)
+    file = getRasterFile(pathDict["pathToOutput"], variable=variable)
     rasterDict = rasterUtils.readRaster(file, flip=False)
     raster = rasterDict["rasterData"]
     rasterPraDict = rasterUtils.readRaster(praPath, flip=False)
@@ -576,7 +574,7 @@ def getContigousPras(inputPath):
 """
 
 
-def makeFieldPlot(ax, fig, path, pathToOutput, variable, xThalweg, yThalweg, centerOf="", thalwegPra=False):
+def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, thalwegPra=False):
     """make a raster plot for FlowPy output
 
     Parameters
@@ -585,14 +583,10 @@ def makeFieldPlot(ax, fig, path, pathToOutput, variable, xThalweg, yThalweg, cen
         Axis for the plot
     fig: matplotlib figure
         Figure for the plot
-    path: pathlib.Path
-        Path to the avalanche directory
-    pathToOutput: Path
-        Path to Output folder
+    pathDict: dict
+        contains simulation paths
     variable: str
         output variable that is plotted (of whole simulation)
-    centerOf: str
-        which center of is used (possible: '' (default),'CoE', 'CoZd', 'CoF')
 
     Returns
     -----------
@@ -601,8 +595,8 @@ def makeFieldPlot(ax, fig, path, pathToOutput, variable, xThalweg, yThalweg, cen
     ax: matplotlib axis
         Axis containg the plot
     """
-
-    ax = plotField(ax, fig, path, pathToOutput, variable, thalwegPra=thalwegPra)
+    centerOf = pathDict["titleVariables"]["centerOf"]
+    ax = plotField(ax, fig, pathDict, variable, thalwegPra=thalwegPra)
     ax.scatter(xThalweg, yThalweg, c="r", s=0.3, zorder=5, label=f"thalweg {centerOf}")
     ax.scatter(xThalweg[0], yThalweg[0], c="b", s=2.0, zorder=6, label="startcell")
 

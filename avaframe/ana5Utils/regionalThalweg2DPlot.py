@@ -5,6 +5,9 @@ import logging
 
 import avaframe.ana5Utils.regionalThalwegTools as tools
 from avaframe.in3Utils import fileHandlerUtils as fU
+import avaframe.out3Plot.outAIMEC as outAIMEC
+from avaframe.in3Utils import cfgUtils
+from avaframe.ana3AIMEC import ana3AIMEC
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +35,7 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
     pathToOutput = avalanchedir / "Outputs" / module / "peakFiles" / f"res_{simhash}"
     savePath = pathToOutput / "ThalwegPlots"
     fU.makeADir(savePath)
+    pathDict = {"avalancheDir": avalanchedir, "pathToOutput": pathToOutput, "savePath": savePath}
 
     if startCol == "" or startRow == "":
         plotAllThalwegs = True
@@ -45,6 +49,9 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
         plotAllCenterOf = True
     else:
         plotAllCenterOf = False
+
+    # TODO: add rel ID
+    pathDict["titleVariables"] = {"startRow": startRow, "startCol": startCol, "centerOf": centerOf, "simHash": simhash}
 
     # FlowPy output: thalweg data
     if plotAllCenterOf:
@@ -63,28 +70,27 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
         dataThalweg = tools.readThalwegData(
             pathToOutput / "thalwegData", startRow, startCol, centerOf=centerOf
         )
-        plotThalweg2D(avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startRow, startCol, centerOf)
+        plotThalweg2D(pathDict, cfg, dataThalweg)
+        plotThalwegAltitude(pathDict, dataThalweg)
 
     if plotAllThalwegs or plotAllCenterOf:
         for thalwegDataFile in files:
             stem = thalwegDataFile.stem
             _, centerOf, startRow, startCol = stem.split("_")
+            pathDict["titleVariables"]["startRow"] = startRow
+            pathDict["titleVariables"]["startCol"] = startCol
+            pathDict["titleVariables"]["centerOf"] = centerOf
             startRow = int(startRow)
             startCol = int(startCol)
             dataThalweg = np.load(thalwegDataFile, allow_pickle="TRUE")
             plotThalweg2D(
-                avalanchedir,
+                pathDict,
                 cfg,
-                pathToOutput,
-                savePath,
-                dataThalweg,
-                startRow,
-                startCol,
-                centerOf,
-            )
+                dataThalweg)
+            plotThalwegAltitude(pathDict, dataThalweg)
 
 
-def plotThalweg2D(avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startRow, startCol, centerOf):
+def plotThalweg2D(pathDict, cfg, dataThalweg):
     """
     saves 2D thalweg plot:
     top panel: position of the thalweg in the field
@@ -92,29 +98,24 @@ def plotThalweg2D(avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startR
 
     Parameters
     ------------
-    avalanchedir: pathlib.Path
-        Path to the avalanche directory
+    pathDict: dict
+        contains the simulation paths
     cfg: configparser Object
         contains configuration settings
-    pathToOutput: pathlib.Path
-        Path to the output directory
-    savePath: pathlib.Path
-        Path where figures are saved
     dataThalweg: numpy array
         thalweg data that are saved in the simulation (averaged x-, y-coordinates, zdelta, ..)
-    startRow: int
-        row index of the start cell
-    startCol: int
-        column index of the start cell
-    centerOf: str
-        center of the variable that is used for the average
+
     """
     variable = cfg["GENERAL"].get("plotVariable")
     thalwegPra = cfg["GENERAL"].getboolean("thalwegPra")
     size = cfg["GENERAL"].get("avalancheSize")
+    savePath = pathDict["savePath"]
+    centerOf = pathDict["titleVariables"]["centerOf"]
+    startRow = pathDict["titleVariables"]["startRow"]
+    startCol = pathDict["titleVariables"]["startCol"]
 
     if thalwegPra:
-        folder = pathlib.Path(pathToOutput / "thalwegData")
+        folder = pathlib.Path(pathDict["pathToOutput"] / "thalwegData")
         files = list(folder.glob(f"thalwegData_{centerOf}*"))
         x = np.empty(0)
         y = np.empty(0)
@@ -138,7 +139,7 @@ def plotThalweg2D(avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startR
     fig.set_figwidth(8)
 
     fig, axs[0] = tools.makeFieldPlot(
-        axs[0], fig, avalanchedir, pathToOutput, variable, x, y, centerOf=centerOf, thalwegPra=thalwegPra
+        axs[0], fig, pathDict, variable, x, y, thalwegPra=thalwegPra
     )
     axs[1] = tools.makeThalwegPlot(axs[1], dataThalweg, centerOf=centerOf)
 
@@ -146,3 +147,27 @@ def plotThalweg2D(avalanchedir, cfg, pathToOutput, savePath, dataThalweg, startR
         axs[0].set_title(f"Avalanche size: {size}")
     fig.savefig(f"{savePath}/Thalweg{centerOf}_{startRow}_{startCol}.png")
     log.info(f"saved plot: {savePath}/Thalweg{centerOf}_{startRow}_{startCol}.png")
+
+
+def plotThalwegAltitude(pathDict, dataThalweg):
+    """
+    plot the AIMEC thalweg-altitude plot
+
+    Parameters
+    """
+    dataThalweg["indStartOfRunout"] = 0
+    dataThalweg["startOfRunoutAreaAngle"] = False
+
+    velocityThalweg = tools.zDelta2velocity(dataThalweg["zDelta"])
+    pftCrossMax = dataThalweg["flux"] * 100
+
+    cfg = cfgUtils.getModuleConfig(ana3AIMEC)
+    cfgPlots = cfg['PLOTS']
+
+    # TODO: also add pra ID to simname
+    simName = pathDict["titleVariables"]["centerOf"]
+
+    pathDict["projectName"] = str(pathDict["avalancheDir"]).split("/")[-1] + "_" + pathDict["titleVariables"]["startRow"] + "_" + pathDict["titleVariables"]["startCol"]
+    pathDict["pathResult"] = str(pathDict["savePath"])
+    # TODO: we could divide the function outAIMEC.plotVelThAlongThalweg to enable modifications, e.g. the pft representation
+    outAIMEC.plotVelThAlongThalweg(pathDict, dataThalweg, pftCrossMax, velocityThalweg, cfgPlots, simName)
