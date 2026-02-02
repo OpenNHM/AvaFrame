@@ -14,6 +14,8 @@ from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
 import avaframe.in2Trans.rasterUtils as rasterUtils
+import avaframe.in1Data.getInput as gI
+import avaframe.out3Plot.plotUtils as pU
 
 # create local logger
 log = logging.getLogger(__name__)
@@ -46,253 +48,6 @@ def getRasterFile(path):
         # filePath = pathlib.Path(files[0])
         filePath = files[0]
     return filePath
-
-
-def createExtent(rowsMin, rowsMax, colsMin, colsMax, header, originLLCenter=True):
-    """create extent from min to max cols and rows for plots
-
-    Parameters
-    -----------
-    colsMin, colsMax, rowsMin, rowsMax: int
-        indices of minimum column and row and maximum column and row of data array
-        Note: max is the index of the maximum column that should still be INCLUDED
-    header: dict
-        header of data array: llcenter coordinates, cellsize
-    originLLCenter: bool
-        if True the origin is set to lower left cell center / corner if False, 0,0 as origin of lower left center
-
-    Returns
-    ---------
-    extentCellCenters: list
-        extent corresponding to the cell center coordinates in meters
-    extentCellCorners: list
-        extent corresponding to the cell corner coordinates (lower left corner, uper right corner)
-    colsMinPlot, colsMaxPlot, rowsMinPlot, rowsMaxPlot: float
-        coordinates in meters corresponding to provided indices
-        Note: colsMaxPlot and rowsMaxPlot is colsMax+1*cellSize, rowsMax+1*cellSize
-    """
-
-    cellSize = header["cellsize"]
-
-    # set extent in meters using cellSize and llcenter location
-    if originLLCenter:
-        rowsMinPlot = rowsMin * cellSize + header["yllcenter"]
-        rowsMaxPlot = rowsMax * cellSize + header["yllcenter"]
-        colsMinPlot = colsMin * cellSize + header["xllcenter"]
-        colsMaxPlot = colsMax * cellSize + header["xllcenter"]
-    else:
-        rowsMinPlot = rowsMin * cellSize
-        rowsMaxPlot = rowsMax * cellSize
-        colsMinPlot = colsMin * cellSize
-        colsMaxPlot = colsMax * cellSize
-
-    # create extent of cell corners lower left to upper right in meters
-    extentCellCorners = [
-        colsMinPlot - 0.5 * cellSize,
-        colsMaxPlot + 0.5 * cellSize,
-        rowsMinPlot - 0.5 * cellSize,
-        rowsMaxPlot + 0.5 * cellSize,
-    ]
-
-    # create extent for cell centers lower left to upper right in meters
-    extentCellCenters = [colsMinPlot, colsMaxPlot, rowsMinPlot, rowsMaxPlot]
-
-    return extentCellCenters, extentCellCorners, rowsMinPlot, rowsMaxPlot, colsMinPlot, colsMaxPlot
-
-
-def constrainPlotsToData(inputData, cellSize, extentOption=False, constrainedData=False, buffer="150"):
-    """constrain input raster dataset to where there is data plus buffer zone
-
-    Parameters
-    -----------
-    inputData: numpy array
-        raster data to be plotted
-    cellSize: float
-        cellsize of raster data
-    extentOption: bool
-        if True rows and columns limits converted to actual extent in meters
-    buffer: float
-        buffer for constraining data in meters - optional if not provided read from ini file
-    constrainedData: bool
-        if True - also return constrained input data array
-
-    Returns
-    --------
-    rowsMin, rowsMax: int or float
-        indices where there is data in x direction (or min/max extent in meters)
-    colsMin, colsMax: int or float
-        indices where there is data in y direction (or min/max extent in meters)
-    dataConstrained: numpy array
-        constrained array where there is data
-    """
-
-    # check if buffer is given as input or needs to be read from ini file
-    plotBuffer = int(buffer) / cellSize
-
-    ind = np.where(inputData > 0)
-    if len(ind[0]) > 0:
-        rowsMin = max(np.amin(ind[0]) - plotBuffer, 0)
-        rowsMax = min(np.amax(ind[0]) + plotBuffer, inputData.shape[0] - 1)
-        colsMin = max(np.amin(ind[1]) - plotBuffer, 0)
-        colsMax = min(np.amax(ind[1]) + plotBuffer, inputData.shape[1] - 1)
-    else:
-        # if not constrained as data found at the margins of the array - constrain to nrows-1 or ncols-1 as +1 is used as
-        # index to then constrain the array
-        rowsMin = 0
-        rowsMax = inputData.shape[0] - 1
-        colsMin = 0
-        colsMax = inputData.shape[1] - 1
-
-    if extentOption:
-        rowsMinPlot = rowsMin * cellSize
-        rowsMaxPlot = rowsMax * cellSize
-        colsMinPlot = colsMin * cellSize
-        colsMaxPlot = colsMax * cellSize
-        if constrainedData:
-            dataConstrained = inputData[rowsMin: rowsMax + 1, colsMin: colsMax + 1]
-            return rowsMinPlot, rowsMaxPlot, colsMinPlot, colsMaxPlot, dataConstrained
-        else:
-            return rowsMinPlot, rowsMaxPlot, colsMinPlot, colsMaxPlot
-    else:
-        if constrainedData:
-            dataConstrained = inputData[rowsMin: rowsMax + 1, colsMin: colsMax + 1]
-            return rowsMin, rowsMax, colsMin, colsMax, dataConstrained
-        else:
-            return rowsMin, rowsMax, colsMin, colsMax
-
-
-def checkExtentFormat(extentPlot, cellSize, data, plotName=""):
-    """check if extent that is provided to imshow plot is in line with cellSize nrows, ncols
-
-    Parameters
-    -----------
-    extentPlot: list
-        list of xmin, xmax, ymin, ymax as actual limits of x and y axis
-    cellSize: float
-        cell size of cells
-    data: numpy nd array
-        data array to be plotted in imshow
-    plotName: str
-        optional for log message
-    """
-
-    extentFlagX = np.isclose(((extentPlot[1] - extentPlot[0]) / cellSize), data.shape[1])
-    extentFlagY = np.isclose(((extentPlot[3] - extentPlot[2]) / cellSize), data.shape[0])
-
-    if (extentFlagX == False) or (extentFlagY == False):
-        message = "Extent of dem data for hillshade and provided extent for figure axes in meters are of wrong shape"
-        raise AssertionError(message)
-
-
-def makeCoordinateGrid(xllc, yllc, csz, ncols, nrows):
-    """Create grid
-
-    Parameters
-    -----------
-    xllc, yllc: float
-        x and y coordinate of the lower left center
-    csz: float
-        cell size
-    ncols, nrows: int
-        number of columns and rows
-    Returns
-    --------
-    xGrid, yGrid: 2D numpy arrays
-        2D vector of x and y values for mesh center coordinates (produced using meshgrid)
-    """
-
-    xEnd = (ncols - 1) * csz
-    yEnd = (nrows - 1) * csz
-
-    xp = np.linspace(0, xEnd, ncols) + xllc
-    yp = np.linspace(0, yEnd, nrows) + yllc
-
-    xGrid, yGrid = np.meshgrid(xp, yp)
-    return xGrid, yGrid
-
-
-def addHillShadeContours(
-        ax, data, cellSize, extent, colors=["gray"], onlyContours=False, extentCenters=True
-):
-    """add hillshade and contours for given DEM data
-
-    Parameters
-    -----------
-    ax: matplotlib axes
-        axes of plot
-    data: numpy array
-        dem data
-    cellSize: float
-        cell size of data
-    extent: list
-        if extentCenters = True:
-            extent [x0, x1, y0, y1] x0, y0 lower left center, x1, y1 upper right center
-            for extent of imshow plot take into account shift of 0.5cellSize (-0.5*cellsize to get left edge for min row and
-            +0.5*cellsizeright edge for rowMax); this is done by computing extentCorners
-        elif extentCenters = False:
-            extent[x0, x1, y0, y1] - coordinates for extent of x, y axes of imshow plot
-    colors: list
-        optional, colors for elevation contour lines
-    onlyContours: bool
-        if True add only contour lines but no hillshade
-    """
-
-    azimuthDegree = 315
-    elevationDegree = 15
-    vertExag = 10
-    hillshadeContLevs = 15
-
-    if onlyContours:
-        ls = None
-    else:
-        # create lightSource
-        ls = LightSource(azdeg=azimuthDegree, altdeg=elevationDegree)
-
-        # add hillshade to axes
-        # create extent for minCol-maxCol+1, minRow-maxRow+1
-        if extentCenters:
-            extentPlot = [
-                extent[0] - 0.5 * cellSize,
-                extent[1] + 0.5 * cellSize,
-                extent[2] - 0.5 * cellSize,
-                extent[3] + 0.5 * cellSize,
-            ]
-            checkExtentFormat(extentPlot, cellSize, data)
-
-        else:
-            extentPlot = extent
-
-        im1 = ax.imshow(
-            ls.hillshade(data, vert_exag=vertExag, dx=data.shape[1], dy=data.shape[0]),
-            cmap="gray",
-            extent=extentPlot,
-            origin="lower",
-            aspect="equal",
-            zorder=1,
-        )
-
-    # create x,y coors for data array
-    nrows, ncols = data.shape
-    X, Y = makeCoordinateGrid(extent[0], extent[2], cellSize, ncols, nrows)
-
-    # add contour lines
-    CS = ax.contour(
-        X,
-        Y,
-        data,
-        colors=colors,
-        levels=hillshadeContLevs,
-        alpha=1.0,
-        linewidths=0.5,
-        zorder=2,
-    )
-
-    # add labels
-    ax.clabel(CS, CS.levels, inline=True, fontsize=8, zorder=3)
-
-    # add info box with indication of label meaning
-
-    return ls, CS
 
 
 def zDelta2velocity(zDelta):
@@ -329,8 +84,13 @@ def readThalwegData(path, startRow, startCol, centerOf="CoE"):
     data: dict
         thalweg data of one thalweg
     """
-
-    data = np.load(f"{path}/thalwegData_{centerOf}_{startRow}_{startCol}.pickle", allow_pickle="TRUE")
+    filePath = pathlib.Path(f"{path}/thalwegData_{centerOf}_{startRow}_{startCol}.pickle")
+    if filePath.is_file():
+        data = np.load(filePath, allow_pickle="TRUE")
+    else:
+        message = f"No thalwegdata exist averaged with {centerOf} for starcell with row {startRow} and column {startCol} in {path}"
+        log.error(message)
+        raise FileNotFoundError(message)
     return data
 
 
@@ -655,10 +415,11 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
         axis containing hillshade and output raster of simulation
     """
     pathInput = path / "Inputs"
-    demPath = getRasterFile(pathInput)
+    # TODO: avaframe function to replace getRasterFile?
     praPath = getRasterFile(pathInput / "REL")
-    demDict = rasterUtils.readRaster(demPath, flip=False)
-    dem = demDict["rasterData"]
+    demDict = gI.readDEM(path)
+    # TODO: Check if flipping DEM is needed!(gI.readDem flips the raster.)
+    dem = np.flipud(demDict["rasterData"])
     header = demDict["header"]
     cellSize = header["cellsize"]
     clabel = {
@@ -668,13 +429,15 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
         "velocityMax": "velocity [m/s]",
     }
 
+    # TODO: can we use addConstrainedDataField(fileName, resType, demField, ax, cellSize, alpha=1.0, oneColor="") here?
+
     file = getOutputFile(pathToOutput, variable)
     rasterDict = rasterUtils.readRaster(file, flip=False)
     raster = rasterDict["rasterData"]
     rasterPraDict = rasterUtils.readRaster(praPath, flip=False)
     rasterPra = rasterPraDict["rasterData"]
 
-    rowsMin, rowsMax, colsMin, colsMax = constrainPlotsToData(raster, header["cellsize"])
+    rowsMin, rowsMax, colsMin, colsMax = pU.constrainPlotsToData(raster, header["cellsize"], buffer=150)
     rowsMin = int(rowsMin)
     rowsMax = int(rowsMax)
     colsMin = int(colsMin)
@@ -695,11 +458,11 @@ def plotField(ax, fig, path, pathToOutput, variable, thalwegPra=False):
     Ly = ny * cellSize
     Lx = nx * cellSize
 
-    extentCellCenters, extentCellCorners, rowsMinPlot, rowsMaxPlot, colsMinPlot, colsMaxPlot = createExtent(
-        rowsMin, rowsMax, colsMin, colsMax, header
+    (extentCellCenters, extentCellCorners, rowsMinPlot, rowsMaxPlot, colsMinPlot, colsMaxPlot) = (
+        pU.createExtent(rowsMin, rowsMax, colsMin, colsMax, header)
     )
 
-    _, _ = addHillShadeContours(ax, demConstrained, cellSize, extentCellCenters)
+    _, _ = pU.addHillShadeContours(ax, demConstrained, cellSize, extentCellCenters)
 
     extent = extentCellCenters
     extentPlot = [
