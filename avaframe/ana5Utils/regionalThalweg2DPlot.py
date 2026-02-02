@@ -51,7 +51,12 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
         plotAllCenterOf = False
 
     # TODO: add rel ID
-    pathDict["titleVariables"] = {"startRow": startRow, "startCol": startCol, "centerOf": centerOf, "simHash": simhash}
+    pathDict["titleVariables"] = {
+        "startRow": startRow,
+        "startCol": startCol,
+        "centerOf": centerOf,
+        "simHash": simhash,
+    }
 
     # FlowPy output: thalweg data
     if plotAllCenterOf:
@@ -83,10 +88,7 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
             startRow = int(startRow)
             startCol = int(startCol)
             dataThalweg = np.load(thalwegDataFile, allow_pickle="TRUE")
-            plotThalweg2D(
-                pathDict,
-                cfg,
-                dataThalweg)
+            plotThalweg2D(pathDict, cfg, dataThalweg)
             plotThalwegAltitude(pathDict, dataThalweg)
 
 
@@ -138,9 +140,7 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
     fig.tight_layout(pad=3.0)
     fig.set_figwidth(8)
 
-    fig, axs[0] = tools.makeFieldPlot(
-        axs[0], fig, pathDict, variable, x, y, thalwegPra=thalwegPra
-    )
+    fig, axs[0] = tools.makeFieldPlot(axs[0], fig, pathDict, variable, x, y, thalwegPra=thalwegPra)
     axs[1] = tools.makeThalwegPlot(axs[1], dataThalweg, centerOf=centerOf)
 
     if size != "":
@@ -160,14 +160,21 @@ def plotThalwegAltitude(pathDict, dataThalweg):
 
     velocityThalweg = tools.zDelta2velocity(dataThalweg["zDelta"])
     pftCrossMax = dataThalweg["flux"] * 100
+    # pftCrossMax = np.ones_like(velocityThalweg) * 10
 
     cfg = cfgUtils.getModuleConfig(ana3AIMEC)
-    cfgPlots = cfg['PLOTS']
+    cfgPlots = cfg["PLOTS"]
 
     # TODO: also add pra ID to simname
     simName = pathDict["titleVariables"]["centerOf"]
 
-    pathDict["projectName"] = str(pathDict["avalancheDir"]).split("/")[-1] + "_" + pathDict["titleVariables"]["startRow"] + "_" + pathDict["titleVariables"]["startCol"]
+    pathDict["projectName"] = (
+            str(pathDict["avalancheDir"]).split("/")[-1]
+            + "_"
+            + pathDict["titleVariables"]["startRow"]
+            + "_"
+            + pathDict["titleVariables"]["startCol"]
+    )
     pathDict["pathResult"] = str(pathDict["savePath"])
     # TODO: we could divide the function outAIMEC.plotVelThAlongThalweg to enable modifications, e.g. the pft representation
     outAIMEC.plotVelThAlongThalweg(pathDict, dataThalweg, pftCrossMax, velocityThalweg, cfgPlots, simName)
