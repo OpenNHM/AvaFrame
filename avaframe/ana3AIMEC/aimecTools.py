@@ -636,10 +636,10 @@ def makeTransfoMat(rasterTransfo):
     cellSize = rasterTransfo['cellSizeSL']
     # number of points describing the avaPath
     n_pnt = np.shape(rasterTransfo['DBXr'])[0]
-    # Working with no dimentions
+    # Working with no dimensions
     # (the cellsize scaling will be readded at the end)
     # lcoord is the distance from the polyline (cross section)
-    # the maximum step size should be smaller then the cellsize
+    # the maximum step size should be smaller than the cellsize
     nTot = np.ceil(w/cellSize)
     # take the next odd integer. This ensures that the lcoord = 0 exists
     nTot = int(nTot+1) if ((nTot % 2) == 0) else int(nTot)
@@ -653,7 +653,7 @@ def makeTransfoMat(rasterTransfo):
     for i in range(n_pnt-1):
         # split edges in segments
         bxl, byl, bxr, byr, m = splitSection(rasterTransfo, i)
-        # bxl, byl, bxr, byr reprensent the s direction (olong path)
+        # bxl, byl, bxr, byr represent the s direction (along path)
         # loop on segments of section
         for j in range(m-1):
             # this is the cross section segment (l direction)
