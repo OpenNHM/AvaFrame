@@ -68,7 +68,7 @@ def zDelta2velocity(zDelta):
     return velocity
 
 
-def readThalwegData(path, startRow, startCol, centerOf="CoE"):
+def readThalwegData(path, titleDict):
     """
     load thalweg data
 
@@ -76,17 +76,23 @@ def readThalwegData(path, startRow, startCol, centerOf="CoE"):
     -----------
     path: pathlib.Path
         OutputPath of the FlowPy simulation
-    startRow: int
-        row number (y coordinate of raster) of the starting cell of the thalweg/path
-    startCol: int
-        column number (x coordinate of raster) of the starting cell of the thalweg/path
+    titleDict: dict
+        contains
 
     Returns:
     -----------
     data: dict
         thalweg data of one thalweg
     """
-    filePath = pathlib.Path(f"{path}/thalwegData_{centerOf}_{startRow}_{startCol}.pickle")
+    centerOf = titleDict["centerOf"]
+    startRow = titleDict["startRow"]
+    startCol = titleDict["startCol"]
+    relId = titleDict["relId"]
+
+    if startRow != "":
+        filePath = pathlib.Path(f"{path}/thalwegData_{centerOf}_{startRow}_{startCol}.pickle")
+    else:
+        filePath = pathlib.Path(f"{path}/thalwegData_{centerOf}_{relId}.pickle")
     if filePath.is_file():
         data = np.load(filePath, allow_pickle="TRUE")
     else:

@@ -31,18 +31,26 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
 
     startRow = cfg["GENERAL"].get("startRow")
     startCol = cfg["GENERAL"].get("startCol")
+    relId = cfg["GENERAL"].get("relId")
 
     pathToOutput = avalanchedir / "Outputs" / module / "peakFiles" / f"res_{simhash}"
     savePath = pathToOutput / "ThalwegPlots"
     fU.makeADir(savePath)
     pathDict = {"avalancheDir": avalanchedir, "pathToOutput": pathToOutput, "savePath": savePath}
 
-    if startCol == "" or startRow == "":
-        plotAllThalwegs = True
-    else:
-        plotAllThalwegs = False
+    # check which thalweg is plotted
+    if startRow != "" and startCol != "" and relId != "":
+        message = "When choosing one thalweg that is plotted, only select with startcell coordinates or release Id!"
+        log.error(message)
+        raise ValueError(message)
+    plotAllThalwegs = False
+    if startCol != "" or startRow != "":
         startCol = np.int16(startCol)
         startRow = np.int16(startRow)
+    elif relId != "":
+        relId = np.int16(relId)
+    else:
+        plotAllThalwegs = True
 
     centerOf = cfg["GENERAL"].get("centerOfVariable")
     if centerOf == "":
@@ -54,6 +62,7 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
     pathDict["titleVariables"] = {
         "startRow": startRow,
         "startCol": startCol,
+        "relId": relId,
         "centerOf": centerOf,
         "simHash": simhash,
     }
@@ -72,21 +81,24 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
             log.error(message)
             raise FileNotFoundError(message)
     else:
-        dataThalweg = tools.readThalwegData(
-            pathToOutput / "thalwegData", startRow, startCol, centerOf=centerOf
-        )
+        dataThalweg = tools.readThalwegData(pathToOutput / "thalwegData", pathDict["titleVariables"])
         plotThalweg2D(pathDict, cfg, dataThalweg)
         plotThalwegAltitude(pathDict, dataThalweg)
 
     if plotAllThalwegs or plotAllCenterOf:
         for thalwegDataFile in files:
             stem = thalwegDataFile.stem
-            _, centerOf, startRow, startCol = stem.split("_")
+            nameParts = stem.split("_")
+            if len(nameParts) == 4:
+                _, centerOf, startRow, startCol = stem.split("_")
+            elif len(nameParts) == 3:
+                _, centerOf, relId = stem.split("_")
             pathDict["titleVariables"]["startRow"] = startRow
             pathDict["titleVariables"]["startCol"] = startCol
             pathDict["titleVariables"]["centerOf"] = centerOf
-            startRow = int(startRow)
-            startCol = int(startCol)
+            pathDict["titleVariables"]["relId"] = relId
+            # startRow = int(startRow)
+            # startCol = int(startCol)
             dataThalweg = np.load(thalwegDataFile, allow_pickle="TRUE")
             plotThalweg2D(pathDict, cfg, dataThalweg)
             plotThalwegAltitude(pathDict, dataThalweg)
