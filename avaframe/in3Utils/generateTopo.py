@@ -366,52 +366,6 @@ def genericTopo(cfg):
         else:
             zv = zv - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
 
-
-    # if cfg["TOPO"].getboolean("channel"):
-    #     # c1 and c2 on length of fLen
-    #     # c1 = norm.cdf(xv, cMustart * fLen, cff)
-    #     c2 = 1.0 - norm.cdf(xv, cMuend * fLen + 2*cff, cff) # cMuend = 0.43 -> begin of fan apex = cMuend + 2 * cff (standard deviation)
-
-    #     # disabled to have narrowing only at the lower part of the channel
-    #     # # combine both into one function separated at the the middle of
-    #     # #  the channel longprofile location
-    #     mask = np.zeros(np.shape(xv)) 
-    #     mask[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1 
-    #     c0 = (np.zeros(nCols) + cRadius) * mask
-
-    #     mask = np.zeros(np.shape(xv)) 
-    #     mask[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1 
-    #     c0 = c0 + c2 * mask # disabled to have narrowing only at the lower part of the channel
-    #     # c0 = c2 * mask
-
-    #     # Is the channel of constant width or narrowing
-    #     if cfg["TOPO"].getboolean("narrowing"):
-    #         cExtent = (cInit * (1 - c0[:]) + (c0[:] * cRadius)) # disabled to have narrowing only at the lower part of the channel
-    #         # cExtent = (np.zeros(nCols) + cRadius)*(1-mask) + (cInit * (1 - c0[:]) + (c0[:] * cRadius))*mask
-    #     else:
-    #         cExtent = np.zeros(nCols) + cRadius
-
-    #     # Add surface elevation modification introduced by channel
-    #     mask = np.zeros(np.shape(y))
-    #     mask[np.where(abs(y) < cExtent)] = 1
-    #     if cfg["TOPO"].getboolean("topoAdd"):
-    #         superChannel = (
-    #                 superChannel
-    #                 + cExtent * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask
-    #         )
-    #         # outside of the channel, add layer of channel thickness
-    #         mask = np.zeros(np.shape(y))
-    #         mask[np.where(abs(y) >= cExtent)] = 1
-    #         # cExtent = c2 * cRadius #TODO: added
-    #         superChannel = superChannel + mask * cExtent  * c0 #TODO: add or delete c0
-    #     else:
-    #         superChannel = (
-    #                 superChannel - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
-    #         )
-
-    # add channel and dam
-    # zv = zv + superChannel
-
     # Log info here
     log.info("Generic debris-flow topography is computed")
 
