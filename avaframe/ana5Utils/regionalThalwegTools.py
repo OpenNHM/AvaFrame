@@ -102,6 +102,23 @@ def readThalwegData(path, titleDict):
     return data
 
 
+def getOutFileNamePartly(titleDict):
+    """
+
+    """
+    centerOf = titleDict["centerOf"]
+    startRow = titleDict["startRow"]
+    startCol = titleDict["startCol"]
+    relId = titleDict["relId"]
+
+    if relId != "":
+        outFileNamePart = f"{centerOf}_{relId}"
+    else:
+        outFileNamePart = f"{centerOf}_{startRow}_{startCol}"
+
+    return outFileNamePart
+
+
 def parameterOfAllThalwegs(path, variable):
     """
     TODO: no usage!

@@ -125,8 +125,6 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
     size = cfg["GENERAL"].get("avalancheSize")
     savePath = pathDict["savePath"]
     centerOf = pathDict["titleVariables"]["centerOf"]
-    startRow = pathDict["titleVariables"]["startRow"]
-    startCol = pathDict["titleVariables"]["startCol"]
 
     if thalwegPra:
         folder = pathlib.Path(pathDict["pathToOutput"] / "thalwegData")
@@ -157,8 +155,11 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
 
     if size != "":
         axs[0].set_title(f"Avalanche size: {size}")
-    fig.savefig(f"{savePath}/Thalweg{centerOf}_{startRow}_{startCol}.png")
-    log.info(f"saved plot: {savePath}/Thalweg{centerOf}_{startRow}_{startCol}.png")
+
+    outFileNamePart = tools.getOutFileNamePartly(pathDict["titleVariables"])
+    outFileName = f"Thalweg2D_{outFileNamePart}.png"
+    fig.savefig(savePath / outFileName)
+    log.info(f"saved plot: {(savePath / outFileName)}")
 
 
 def plotThalwegAltitude(pathDict, dataThalweg):
@@ -178,15 +179,10 @@ def plotThalwegAltitude(pathDict, dataThalweg):
     cfgPlots = cfg["PLOTS"]
 
     # TODO: also add pra ID to simname
-    simName = pathDict["titleVariables"]["centerOf"]
+    simName = str(pathDict["avalancheDir"]).split("/")[-1]
 
-    pathDict["projectName"] = (
-            str(pathDict["avalancheDir"]).split("/")[-1]
-            + "_"
-            + pathDict["titleVariables"]["startRow"]
-            + "_"
-            + pathDict["titleVariables"]["startCol"]
-    )
+    outFileNamePart = tools.getOutFileNamePartly(pathDict["titleVariables"])
+    pathDict["projectName"] = outFileNamePart
     pathDict["pathResult"] = str(pathDict["savePath"])
     # TODO: we could divide the function outAIMEC.plotVelThAlongThalweg to enable modifications, e.g. the pft representation
     outAIMEC.plotVelThAlongThalweg(pathDict, dataThalweg, pftCrossMax, velocityThalweg, cfgPlots, simName)
