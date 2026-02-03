@@ -23,26 +23,81 @@ The :py:func:`in3Utils.cfgUtils.getModuleConfig` function reads the settings fro
 in our example) and writes these settings to the log file. The default settings can be found in the
 configuration file provided within each module.
 
-It is possible to modify these settings, there are two options:
+It is possible to modify these settings. The main options are:
 
-* provide the path to your own configuration file when calling
-  ``cfgUtils.getModuleConfig(moduleName, path to config file)``
+* provide the path to your own configuration file using the ``fileOverride`` parameter when calling
+  :py:func:`in3Utils.cfgUtils.getModuleConfig`
+
+* create an expert configuration file at ``{avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini``
+  (see :doc:`expertConfiguration` for details)
 
 * create a copy of the module configuration file called ``local_`` followed by
   the name of the original configuration file and set the desired values of the
-  individual parameters.
+  individual parameters
 
 * see :ref:`configuration:Override configuration` for additional options to modify configuration
 
 So the order is as follows:
 
-#. if there is a path provided, configuration is read from this file.
+#. if ``batchCfgDir`` is provided, the path to the batch configuration directory is returned
+   (this is used for batch processing and returns a ``pathlib.Path`` instead of a ConfigParser object).
 
-#. if there is no path provided, the ``local_...`` configuration file is read if
+#. if ``onlyDefault=True`` is passed to :py:func:`in3Utils.cfgUtils.getModuleConfig`, only
+   the default configuration is used (all overrides are skipped).
+
+#. if there is a path provided via the ``fileOverride`` parameter, configuration is read from this file.
+
+#. if the ``avalancheDir`` is provided and ``{avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini`` exists,
+   this expert config is used (see :doc:`expertConfiguration` for details).
+
+#. if there is no expert config, the ``local_...`` configuration file is read if
    it exists.
 
 #. if there is no ``local_...``, the ``getModuleConfig`` function reads the
    settings from the default configuration file with the default settings.
+
+The following flowchart illustrates this priority order:
+
+.. graphviz::
+
+   digraph config_priority {
+      rankdir=TB
+      node [shape=box, style=rounded]
+
+      start [label="getModuleConfig()", shape=ellipse]
+      batch [label="batchCfgDir\nprovided?", shape=diamond]
+      batch_ret [label="Return Path\n(batch mode)"]
+      only [label="onlyDefault\n= True?", shape=diamond]
+      only_ret [label="Return default\nconfig only"]
+      file [label="fileOverride\nprovided?", shape=diamond]
+      file_load [label="Load fileOverride"]
+      expert [label="Expert config\nexists?", shape=diamond]
+      expert_load [label="Load expert config\nInputs/CFGs/"]
+      local [label="local_* file\nexists?", shape=diamond]
+      local_load [label="Load local_* file"]
+      default [label="Load default\nmodule config"]
+      merge [label="Fill missing values\nfrom default", shape=box]
+      done [label="Return ConfigParser", shape=ellipse]
+
+      start -> batch
+      batch -> batch_ret [label="yes"]
+      batch -> only [label="no"]
+      only -> only_ret [label="yes"]
+      only -> file [label="no"]
+      file -> file_load [label="yes"]
+      file -> expert [label="no"]
+      expert -> expert_load [label="yes"]
+      expert -> local [label="no"]
+      local -> local_load [label="yes"]
+      local -> default [label="no"]
+
+      file_load -> merge
+      expert_load -> merge
+      local_load -> merge
+      default -> done
+      only_ret -> done
+      merge -> done
+   }
 
 
 In the configuration file itself, there are multiple options to vary a parameter:

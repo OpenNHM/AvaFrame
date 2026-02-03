@@ -35,6 +35,7 @@ folder structure described below.
 
     NameOfAvalanche/
       Inputs/
+        CFGs/     - expert configuration files (optional)
         REL/      - release area scenario
         RES/      - resistance areas
         ENT/      - entrainment areas

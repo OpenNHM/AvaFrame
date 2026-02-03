@@ -16,6 +16,7 @@ General
     * :doc:`introduction`
     * :doc:`installation`
     * :doc:`connector`
+    * :doc:`expertConfiguration`
     * :doc:`advancedUsage`
     * :doc:`testing`
     * :doc:`Visualisation`
@@ -32,6 +33,7 @@ General
    introduction.rst
    installation.rst
    connector.rst
+   expertConfiguration.rst
    advancedUsage.rst
    testing.rst
    Visualisation.rst

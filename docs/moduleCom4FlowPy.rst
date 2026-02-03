@@ -189,6 +189,7 @@ the following folder structure inside the ``avalancheDir`` directory inside whic
 
     NameOfAvalanche/
       Inputs/
+        CFGs/     - expert configuration files (optional)
         ElevationModel - digital elevation model (.asc)
         REL/      - release area file (can be either .asc, .tif, or .shp) <required>
         RES/      - forest structure information (FSI) (.asc or .tif) <optional>

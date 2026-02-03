@@ -221,7 +221,7 @@ def createFolderStruct(pathAvaName):
 
     Inputs = checkMakeDir(pathAvaName, 'Inputs')
 
-    inputsSubDirs = ['RES', 'REL', 'SECREL', 'ENT',
+    inputsSubDirs = ['CFGs', 'RES', 'REL', 'SECREL', 'ENT',
                      'POINTS', 'LINES', 'POLYGONS', 'RELTH', "RASTERS"]
 
     for cuDir in inputsSubDirs:
