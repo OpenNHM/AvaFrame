@@ -292,6 +292,7 @@ def genericTopo(cfg):
     The parameters of the polynomial function are derived from real watershed profiles (Kessler 2019)
     """
     # input parameters
+    C = float(cfg["TOPO"]["C"]) # C = 709 m
     cff = float(cfg["CHANNELS"]["cff"])
     cRadius = float(cfg["CHANNELS"]["cRadius"])
     cInit = float(cfg["CHANNELS"]["cInit"])
@@ -306,105 +307,110 @@ def genericTopo(cfg):
 
     # If a channel shall be introduced
     # Get parabola Parameters
-    [A, B, fLen] = getParabolaParams(cfg)
+    [A, B, fLen] = getParabolaParams(cfg) # fLen = 1645 m
 
     # Set surface elevation
-    zv = np.zeros((nRows, nCols))
-
-    ## 2.
-    # # longitudinal profile along regresission functions
-    # # fan: xv = [xapex,x0]
-    # xapex = 922.6
-    # x0 = 1895
-    # a = 0.0002315
-    # b = -0.877
-    # # y0 = a*x0**2 + b*x0 + 1323 #TODO
-    # y0 = 492.4
-    # mask = np.zeros(np.shape(xv))
-    # mask[np.where(xv >= xapex)] = 1
-    # mask[np.where(xv >= x0)] = 0
-    # zv = zv + (a*xv**2 + b*xv + 1323 - y0) * mask
-    # # watershed: xv = [0,xapex]
-    # mask = np.ones(np.shape(xv))
-    # mask[np.where(xv >= xapex)] = 0
-    # # shift = a*xapex**2 + b*xapex + 1323 - (-0.6603*xapex + 1318) #TODO
-    # shift = 2.2 #TODO
-    # zv = zv + (-0.6603*xv + 1318 + shift - y0) * mask
-    
-    ## 1.
-    # xv = xv + 200 # relative position on x-axis according to polynomial function
-    # zv = zv * (-2.949E-10 * xv ** 4 + 1.21E-06 * xv ** 3 - 0.001462 * xv ** 2 + 0.007059 * xv + 1219)
-    # TODO: modify to extend topography
-
-    def polynomial(x):
-        z = 1.193e-15*x**6 - 6.573e-12*x**5 + \
-               1.399e-08*x**4 - 1.432e-05*x**3 + 0.007335*x**2 - 2.42*x + 1471
-        return z
-    y0 = polynomial(xv[np.where(xv==fLen)]) # elevation at right boundary of polynomial function
-
-    def line(x):
-        z = -0.6603*x + 1318
-        return z
-    
-    x_int = 220 # intersection point of polynomial and line function
-
+    zv = np.ones((nRows, nCols))
+    zv = zv * ((-(B ** 2)) / (4.0 * A) + C)
     mask = np.zeros(np.shape(xv))
-    mask[np.where(xv<x_int)] = 1
-    dzv = line(x_int)-polynomial(x_int) # elevation difference at intersection point
-    zv = zv + (line(xv) - dzv - y0)*mask
+    x0 = 1679 # x0 = 1679
+    mask[np.where(xv < x0)] = 1 
 
-    mask = np.zeros(np.shape(xv))
-    mask[np.where(xv>=x_int)] = 1
-    zv = zv + (polynomial(xv) - y0)*mask
+    zv = zv + (A * xv ** 2 + B * xv + C) * mask
 
-    mask = np.ones(np.shape(xv))
-    mask[np.where(xv>=fLen)] = 0
-    zv = zv * mask
-
-    # initialize superimposed channel
-    superChannel = np.zeros(np.shape(xv))
-
+    # If a channel shall be introduced
     if cfg["TOPO"].getboolean("channel"):
-        # c1 and c2 on length of fLen
+        # Compute cumulative distribution function - c1 for upper part (start)
+        # of channel and c2 for lower part (end) of channel
         c1 = norm.cdf(xv, cMustart * fLen, cff)
-        c2 = 1.0 - norm.cdf(xv, cMuend * fLen, cff)
+        c2 = 1.0 - norm.cdf(xv, cMuend * fLen + 2*cff, cff)
 
         # combine both into one function separated at the the middle of
         #  the channel longprofile location
-        mask = np.zeros(np.shape(xv)) 
-        mask[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1 
-        c0 = c1 * mask
+        mask_c1 = np.zeros(np.shape(xv))
+        mask_c1[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1
+        c0 = c1 * mask_c1
 
-        mask = np.zeros(np.shape(xv)) 
-        mask[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1 
-        c0 = c0 + c2 * mask
+        mask_c2 = np.zeros(np.shape(xv))
+        mask_c2[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1
+        c0 = c0 + c2 * mask_c2
 
         # Is the channel of constant width or narrowing
         if cfg["TOPO"].getboolean("narrowing"):
-            cExtent = cInit * (1 - c0[:]) + (c0[:] * cRadius)
-        else:
-            cExtent = np.zeros(nCols) + cRadius
+            # upper part of channel: constant width
+            mask_c1 = np.zeros(np.shape(xv))
+            mask_c1[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1
+            cExtent_c1 = np.zeros(np.shape(xv)) + cRadius
 
-        # Add surface elevation modification introduced by channel
+            # lower part of channel: narrowing
+            mask_c2 = np.zeros(np.shape(xv))
+            mask_c2[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1
+            cExtent_c2 = cInit * (1 - c0[:]) + (c0[:] * cRadius)
+            
+            cExtent = cExtent_c1 * mask_c1 + cExtent_c2 * mask_c2
+        else:
+            cExtent = np.zeros(np.shape(xv)) + cRadius
+
+        # Set surface elevation
         mask = np.zeros(np.shape(y))
         mask[np.where(abs(y) < cExtent)] = 1
+        # Add surface elevation modification introduced by channel
         if cfg["TOPO"].getboolean("topoAdd"):
-            superChannel = (
-                    superChannel
-                    + cExtent * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask
-            )
+            zv = zv + cRadius * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask # changed from cExtent to cRadius
             # outside of the channel, add layer of channel thickness
             mask = np.zeros(np.shape(y))
             mask[np.where(abs(y) >= cExtent)] = 1
-            cExtent = c2 * cRadius #TODO: added
-            superChannel = superChannel + mask * cExtent # * c0 #TODO: add or delete c0
+            mask_c2 = np.ones(np.shape(xv)) #added, smooth transition from upper to lower part of channel
+            c0 = c2 * mask_c2 #added
+            zv = zv + cRadius * mask * c0 # changed from cExtent to cRadius
         else:
-            superChannel = (
-                    superChannel - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
-            )
+            zv = zv - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
+
+
+    # if cfg["TOPO"].getboolean("channel"):
+    #     # c1 and c2 on length of fLen
+    #     # c1 = norm.cdf(xv, cMustart * fLen, cff)
+    #     c2 = 1.0 - norm.cdf(xv, cMuend * fLen + 2*cff, cff) # cMuend = 0.43 -> begin of fan apex = cMuend + 2 * cff (standard deviation)
+
+    #     # disabled to have narrowing only at the lower part of the channel
+    #     # # combine both into one function separated at the the middle of
+    #     # #  the channel longprofile location
+    #     mask = np.zeros(np.shape(xv)) 
+    #     mask[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1 
+    #     c0 = (np.zeros(nCols) + cRadius) * mask
+
+    #     mask = np.zeros(np.shape(xv)) 
+    #     mask[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1 
+    #     c0 = c0 + c2 * mask # disabled to have narrowing only at the lower part of the channel
+    #     # c0 = c2 * mask
+
+    #     # Is the channel of constant width or narrowing
+    #     if cfg["TOPO"].getboolean("narrowing"):
+    #         cExtent = (cInit * (1 - c0[:]) + (c0[:] * cRadius)) # disabled to have narrowing only at the lower part of the channel
+    #         # cExtent = (np.zeros(nCols) + cRadius)*(1-mask) + (cInit * (1 - c0[:]) + (c0[:] * cRadius))*mask
+    #     else:
+    #         cExtent = np.zeros(nCols) + cRadius
+
+    #     # Add surface elevation modification introduced by channel
+    #     mask = np.zeros(np.shape(y))
+    #     mask[np.where(abs(y) < cExtent)] = 1
+    #     if cfg["TOPO"].getboolean("topoAdd"):
+    #         superChannel = (
+    #                 superChannel
+    #                 + cExtent * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask
+    #         )
+    #         # outside of the channel, add layer of channel thickness
+    #         mask = np.zeros(np.shape(y))
+    #         mask[np.where(abs(y) >= cExtent)] = 1
+    #         # cExtent = c2 * cRadius #TODO: added
+    #         superChannel = superChannel + mask * cExtent  * c0 #TODO: add or delete c0
+    #     else:
+    #         superChannel = (
+    #                 superChannel - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
+    #         )
 
     # add channel and dam
-    zv = zv + superChannel
+    # zv = zv + superChannel
 
     # Log info here
     log.info("Generic debris-flow topography is computed")
