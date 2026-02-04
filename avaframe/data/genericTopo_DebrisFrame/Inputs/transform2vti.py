@@ -3,7 +3,7 @@ import vtk
 from vtk.util import numpy_support
 
 # ASC einlesen
-with open("DEM_GT_Topo.asc") as f:
+with open("DEM_DFTA_Topo.asc") as f:
     header = {}
     for _ in range(6):
         k, v = f.readline().split()
@@ -39,7 +39,7 @@ vtk_img.GetPointData().SetScalars(vtk_array)
 
 # Schreiben
 writer = vtk.vtkXMLImageDataWriter()
-writer.SetFileName("terrain.vti")
+writer.SetFileName("terrain_DFTA.vti")
 writer.SetInputData(vtk_img)
 writer.Write()
 
