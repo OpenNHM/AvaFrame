@@ -103,9 +103,7 @@ def readThalwegData(path, titleDict):
 
 
 def getOutFileNamePartly(titleDict):
-    """
-
-    """
+    """ """
     centerOf = titleDict["centerOf"]
     startRow = titleDict["startRow"]
     startCol = titleDict["startCol"]
@@ -620,8 +618,10 @@ def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, thalwegPra=Fa
     """
     centerOf = pathDict["titleVariables"]["centerOf"]
     ax = plotField(ax, fig, pathDict, variable, thalwegPra=thalwegPra)
-    ax.scatter(xThalweg, yThalweg, c="r", s=0.3, zorder=5, label=f"thalweg {centerOf}")
+    # ax.scatter(xThalweg, yThalweg, c="r", s=0.3, zorder=5, label=f"thalweg {centerOf}")
     ax.scatter(xThalweg[0], yThalweg[0], c="b", s=2.0, zorder=6, label="startcell")
+
+    ax.plot(xThalweg, yThalweg, "-", c="r", lw=0.5, zorder=5, label=f"thalweg {centerOf}")
 
     ax.legend()
     if thalwegPra:
