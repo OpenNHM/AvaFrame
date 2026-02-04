@@ -16,8 +16,6 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
     """
     read in Input data and general function for 2D thalweg plot
 
-    #TODO: instead of startRow and startCol take PRA ID
-
     Parameters
     -----------
     avalanchedir: str
@@ -58,7 +56,6 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
     else:
         plotAllCenterOf = False
 
-    # TODO: add rel ID
     pathDict["titleVariables"] = {
         "startRow": startRow,
         "startCol": startCol,
@@ -178,7 +175,6 @@ def plotThalwegAltitude(pathDict, dataThalweg):
     cfg = cfgUtils.getModuleConfig(ana3AIMEC)
     cfgPlots = cfg["PLOTS"]
 
-    # TODO: also add pra ID to simname
     simName = str(pathDict["avalancheDir"]).split("/")[-1]
 
     outFileNamePart = tools.getOutFileNamePartly(pathDict["titleVariables"])
