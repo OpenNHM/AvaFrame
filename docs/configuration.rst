@@ -19,7 +19,7 @@ In the second step the specific settings to a given module are imported::
   # Write config to log file
   cfg = cfgUtils.getModuleConfig(tmp1Ex)
 
-The :py:func:`in3Utils.cfgUtils.getModuleConfig` function reads the settings from a configuration file (``tmpEx.ini``
+The :py:func:`in3Utils.cfgUtils.getModuleConfig` function reads the settings from a configuration file (``tmpExCfg.ini``
 in our example) and writes these settings to the log file. The default settings can be found in the
 configuration file provided within each module.
 
@@ -33,7 +33,7 @@ It is possible to modify these settings. The main options are:
 
 * create a copy of the module configuration file called ``local_`` followed by
   the name of the original configuration file and set the desired values of the
-  individual parameters
+  individual parameters. ``local_`` needs to be in the same folder as the original.
 
 * see :ref:`configuration:Override configuration` for additional options to modify configuration
 
@@ -62,39 +62,67 @@ The following flowchart illustrates this priority order:
 
    digraph config_priority {
       rankdir=TB
-      node [shape=box, style=rounded]
+      newrank=true
+      graph [ranksep=0.6, nodesep=0.5, splines=ortho, fontname="helvetica", fontsize="20", fontcolor="#0E4160"]
+      node [shape=box, style="rounded,filled", fontsize=16, fontcolor="#0E4160", fontname="helvetica", fillcolor="#51ADE5cf", penwidth=1.5]
+      edge [fontname="helvetica", fontsize="12", penwidth=1.5]
 
-      start [label="getModuleConfig()", shape=ellipse]
-      batch [label="batchCfgDir\nprovided?", shape=diamond]
-      batch_ret [label="Return Path\n(batch mode)"]
-      only [label="onlyDefault\n= True?", shape=diamond]
+      // Entry and exit points
+      start [label="getModuleConfig()", shape=ellipse, fillcolor="#8BC9F0"]
+      done [label="Return ConfigParser", shape=ellipse, fillcolor="#8BC9F0"]
+
+      // Question nodes (left column)
+      batch [label="batchCfgDir\nprovided?", shape=box, fillcolor="#5ce0e6", margin="0.3,0.2"]
+      only [label="onlyDefault\n= True?", shape=box, fillcolor="#5ce0e6", margin="0.3,0.2"]
+      file [label="fileOverride\nprovided?", shape=box, fillcolor="#5ce0e6", margin="0.3,0.2"]
+      expert [label="Expert config\nexists?", shape=box, fillcolor="#5ce0e6", margin="0.3,0.2"]
+      local [label="local_* file\nexists?", shape=box, fillcolor="#5ce0e6", margin="0.3,0.2"]
+
+      // Action nodes (right column)
+      batch_ret [label="Return Path\n(batch mode)", shape=ellipse]
       only_ret [label="Return default\nconfig only"]
-      file [label="fileOverride\nprovided?", shape=diamond]
       file_load [label="Load fileOverride"]
-      expert [label="Expert config\nexists?", shape=diamond]
       expert_load [label="Load expert config\nInputs/CFGs/"]
-      local [label="local_* file\nexists?", shape=diamond]
       local_load [label="Load local_* file"]
-      default [label="Load default\nmodule config"]
-      merge [label="Fill missing values\nfrom default", shape=box]
-      done [label="Return ConfigParser", shape=ellipse]
+      merge [label="Read default config\nFill missing values\nfrom default"]
 
+      // Force horizontal alignment of question-answer pairs
+      {rank=same; batch; batch_ret}
+      {rank=same; only; only_ret}
+      {rank=same; file; file_load}
+      {rank=same; expert; expert_load}
+      {rank=same; local; local_load}
+
+      // Invisible chain to enforce vertical alignment of questions (left column)
+      batch -> only -> file -> expert -> local [style=invis, weight=100]
+
+      // Invisible chain to enforce vertical alignment of actions (right column)
+      batch_ret -> only_ret -> file_load -> expert_load -> local_load [style=invis, weight=100]
+
+      // Main flow: entry
       start -> batch
-      batch -> batch_ret [label="yes"]
-      batch -> only [label="no"]
-      only -> only_ret [label="yes"]
-      only -> file [label="no"]
-      file -> file_load [label="yes"]
-      file -> expert [label="no"]
-      expert -> expert_load [label="yes"]
-      expert -> local [label="no"]
-      local -> local_load [label="yes"]
-      local -> default [label="no"]
 
-      file_load -> merge
-      expert_load -> merge
+      // Main flow: "no" path (down the left column)
+      batch -> only [xlabel="no"]
+      only -> file [xlabel="no"]
+      file -> expert [xlabel="no"]
+      expert -> local [xlabel="no"]
+      // Invisible node to route "no" edge from local down then right to merge
+      local_merge_route [shape=point, width=0, height=0]
+      local -> local_merge_route [dir=none, xlabel="no"]
+      local_merge_route -> merge
+
+      // Main flow: "yes" path (to the right column)
+      batch -> batch_ret [xlabel="yes"]
+      only -> only_ret [xlabel="yes"]
+      file -> file_load [xlabel="yes"]
+      expert -> expert_load [xlabel="yes"]
+      local -> local_load [xlabel="yes"]
+
+      // Convergence to merge and exit
+      file_load:e -> merge:ne
+      expert_load:se -> merge:ne
       local_load -> merge
-      default -> done
       only_ret -> done
       merge -> done
    }
@@ -109,11 +137,33 @@ In the configuration file itself, there are multiple options to vary a parameter
   
 Override configuration
 ^^^^^^^^^^^^^^
- 
-If tools of one module, let's call this module **A** for now, are called from another module **B**, there is the option to include an *collectionName_A_override* section in the
-configuration file of module **B**. In this case, the default configuration of module **A** is read and the parameters in the *A_override* section 
-in the module **B** configuration file are used to update the configuration settings of module **A**. This has the advantage of gathering all 
-the configuration parameters used for one task in one configuration file.
-An example of this usage can be found in ``ana1Tests/energyLineTestCfg.ini``.
+
+When module **B** calls tools from module **A**, you can override **A**'s configuration directly in **B**'s config file.
+This keeps all settings for a workflow in one place.
+
+**How it works:**
+
+1. Add a section named ``[collectionName_moduleName_override]`` to module **B**'s config file
+2. List the parameters you want to override from module **A**
+3. When **B** runs, it loads **A**'s default config and applies your overrides (happens in cfgHandling.applyCfgOverride)
+
+**Example:** ``ana1Tests/energyLineTestCfg.ini`` overrides ``com1DFA`` settings:
+
+.. code-block:: ini
+
+   [energyLineTest]
+   # energyLineTest's own settings
+   runDFAModule = True
+   pathFromPart = True
+
+   [com1DFA_com1DFA_override]
+   # these override com1DFA's defaults when called from energyLineTest
+   defaultConfig = True
+   simTypeList = null
+   relTh = 1
+   frictModel = Coulomb
+
+The ``defaultConfig = True`` parameter ensures the override starts from **A**'s default configuration
+(rather than a ``local_`` file if one exists).
 
   
