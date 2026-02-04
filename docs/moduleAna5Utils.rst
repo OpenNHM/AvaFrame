@@ -279,3 +279,26 @@ range gate along the radar's line of sight are computed.
 This data is plotted in a range-time diagram, where the black dots indicate the avalanche front,
 and the colored field indicates the mean values of the flow variable for the range gates at each
 time step.
+
+
+Regional Thalweg Analysis of :ref:`moduleCom4FlowPy:com4FlowPy: Flow-Py` output
+-------------------------
+
+With this module, the :term:`thalweg` of the :py:mod:`com4FlowPy` simulation can be
+visualized in field plot, where the location of the thalweg is represented and in
+a two dimensional thalweg-altitude diagram (see :ref:`moduleAna3AIMEC:ana3AIMEC: Aimec`).
+
+Each thalweg that is identified in the :py:mod:`com4FlowPy` simulation can be visualized.
+
+To run
+~~~~~~~
+
+* First, set in your local copy of ``com4FlowPy/com4FlowPyCfg.ini`` the flag ``calcThalweg``
+  to True and run ``runCom4FlowPy`` (see :ref:`moduleCom4FlowPy:com4FlowPy: Flow-Py`)
+
+* in your local copy of ``ana5Utils/regionalThalweg2DPlotCfg.ini`` set the ``simhash`` of the
+  simulation you want to analyse. Here you can adjust the setting for your diagram.
+  You can choose, if you want to visualize all thalwegs (default) or a specific.
+
+The resulting figures are saved to
+``avalancheDirectory/Outputs/com4FlowPy/peakFiles/res_SIMHASH/ThalwegPlots``.
