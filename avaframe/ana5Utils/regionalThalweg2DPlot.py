@@ -126,16 +126,16 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
     if thalwegPra:
         folder = pathlib.Path(pathDict["pathToOutput"] / "thalwegData")
         files = list(folder.glob(f"thalwegData_{centerOf}*"))
-        x = np.empty(0)
-        y = np.empty(0)
+        x = []
+        y = []
 
         for thalwegFile in files:
             data = np.load(thalwegFile, allow_pickle="TRUE")
-            newX = np.array(data[f"x"])
-            newY = np.array(data[f"y"])
+            newX = np.array(data["x"])
+            newY = np.array(data["y"])
 
-            y = np.concatenate((y, newY))
-            x = np.concatenate((x, newX))
+            y.append(newY)
+            x.append(newX)
     else:
         y = np.array(dataThalweg[f"y"])
         x = np.array(dataThalweg[f"x"])

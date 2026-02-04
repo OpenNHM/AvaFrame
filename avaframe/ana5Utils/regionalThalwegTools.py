@@ -619,9 +619,9 @@ def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, thalwegPra=Fa
     centerOf = pathDict["titleVariables"]["centerOf"]
     ax = plotField(ax, fig, pathDict, variable, thalwegPra=thalwegPra)
     # ax.scatter(xThalweg, yThalweg, c="r", s=0.3, zorder=5, label=f"thalweg {centerOf}")
-    ax.scatter(xThalweg[0], yThalweg[0], c="b", s=2.0, zorder=6, label="startcell")
-
-    ax.plot(xThalweg, yThalweg, "-", c="r", lw=0.5, zorder=5, label=f"thalweg {centerOf}")
+    #ax.scatter(xThalweg[0], yThalweg[0], c="b", s=2.0, zorder=6, label="startcell")
+    for i, (x,y) in enumerate(zip(xThalweg, yThalweg)):
+        ax.plot(x, y, "-", c="k", lw=0.5, zorder=5, label=f"thalweg {centerOf}" if i==0 else None)
 
     ax.legend()
     if thalwegPra:
