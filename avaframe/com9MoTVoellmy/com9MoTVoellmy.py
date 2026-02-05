@@ -5,10 +5,7 @@ import pathlib
 import time
 import sys
 
-if os.name == "nt":
-    from multiprocessing.pool import ThreadPool as Pool
-else:
-    from multiprocessing import Pool
+from multiprocessing import Pool
 
 import avaframe.com1DFA.com1DFA as com1DFA
 from avaframe.in3Utils import cfgUtils
