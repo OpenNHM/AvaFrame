@@ -14,10 +14,7 @@ import gc
 import psutil
 import time
 
-if os.name == "nt":
-    from multiprocessing.pool import Pool as Pool
-else:
-    from multiprocessing import Pool
+from multiprocessing import Pool
 
 from avaframe.com4FlowPy.flowClass import Cell
 

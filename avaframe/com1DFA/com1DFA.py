@@ -23,10 +23,7 @@ import pandas as pd
 from shapely.geometry import Polygon as sPolygon
 
 
-if os.name == "nt":
-    from multiprocessing.pool import ThreadPool as Pool
-else:
-    from multiprocessing import Pool
+from multiprocessing import Pool
 
 # Local imports
 from avaframe.version import getVersion
