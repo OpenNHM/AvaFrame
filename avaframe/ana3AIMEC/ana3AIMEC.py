@@ -117,7 +117,9 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     # get hash of the reference
     refSimRowHash = pathDict['refSimRowHash']
     # read reference file and raster and config
-    refResultSource = inputsDF.loc[refSimRowHash, cfgSetup['runoutResType']]
+    # use resolved runoutResType from pathDict if available (layer-suffixed for multi-layer)
+    runoutResType = pathDict.get('runoutResType', cfgSetup['runoutResType'])
+    refResultSource = inputsDF.loc[refSimRowHash, runoutResType]
     refRaster = IOf.readRaster(refResultSource)
     refRasterData = refRaster['rasterData']
     refHeader = refRaster['header']
@@ -380,16 +382,20 @@ def postProcessAIMEC(cfg, rasterTransfo, pathDict, resAnalysisDF, newRasters, ti
                 simRowHash, rasterTransfo, newRaster, resType, resAnalysisDF
             )
 
-    # compute runout based on runoutResType
-    resAnalysisDF = aimecTools.computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, simRowHash)
-    runoutLine = aimecTools.computeRunoutLine(cfgSetup, rasterTransfo, newRasters, simRowHash, 'simulation', name='')
+    # compute runout based on resolved runoutResType (layer-suffixed for multi-layer)
+    resolvedRunoutResType = pathDict.get('runoutResType', cfgSetup['runoutResType'])
+    resAnalysisDF = aimecTools.computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, simRowHash,
+                                            runoutResType=resolvedRunoutResType)
+    runoutLine = aimecTools.computeRunoutLine(cfgSetup, rasterTransfo, newRasters, simRowHash, 'simulation', name='',
+                                             runoutResType=resolvedRunoutResType)
 
     if 'refPoint' in refDataTransformed:
         # compute differences between runout points
         resAnalysisDF = aimecTools.computeRunoutPointDiff(resAnalysisDF, refDataTransformed['refPoint'], simRowHash)
 
     # plot comparison between runout lines
-    outAimec.compareRunoutLines(cfgSetup, refDataTransformed, newRasters['newRaster'+cfgSetup['runoutResType'].upper()],
+    resolvedRunoutResType = pathDict.get('runoutResType', cfgSetup['runoutResType'])
+    outAimec.compareRunoutLines(cfgSetup, refDataTransformed, newRasters['newRaster'+resolvedRunoutResType.upper()],
                                 runoutLine, rasterTransfo, resAnalysisDF.loc[simRowHash], pathDict)
 
     # analyze distribution of diffs between runout lines

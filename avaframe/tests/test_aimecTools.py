@@ -414,3 +414,68 @@ def test_findIntSectCoors():
 
     # Verify no points are marked
     assert np.sum(intPointsArray) == 0
+
+
+def _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer=""):
+    """Create a minimal configparser section mimicking AIMECSETUP for checkAIMECinputs tests"""
+    cfg = configparser.ConfigParser()
+    cfg["AIMECSETUP"] = {
+        "runoutResType": runoutResType,
+        "resTypes": resTypes,
+        "runoutLayer": runoutLayer,
+    }
+    return cfg["AIMECSETUP"]
+
+
+def test_checkAIMECinputs_singleLayer_unchanged():
+    """Single-layer data with no runoutLayer: existing behavior preserved"""
+    cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="")
+    pathDict = {"resTypeList": ["ppr", "pft", "pfv"]}
+
+    result = aT.checkAIMECinputs(cfgSetup, pathDict)
+
+    assert "ppr" in result["resTypeList"]
+    assert "pft" in result["resTypeList"]
+    assert "pfv" in result["resTypeList"]
+    # runoutResType should stay as-is for single-layer
+    assert result["runoutResType"] == "ppr"
+
+
+def test_checkAIMECinputs_multiLayer_withRunoutLayer():
+    """Multi-layer data with runoutLayer=L1: resolves base resTypes to layer-suffixed columns"""
+    cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="L1")
+    pathDict = {"resTypeList": ["ppr_l1", "ppr_l2", "pft_l1", "pft_l2", "pfv_l1", "pfv_l2"]}
+
+    result = aT.checkAIMECinputs(cfgSetup, pathDict)
+
+    # resTypeList should contain resolved layer-suffixed names for L1 only
+    assert "ppr_l1" in result["resTypeList"]
+    assert "pft_l1" in result["resTypeList"]
+    assert "pfv_l1" in result["resTypeList"]
+    # L2 columns should NOT be in the resolved list
+    assert "ppr_l2" not in result["resTypeList"]
+    # runoutResType should be resolved to the layer-suffixed column name
+    assert result["runoutResType"] == "ppr_l1"
+
+
+def test_checkAIMECinputs_multiLayer_noRunoutLayer_errors():
+    """Multi-layer data without runoutLayer: must error out"""
+    cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="")
+    # resTypeList has layer-suffixed names but no base 'ppr' — multi-layer data
+    pathDict = {"resTypeList": ["ppr_l1", "ppr_l2", "pft_l1", "pft_l2", "pfv_l1", "pfv_l2"]}
+
+    with pytest.raises(FileNotFoundError, match="Multi-layer result files detected.*runoutLayer"):
+        aT.checkAIMECinputs(cfgSetup, pathDict)
+
+
+def test_checkAIMECinputs_multiLayer_runoutLayer_L2():
+    """Multi-layer data with runoutLayer=L2: resolves to L2 columns"""
+    cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pfv", runoutLayer="L2")
+    pathDict = {"resTypeList": ["ppr_l1", "ppr_l2", "pfv_l1", "pfv_l2"]}
+
+    result = aT.checkAIMECinputs(cfgSetup, pathDict)
+
+    assert "ppr_l2" in result["resTypeList"]
+    assert "pfv_l2" in result["resTypeList"]
+    assert "ppr_l1" not in result["resTypeList"]
+    assert result["runoutResType"] == "ppr_l2"
