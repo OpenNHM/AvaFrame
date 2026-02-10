@@ -10,6 +10,7 @@ import pandas as pd
 # local modules
 from avaframe.in3Utils import fileHandlerUtils as fU
 from avaframe.in3Utils import cfgUtils
+from avaframe.ana3AIMEC import aimecTools
 
 # create local logger
 # change log level in calling module to DEBUG to see log messages
@@ -147,8 +148,6 @@ def dfaBench2Aimec(avaDir, cfg, simNameRef='', simNameComp=''):
     # Load all infos on comparison module simulations
     compData, resTypeCompList = fU.makeSimFromResDF(avaDir, None, inputDir=inputDirComp, simName=simNameComp)
 
-    resTypeList = list(set(resTypeRefList).intersection(resTypeCompList))
-    pathDict['resTypeList'] = resTypeList
     pathDict['colorParameter'] = colorParameter
     pathDict['refSimRowHash'] = refSimRowHash
     pathDict['refSimName'] = refSimName
@@ -181,6 +180,12 @@ def dfaBench2Aimec(avaDir, cfg, simNameRef='', simNameComp=''):
     if True in inputsDFCount:
         message = ('Multiple rows of the dataFrame have the same simulation name.')
         log.warning(message)
+
+    # compute base-name resTypeList and validate via checkAIMECinputs
+    # use raw column-name lists as initial resTypeList (will be overwritten by checkAIMECinputs)
+    resTypeList = list(set(resTypeRefList).intersection(resTypeCompList))
+    pathDict['resTypeList'] = resTypeList
+    pathDict = aimecTools.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
 
     return inputsDF, pathDict
 

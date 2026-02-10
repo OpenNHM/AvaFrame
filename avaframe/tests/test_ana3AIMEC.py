@@ -62,6 +62,8 @@ def test_analyzeArea(tmp_path):
     pathDict["compType"] = ["singleModule", "com1DFA"]
     pathDict["contCmap"] = True
     pathDict["resTypeList"] = ["ppr", "pft", "pfv"]
+    pathDict["runoutResType"] = "ppr"
+    pathDict["displayRunoutResType"] = "ppr"
 
     cfg = cfgUtils.getModuleConfig(ana3AIMEC)
     cfgSetup = cfg["AIMECSETUP"]
@@ -189,6 +191,8 @@ def test_makeDomainTransfo(tmp_path):
     pathDict["refSimName"] = "testAimec_0"
     pathDict["compType"] = ["singleModule", "com1DFA"]
     pathDict["resTypeList"] = ["ppr", "pft", "pfv"]
+    pathDict["runoutResType"] = "ppr"
+    pathDict["displayRunoutResType"] = "ppr"
 
     cfg = cfgUtils.getModuleConfig(ana3AIMEC)
     cfgSetup = cfg["AIMECSETUP"]
@@ -302,6 +306,8 @@ def test_mainAIMEC(tmp_path):
     pathDict["refSimName"] = "testAimec_0"
     pathDict["compType"] = ["singleModule", "com1DFA"]
     pathDict["resTypeList"] = ["ppr", "pft", "pfv"]
+    pathDict["runoutResType"] = "ppr"
+    pathDict["displayRunoutResType"] = "ppr"
     pathDict["colorParameter"] = False
 
     cfg = cfgUtils.getModuleConfig(ana3AIMEC, onlyDefault=True)

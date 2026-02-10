@@ -66,7 +66,7 @@ def fullAimecAnalysis(avalancheDir, cfg, inputDir='', demFileName=''):
                 'demFileName': demFileName}
     pathDict = aimecTools.readAIMECinputs(avalancheDir, pathDict, cfgSetup.getboolean('defineRunoutArea'),
                                           dirName=anaMod)
-    pathDict = aimecTools.checkAIMECinputs(cfgSetup, pathDict)
+    pathDict = aimecTools.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
     log.info("Running ana3AIMEC model on test case DEM \n %s \n with profile \n %s ",
              pathDict['demSource'], pathDict['profileLayer'])
     # Run AIMEC postprocessing
@@ -117,9 +117,10 @@ def mainAIMEC(pathDict, inputsDF, cfg):
     # get hash of the reference
     refSimRowHash = pathDict['refSimRowHash']
     # read reference file and raster and config
-    # use resolved runoutResType from pathDict if available (layer-suffixed for multi-layer)
-    runoutResType = pathDict.get('runoutResType', cfgSetup['runoutResType'])
-    refResultSource = inputsDF.loc[refSimRowHash, runoutResType]
+    runoutResType = pathDict['runoutResType']
+    runoutLayer = pathDict.get('runoutLayer', '')
+    refResTypeCol = aimecTools.resolveResTypeColumn(inputsDF.loc[refSimRowHash], runoutResType, runoutLayer)
+    refResultSource = inputsDF.loc[refSimRowHash, refResTypeCol]
     refRaster = IOf.readRaster(refResultSource)
     refRasterData = refRaster['rasterData']
     refHeader = refRaster['header']
@@ -211,7 +212,14 @@ def mainAIMEC(pathDict, inputsDF, cfg):
         compResTypes1 = cfgPlots['compResType1'].split('|')
         compResTypes2 = cfgPlots['compResType2'].split('|')
         for indRes, compResType in enumerate(compResTypes1):
-            outAimec.plotMaxValuesComp(pathDict, resAnalysisDF, compResType, compResTypes2[indRes],
+            compResType2 = compResTypes2[indRes]
+            missingCols = [c for c in [compResType, compResType2] if c not in resAnalysisDF.columns]
+            if missingCols:
+                log.warning("Skipping comparison plot %s vs %s: columns %s not available in results "
+                            "(result type not in resTypeList for all simulations)",
+                            compResType, compResType2, missingCols)
+                continue
+            outAimec.plotMaxValuesComp(pathDict, resAnalysisDF, compResType, compResType2,
                                        hue=cfgPlots['scenarioName'])
 
     return rasterTransfo, resAnalysisDF, plotDict, newRasters
@@ -333,13 +341,15 @@ def postProcessAIMEC(cfg, rasterTransfo, pathDict, resAnalysisDF, newRasters, ti
     flagMass = cfgFlags.getboolean('flagMass')
     refSimRowHash = pathDict['refSimRowHash']
     resTypeList = pathDict['resTypeList']
+    runoutLayer = pathDict.get('runoutLayer', '')
 
     # apply domain transformation
     log.info('Analyzing data in path coordinate system')
 
     for resType in resTypeList:
         log.debug("Assigning %s data to deskewed raster" % resType)
-        inputFiles = resAnalysisDF.loc[simRowHash, resType]
+        resTypeCol = aimecTools.resolveResTypeColumn(resAnalysisDF.loc[simRowHash], resType, runoutLayer)
+        inputFiles = resAnalysisDF.loc[simRowHash, resTypeCol]
         if isinstance(inputFiles, pathlib.PurePath):
             rasterData = IOf.readRaster(inputFiles)
             newRaster = aimecTools.transform(rasterData, inputFiles, rasterTransfo, interpMethod)
@@ -382,20 +392,19 @@ def postProcessAIMEC(cfg, rasterTransfo, pathDict, resAnalysisDF, newRasters, ti
                 simRowHash, rasterTransfo, newRaster, resType, resAnalysisDF
             )
 
-    # compute runout based on resolved runoutResType (layer-suffixed for multi-layer)
-    resolvedRunoutResType = pathDict.get('runoutResType', cfgSetup['runoutResType'])
+    # compute runout based on base runoutResType (resolver handles per-row column access)
+    runoutResType = pathDict['runoutResType']
     resAnalysisDF = aimecTools.computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, simRowHash,
-                                            runoutResType=resolvedRunoutResType)
+                                            runoutResType=runoutResType)
     runoutLine = aimecTools.computeRunoutLine(cfgSetup, rasterTransfo, newRasters, simRowHash, 'simulation', name='',
-                                             runoutResType=resolvedRunoutResType)
+                                             runoutResType=runoutResType)
 
     if 'refPoint' in refDataTransformed:
         # compute differences between runout points
         resAnalysisDF = aimecTools.computeRunoutPointDiff(resAnalysisDF, refDataTransformed['refPoint'], simRowHash)
 
     # plot comparison between runout lines
-    resolvedRunoutResType = pathDict.get('runoutResType', cfgSetup['runoutResType'])
-    outAimec.compareRunoutLines(cfgSetup, refDataTransformed, newRasters['newRaster'+resolvedRunoutResType.upper()],
+    outAimec.compareRunoutLines(cfgSetup, refDataTransformed, newRasters['newRaster'+runoutResType.upper()],
                                 runoutLine, rasterTransfo, resAnalysisDF.loc[simRowHash], pathDict)
 
     # analyze distribution of diffs between runout lines

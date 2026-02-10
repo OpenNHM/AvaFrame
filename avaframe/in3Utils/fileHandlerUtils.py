@@ -669,7 +669,7 @@ def makeSimFromResDF(avaDir, comModule, inputDir="", simName=""):
         dataframe with for each simulation, the full file path, file name, release area scenario,
         simulation type (null, entres, etc.), model type (dfa, ref, etc.), simID,
         path to result files (ppr, pft, etc.), simulation name,
-        cell size and optional name of avalanche, optional time step
+        cell size and optional name of avalanche, optional time step, layer name
     resTypeListAll: list
         list of res types available for all simulations
     """
