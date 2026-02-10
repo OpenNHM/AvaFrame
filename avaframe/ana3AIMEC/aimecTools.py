@@ -4,6 +4,7 @@
 
 import logging
 import pathlib
+import re
 import numpy as np
 import pandas as pd
 import copy
@@ -374,44 +375,72 @@ def checkMultipleSimFound(refSimRowHash, inputsDF, error=False):
 def checkAIMECinputs(cfgSetup, pathDict):
     """ Check inputs before running AIMEC postprocessing
 
-    Make sure that the available data satisfies what is required in the ini file
+    Make sure that the available data satisfies what is required in the ini file.
+    If runoutLayer is set in cfgSetup, resolves base resType names (e.g. ppr)
+    to layer-suffixed column names (e.g. ppr_l1). Errors if multi-layer data
+    is detected but no runoutLayer is specified.
 
     Parameters
     ----------
     cfgSetup : configParser
-        aimec configuration
+        aimec configuration, reads runoutResType, resTypes and runoutLayer
     pathDict: dict
         aimec input dictionary (path to inputs and refSimName and hash)
 
     Returns
     -------
     pathDict : dict
-        aimec input dictionary updated with the resTypeList (list of result file types to take into account)
+        aimec input dictionary updated with:
+        - resTypeList: set of result file types to analyze (layer-suffixed if applicable)
+        - runoutResType: resolved runout result type column name
     """
-    # check that the resTypes and runoutResType asked for in the ini file are available for all simulations
-    # if not, raise an error
-    # what we have for all simulations
+    # what we have for all simulations (column names from makeSimFromResDF)
     resTypeList = pathDict['resTypeList']
+
+    # resolve layer: if runoutLayer is set, append layer suffix to base resType names
+    runoutLayer = cfgSetup.get('runoutLayer', '')
+    runoutResType = cfgSetup['runoutResType']
+
     # what we need for all simulations
     if cfgSetup['resTypes'] != '':
-        # required res types
         resTypesWanted = cfgSetup['resTypes'].split('|')
     else:
         resTypesWanted = copy.deepcopy(pathDict['resTypeList'])
+
     # add the runout res type to what we need
-    resTypesWanted.append(cfgSetup['runoutResType'])
-    resTypesWanted = set(resTypesWanted)
-    # check for differences
-    match = resTypesWanted & set(resTypeList)  # what is in both
-    diff = list(resTypesWanted.difference(match))  # what is in resTypesWanted but not in both
+    if runoutResType not in resTypesWanted:
+        resTypesWanted.append(runoutResType)
+
+    if runoutLayer:
+        # resolve base resType names to layer-suffixed column names (e.g. ppr -> ppr_l1)
+        layerSuffix = "_%s" % runoutLayer.lower()
+        resTypesWanted = set(["%s%s" % (rt, layerSuffix) for rt in resTypesWanted])
+        runoutResType = "%s%s" % (runoutResType, layerSuffix)
+    else:
+        # detect multi-layer data: check if any available column has a layer suffix (e.g. ppr_l1)
+        layerColumns = [rt for rt in resTypeList if re.search(r"_l\d+$", rt)]
+        if layerColumns:
+            message = ("Multi-layer result files detected (%s) but no runoutLayer is set. "
+                       "Set runoutLayer (e.g. L1) in ana3AIMECCfg.ini to select a layer for analysis." %
+                       ", ".join(sorted(layerColumns)))
+            log.error(message)
+            raise FileNotFoundError(message)
+        resTypesWanted = set(resTypesWanted)
+
+    # check for differences between what we want and what we have
+    match = resTypesWanted & set(resTypeList)
+    diff = list(resTypesWanted.difference(match))
     if diff != []:
         message = '%s result type should be available for all simulations to analyze.' % diff
         log.error(message)
         raise FileNotFoundError(message)
     else:
         pathDict['resTypeList'] = resTypesWanted
+
+    # store resolved runoutResType for downstream column access
+    pathDict['runoutResType'] = runoutResType
     log.info('Analyzing %s results types. Runout based on %s result type' %
-             (pathDict['resTypeList'], cfgSetup['runoutResType']))
+             (pathDict['resTypeList'], runoutResType))
     return pathDict
 
 
@@ -934,12 +963,12 @@ def analyzeMass(fnameMass, simRowHash, refSimRowHash, resAnalysisDF, time=None):
     return resAnalysisDF, time
 
 
-def computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, transformedRasters, simRowHash):
+def computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, transformedRasters, simRowHash, runoutResType=None):
     """ Compute runout based on peak field results
 
     Parameters
     ----------
-    cfgSetup: confiParser
+    cfgSetup: configParser
         aimec analysis configuration
     rasterTransfo: dict
         transformation information
@@ -953,6 +982,9 @@ def computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, transformedRasters, si
         dict with transformed dem and peak results
     simRowHash: str
         simulation dataframe hash
+    runoutResType: str or None
+        resolved runout result type column name (e.g. "ppr_l1" for multi-layer).
+        If None, falls back to cfgSetup['runoutResType'].
 
     Returns
     -------
@@ -993,7 +1025,8 @@ def computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, transformedRasters, si
     gridx = rasterTransfo['gridx']
     gridy = rasterTransfo['gridy']
 
-    runoutResType = cfgSetup['runoutResType']
+    if runoutResType is None:
+        runoutResType = cfgSetup['runoutResType']
     thresholdValue = cfgSetup.getfloat('thresholdValue')
     transformedDEMRasters = transformedRasters['newRasterDEM']
     PResRasters = transformedRasters['newRaster' + runoutResType.upper()]
@@ -1060,7 +1093,8 @@ def computeRunOut(cfgSetup, rasterTransfo, resAnalysisDF, transformedRasters, si
     return resAnalysisDF
 
 
-def computeRunoutLine(cfgSetup, rasterTransfo, transformedRasters, simRowHash, actualType, name='', basedOnMax=False):
+def computeRunoutLine(cfgSetup, rasterTransfo, transformedRasters, simRowHash, actualType, name='', basedOnMax=False,
+                      runoutResType=None):
     """ compute the runout line as for each l coordinate the furthest affected s coordinate using the desired
         resType and thresholdvalue, or if basedOnMax searching for the max value (used for reference line, point)
         also add runout point based on max s value of runout line
@@ -1081,6 +1115,9 @@ def computeRunoutLine(cfgSetup, rasterTransfo, transformedRasters, simRowHash, a
             optional name to find raster in transfromedRasters dict
         basedOnMax: bool
             if not threshold of runoutResType is used but max value along s for each l
+        runoutResType: str or None
+            resolved runout result type column name (e.g. "ppr_l1" for multi-layer).
+            If None, falls back to cfgSetup['runoutResType']. Only used when name is empty.
 
         Returns
         ---------
@@ -1095,7 +1132,8 @@ def computeRunoutLine(cfgSetup, rasterTransfo, transformedRasters, simRowHash, a
 
     # fetch raster data
     if name == '':
-        runoutResType = cfgSetup['runoutResType']
+        if runoutResType is None:
+            runoutResType = cfgSetup['runoutResType']
         anaRaster = transformedRasters['newRaster' + runoutResType.upper()]
         name = simRowHash
     else:
@@ -1249,7 +1287,8 @@ def analyzeArea(rasterTransfo, resAnalysisDF, simRowHash, newRasters, cfg, pathD
 
     cfgSetup = cfg['AIMECSETUP']
     cfgPlots = cfg['PLOTS']
-    runoutResType = cfgSetup['runoutResType']
+    # use resolved runoutResType from pathDict if available (layer-suffixed for multi-layer)
+    runoutResType = pathDict.get('runoutResType', cfgSetup['runoutResType'])
     refSimRowHash = pathDict['refSimRowHash']
     cellarea = rasterTransfo['rasterArea']
     indStartOfRunout = rasterTransfo['indStartOfRunout']
