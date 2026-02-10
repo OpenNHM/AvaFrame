@@ -365,6 +365,8 @@ def debrisFlowTopoAvarage(cfg):
     # Log info here
     log.info("Generic debris-flow topography is computed")
 
+    return x, y, zv
+
 def parabola(cfg):
     """
     Compute coordinates of a parabolically-shaped slope with a flat foreland
