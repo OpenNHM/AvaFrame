@@ -530,9 +530,10 @@ def parseSimName(name):
     """Parse simulation name handling both old and new formats.
 
     Auto-detects:
-    - Old format: relName_simHash_defID_[frictIndi]_simType_modelType[_resType][_timeStep]
-    - New format: relName_simHash_modName_defID_[frictIndi]_simType_modelType[_resType][_timeStep]
+    - Old format: relName_simHash_defID_[frictIndi]_simType_modelType[_layer][_resType][_timeStep]
+    - New format: relName_simHash_modName_defID_[frictIndi]_simType_modelType[_layer][_resType][_timeStep]
     [ ] denotes optional items
+    Layer component matches pattern L followed by digits (e.g., L1, L2, L12)
 
     Parameters
     ----------
@@ -550,6 +551,7 @@ def parseSimName(name):
         - frictIndi: str | None (optional, values: "S", "M", "L")
         - simType: str (required)
         - modelType: str (required)
+        - layer: str | None (optional, e.g., "L1", "L2")
         - resType: str | None (optional, only in filenames)
         - timeStep: str | None (optional, only in filenames)
 
@@ -619,15 +621,25 @@ def parseSimName(name):
     simType = remainingParts[offset]
     modelType = remainingParts[offset + 1]
 
-    # Step 6: Extract optional file components (resType, timeStep)
+    # Step 6: Extract optional file components (layer, resType, timeStep)
+    layer = None
     resType = None
     timeStep = None
 
     if len(remainingParts) > offset + 2:
-        resType = remainingParts[offset + 2]
-
-    if len(remainingParts) > offset + 3:
-        timeStep = remainingParts[offset + 3]
+        candidate = remainingParts[offset + 2]
+        if re.match(r"^L\d+$", candidate):
+            # Layer component detected (e.g., L1, L2, L12)
+            layer = candidate
+            if len(remainingParts) > offset + 3:
+                resType = remainingParts[offset + 3]
+            if len(remainingParts) > offset + 4:
+                timeStep = remainingParts[offset + 4]
+        else:
+            # No layer
+            resType = candidate
+            if len(remainingParts) > offset + 3:
+                timeStep = remainingParts[offset + 3]
 
     # Step 7: Return structured dictionary
     return {
@@ -638,6 +650,7 @@ def parseSimName(name):
         "frictIndi": frictIndi,
         "simType": simType,
         "modelType": modelType,
+        "layer": layer,
         "resType": resType,
         "timeStep": timeStep,
     }

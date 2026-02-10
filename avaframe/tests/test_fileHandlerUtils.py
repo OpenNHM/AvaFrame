@@ -386,3 +386,111 @@ def test_fetchFlowFields():
 
     assert flowFields[0].stem == 'release1HS_0dcd58fc86_ent_dfa_pft'
     assert len(flowFields) == 6
+
+
+# --- Multi-layer makeSimFromResDF tests ---
+
+RASTER_HEADER = """ncols         10
+nrows         10
+xllcenter     0
+yllcenter     0
+cellsize      5
+NODATA_value  -9999
+"""
+
+
+def _createTestRaster(filepath):
+    """Create a minimal valid raster file for testing"""
+    with open(filepath, "w") as f:
+        f.write(RASTER_HEADER)
+        for _ in range(10):
+            f.write(" ".join(["0"] * 10) + "\n")
+
+
+def test_makeSimFromResDF_multiLayer(tmp_path):
+    """Test that multi-layer files produce layer-suffixed columns"""
+    peakDir = tmp_path / "peakFiles"
+    peakDir.mkdir()
+
+    # Create multi-layer result files: sim_L1_ppr, sim_L1_pfv, sim_L2_ppr, sim_L2_pfv
+    simBase = "release1_abc123_com8_C_null_psa"
+    for layer in ["L1", "L2"]:
+        for resType in ["ppr", "pfv"]:
+            _createTestRaster(peakDir / f"{simBase}_{layer}_{resType}.asc")
+
+    dataDF, resTypeListAll = fU.makeSimFromResDF(str(tmp_path), "com8", inputDir=str(peakDir))
+
+    # Layer-suffixed columns should exist
+    assert "ppr_l1" in dataDF.columns
+    assert "ppr_l2" in dataDF.columns
+    assert "pfv_l1" in dataDF.columns
+    assert "pfv_l2" in dataDF.columns
+
+    # Layer-suffixed columns should contain file paths (not NaN)
+    assert not dataDF["ppr_l1"].isnull().any()
+    assert not dataDF["ppr_l2"].isnull().any()
+    assert not dataDF["pfv_l1"].isnull().any()
+    assert not dataDF["pfv_l2"].isnull().any()
+
+    # Layers metadata column should exist and be populated
+    assert "layers" in dataDF.columns
+    layersVal = dataDF["layers"].iloc[0]
+    assert "L1" in layersVal
+    assert "L2" in layersVal
+
+    # resTypeListAll should contain layer-suffixed names
+    assert "ppr_l1" in resTypeListAll
+    assert "ppr_l2" in resTypeListAll
+    assert "pfv_l1" in resTypeListAll
+    assert "pfv_l2" in resTypeListAll
+
+
+def test_makeSimFromResDF_singleLayer_unchanged(tmp_path):
+    """Test that single-layer files still produce standard columns (backward compat)"""
+    peakDir = tmp_path / "peakFiles"
+    peakDir.mkdir()
+
+    # Create standard single-layer result files
+    simBase = "release1_abc123_com1_C_null_dfa"
+    for resType in ["ppr", "pfv", "pft"]:
+        _createTestRaster(peakDir / f"{simBase}_{resType}.asc")
+
+    dataDF, resTypeListAll = fU.makeSimFromResDF(str(tmp_path), "com1", inputDir=str(peakDir))
+
+    # Standard columns should exist
+    assert "ppr" in dataDF.columns
+    assert "pfv" in dataDF.columns
+    assert "pft" in dataDF.columns
+
+    # Standard columns should contain file paths
+    assert not dataDF["ppr"].isnull().any()
+    assert not dataDF["pfv"].isnull().any()
+    assert not dataDF["pft"].isnull().any()
+
+    # Layers metadata column should be NaN for single-layer
+    if "layers" in dataDF.columns:
+        assert dataDF["layers"].isnull().all()
+
+    # resTypeListAll should contain standard names
+    assert "ppr" in resTypeListAll
+    assert "pfv" in resTypeListAll
+    assert "pft" in resTypeListAll
+
+
+def test_makeSimFromResDF_multiLayer_simName_reconstructed(tmp_path):
+    """Test that simName is correctly reconstructed without layer component"""
+    peakDir = tmp_path / "peakFiles"
+    peakDir.mkdir()
+
+    simBase = "release1_abc123_com8_C_null_psa"
+    _createTestRaster(peakDir / f"{simBase}_L1_ppr.asc")
+    _createTestRaster(peakDir / f"{simBase}_L2_ppr.asc")
+
+    dataDF, _ = fU.makeSimFromResDF(str(tmp_path), "com8", inputDir=str(peakDir))
+
+    # Should have exactly one row (one simulation, two layers)
+    assert len(dataDF) == 1
+    # simName should NOT contain the layer
+    assert "L1" not in dataDF["simName"].iloc[0]
+    assert "L2" not in dataDF["simName"].iloc[0]
+    assert dataDF["simName"].iloc[0] == simBase
