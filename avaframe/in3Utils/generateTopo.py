@@ -285,6 +285,85 @@ def hockey(cfg):
 
     return x, y, zv
 
+def debrisFlowTopoAvarage(cfg):
+    """
+    Compute coordinates of an average parabolic-shaped slope as a generic topography for debris-flow simulations
+    defined by a 2nd-degree polynomial: ax**2 + bx + c
+    The parameters of the polynomial function are derived from real watershed profiles (Kessler 2019)
+    """
+    # input parameters
+    C = float(cfg["TOPO"]["C"]) # C = 709 m
+    cff = float(cfg["CHANNELS"]["cff"])
+    cRadius = float(cfg["CHANNELS"]["cRadius"])
+    cInit = float(cfg["CHANNELS"]["cInit"])
+    cMustart = float(cfg["CHANNELS"]["cMustart"])
+    cMuend = float(cfg["CHANNELS"]["cMuend"])
+
+    # Get grid definitons
+    dx, xEnd, yEnd = getGridDefs(cfg)
+
+    # Compute coordinate grid
+    xv, yv, zv, x, y, nRows, nCols = computeCoordGrid(dx, xEnd, yEnd)
+
+    # If a channel shall be introduced
+    # Get parabola Parameters
+    [A, B, fLen] = getParabolaParams(cfg) # fLen = x0 = 1679 m
+
+    # Set surface elevation
+    mask = np.zeros(np.shape(xv))
+    mask[np.where(xv < fLen)] = 1 
+    zv = (A * xv ** 2 + B * xv + C) * mask
+
+    # If a channel shall be introduced
+    if cfg["TOPO"].getboolean("channel"):
+        # Compute cumulative distribution function - c1 for upper part (start)
+        # of channel and c2 for lower part (end) of channel
+        c1 = norm.cdf(xv, cMustart * fLen, cff)
+        c2 = 1.0 - norm.cdf(xv, cMuend * fLen, cff) # cMuend = 0.62, cff = 120
+
+        # combine both into one function separated at the the middle of
+        #  the channel longprofile location
+        mask_c1 = np.zeros(np.shape(xv))
+        mask_c1[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1
+        c0 = c1 * mask_c1
+
+        mask_c2 = np.zeros(np.shape(xv))
+        mask_c2[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1
+        c0 = c0 + c2 * mask_c2
+
+        # Is the channel of constant width or narrowing
+        if cfg["TOPO"].getboolean("narrowing"):
+            # upper part of channel: constant width
+            mask_c1 = np.zeros(np.shape(xv))
+            mask_c1[np.where(xv < (fLen * (0.5 * (cMustart + cMuend))))] = 1
+            cExtent_c1 = np.zeros(np.shape(xv)) + cRadius
+
+            # lower part of channel: narrowing
+            mask_c2 = np.zeros(np.shape(xv))
+            mask_c2[np.where(xv >= (fLen * (0.5 * (cMustart + cMuend))))] = 1
+            cExtent_c2 = cInit * (1 - c0[:]) + (c0[:] * cRadius)
+            
+            cExtent = cExtent_c1 * mask_c1 + cExtent_c2 * mask_c2
+        else:
+            cExtent = np.zeros(np.shape(xv)) + cRadius
+
+        # Set surface elevation
+        mask = np.zeros(np.shape(y))
+        mask[np.where(abs(y) < cExtent)] = 1
+        # Add surface elevation modification introduced by channel
+        if cfg["TOPO"].getboolean("topoAdd"):
+            zv = zv + cRadius * c0 * (1.0 - np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2))))) * mask # changed from cExtent to cRadius
+            # outside of the channel, add layer of channel thickness
+            mask = np.zeros(np.shape(y))
+            mask[np.where(abs(y) >= cExtent)] = 1
+            mask_c2 = np.ones(np.shape(xv)) #added, smooth transition from upper to lower part of channel
+            c0 = c2 * mask_c2 #added to extend lower distribution to upper edge of topography
+            zv = zv + cRadius * mask * c0 # changed from cExtent to cRadius
+        else:
+            zv = zv - cExtent * c0 * np.sqrt(np.abs(1.0 - (np.square(y) / (cExtent ** 2)))) * mask
+
+    # Log info here
+    log.info("Generic debris-flow topography is computed")
 
 def parabola(cfg):
     """
@@ -707,6 +786,9 @@ def generateTopo(cfg, avalancheDir):
 
     elif demType == "PY":
         [x, y, z] = pyramid(cfg)
+
+    elif demType == "DFTA":
+        [x, y, z] = debrisFlowTopoAvarage(cfg)
 
     # If a drop shall be introduced
     if cfg["TOPO"].getboolean("drop"):
