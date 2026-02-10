@@ -174,12 +174,13 @@ creates the folder structure required to perform avalanche simulations: ::
 
 		NameOfAvalanche/
 			Inputs/
+				CFGs/		- expert configuration files (optional)
 				ENT/		- entrainment areas
 				LINES/		- avalanche paths
 				POINTS/		- split points
 				REL/		- release area scenario
 				RES/		- resistance areas
-				SECREL/ - secondary release areas
+				SECREL/		- secondary release areas
 				.asc or .tif		- DEM
 			Outputs/
 			Work/

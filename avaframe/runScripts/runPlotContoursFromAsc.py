@@ -9,7 +9,6 @@ import pathlib
 from avaframe.in3Utils import cfgUtils
 from avaframe.out3Plot import outQuickPlot as oQ
 import avaframe.runScripts.runPlotContoursFromAsc as rCon
-from avaframe.in3Utils import cfgHandling
 
 
 def plotContoursFromAsc(cfg, avalancheDir):
@@ -25,13 +24,12 @@ def plotContoursFromAsc(cfg, avalancheDir):
 
 
 if __name__ == "__main__":
-    # Load configuration for runPlotContour
-    cfg = cfgUtils.getModuleConfig(rCon, fileOverride="", modInfo=False, toPrint=False, onlyDefault=False)
-
     # fetch input directory
     cfgMain = cfgUtils.getGeneralConfig()
     avaDir = cfgMain["MAIN"]["avalancheDir"]
 
-    cfgHandling.rewriteLocalCfgs(cfg, avaDir)
+    # Load configuration for runPlotContour
+    cfg = cfgUtils.getModuleConfig(rCon, avaDir, toPrint=False)
+
     plotContoursFromAsc(cfg, avaDir)
 

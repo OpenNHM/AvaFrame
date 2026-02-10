@@ -6,7 +6,6 @@ This hybrid model combines the DFA simulation and the alpha beta model
 """
 import pathlib
 import logging
-from configupdater import ConfigUpdater
 import numpy as np
 import copy
 
@@ -54,20 +53,18 @@ def maincom3Hybrid(cfgMain, cfgHybrid):
 
     # ++++++++++ set configurations for all the used modules and override ++++++++++++
     # get comDFA configuration and save to file
-    com1DFACfg = cfgUtils.getModuleConfig(com1DFA, fileOverride='', modInfo=False, toPrint=False,
+    com1DFACfg = cfgUtils.getModuleConfig(com1DFA, avalancheDir, toPrint=False,
         onlyDefault=cfgHybrid['com1DFA_com1DFA_override'].getboolean('defaultConfig'))
     com1DFACfg, cfgHybrid = cfgHandling.applyCfgOverride(com1DFACfg, cfgHybrid, com1DFA, addModValues=False)
-    com1DFACfgFile = cfgUtils.writeCfgFile(avalancheDir, com1DFA, com1DFACfg, fileName='com1DFA_settings',
-                                           filePath=workPath)
 
     # fetch configuration for DFAPathGeneration
-    DFAPathGenerationCfg = cfgUtils.getModuleConfig(DFAPath, fileOverride='', modInfo=False, toPrint=False,
+    DFAPathGenerationCfg = cfgUtils.getModuleConfig(DFAPath, avalancheDir, toPrint=False,
         onlyDefault=cfgHybrid['ana5Utils_DFAPathGeneration_override'].getboolean('defaultConfig'))
     DFAPathGenerationCfg, cfgHybrid = cfgHandling.applyCfgOverride(DFAPathGenerationCfg, cfgHybrid, DFAPath,
                                                                    addModValues=False)
 
     # first create configuration object for com2AB
-    com2ABCfg = cfgUtils.getModuleConfig(com2AB, fileOverride='', modInfo=False, toPrint=False,
+    com2ABCfg = cfgUtils.getModuleConfig(com2AB, avalancheDir, toPrint=False,
         onlyDefault=cfgHybrid['com1DFA_com1DFA_override'].getboolean('defaultConfig'))
     com2ABCfg, cfgHybrid = cfgHandling.applyCfgOverride(com2ABCfg, cfgHybrid, com2AB, addModValues=False)
 
@@ -81,18 +78,16 @@ def maincom3Hybrid(cfgMain, cfgHybrid):
     iterate = True
     resultsHybrid = {}
     while iteration < nIterMax and iterate:
-        # update the com1DFA mu value in configuration file
-        updater = ConfigUpdater()
-        updater.read(com1DFACfgFile)
-        updater['GENERAL']['mucoulomb'].value = ('%.4f' % muArray[-1])
-        updater.update_file()
+        # create a copy to avoid com1DFAMain modifying the original config
+        com1DFACfgCopy = copy.deepcopy(com1DFACfg)
+        com1DFACfgCopy['GENERAL']['mucoulomb'] = '%.4f' % muArray[-1]
 
         log.info('Mu is set to: %f' % muArray[-1])
         # ++++++++++ RUN COM1DFA +++++++++++
         # Run dense flow with coulomb friction
         # Clean input directory of old work and output files from module
         initProj.cleanModuleFiles(avalancheDir, com1DFA, deleteOutput=False)
-        dem, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=com1DFACfgFile)
+        dem, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=com1DFACfgCopy)
         simID = simDF.index[0]
         particlesList, timeStepInfo = particleTools.readPartFromPickle(avalancheDir, simName=simID, flagAvaDir=True,
                                                                        comModule='com1DFA')
@@ -139,6 +134,10 @@ def maincom3Hybrid(cfgMain, cfgHybrid):
         # keep iterating if the change in alpha is too big
         iterate = keepIterating(cfgHybrid, alphaArray)
         iteration = iteration + 1
+
+    # write final com1DFA configuration to file for documentation
+    cfgUtils.writeCfgFile(avalancheDir, com1DFA, com1DFACfgCopy, fileName='com1DFA_settings',
+                          filePath=workPath)
 
     # fetch fields for desired time step
     fields, fieldHeader, timeList = com1DFA.readFields(avalancheDir, ['pta'], simName=simID,

@@ -57,7 +57,7 @@ def mainSimilaritySol(simiSolCfg):
     """
 
     # Load configuration
-    cfg = cfgUtils.getModuleConfig(com1DFA, simiSolCfg)
+    cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=simiSolCfg)
     cfgGen = cfg["GENERAL"]
     cfgSimi = cfg["SIMISOL"]
     bedFrictionAngleDeg = cfgSimi.getfloat("bedFrictionAngle")

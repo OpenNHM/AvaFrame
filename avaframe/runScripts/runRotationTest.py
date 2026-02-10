@@ -41,22 +41,22 @@ log.info('Current avalanche: %s', avalancheDir)
 iP.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 workPath = pathlib.Path(avalancheDir, 'Work', 'energyLineTest')
 fU.makeADir(workPath)
-rotationTestCfg = cfgUtils.getModuleConfig(rotationTest)
+rotationTestCfg = cfgUtils.getModuleConfig(rotationTest, avalancheDir)
 
 # ++++++++++ set configurations for all the used modules and override ++++++++++++
 # get comDFA configuration and save to file
-com1DFACfg = cfgUtils.getModuleConfig(com1DFA, fileOverride='', modInfo=False, toPrint=False,
+com1DFACfg = cfgUtils.getModuleConfig(com1DFA, avalancheDir, toPrint=False,
                                       onlyDefault=rotationTestCfg['com1DFA_com1DFA_override'].getboolean('defaultConfig'))
 com1DFACfg, rotationTestCfg = cfgHandling.applyCfgOverride(com1DFACfg, rotationTestCfg, com1DFA, addModValues=False)
 com1DFACfgFile = cfgUtils.writeCfgFile(avalancheDir, com1DFA, com1DFACfg, fileName='com1DFA_settings',
                                        filePath=workPath)
 # get energyLine configuration and save to file
-energyLineTestCfg = cfgUtils.getModuleConfig(energyLineTest, fileOverride='', modInfo=False, toPrint=False,
+energyLineTestCfg = cfgUtils.getModuleConfig(energyLineTest, avalancheDir, toPrint=False,
                                              onlyDefault=rotationTestCfg['ana1Tests_energyLineTest_override'].getboolean('defaultConfig'))
 energyLineTestCfg, rotationTestCfg = cfgHandling.applyCfgOverride(energyLineTestCfg, rotationTestCfg, energyLineTest,
                                                                   addModValues=False)
 # get ana3AIMEC configuration
-AIMECCfg = cfgUtils.getModuleConfig(ana3AIMEC, fileOverride='', modInfo=False, toPrint=False,
+AIMECCfg = cfgUtils.getModuleConfig(ana3AIMEC, avalancheDir, toPrint=False,
                                     onlyDefault=rotationTestCfg['ana3AIMEC_ana3AIMEC_override'].getboolean('defaultConfig'))
 AIMECCfg, rotationTestCfg = cfgHandling.applyCfgOverride(AIMECCfg, rotationTestCfg, ana3AIMEC, addModValues=False)
 AIMECCfgFile = cfgUtils.writeCfgFile(avalancheDir, ana3AIMEC, AIMECCfg, fileName='ana3AIMEC_settings',

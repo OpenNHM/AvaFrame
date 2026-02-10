@@ -35,7 +35,7 @@ log.info('Current avalanche: %s', avalancheDir)
 
 # Load configuration
 FPCfg = pathlib.Path(avalancheDir, 'Inputs', 'FlatPlane_com1DFACfg.ini')
-cfg = cfgUtils.getModuleConfig(com1DFA, FPCfg)
+cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=FPCfg)
 cfgGen = cfg['GENERAL']
 cfgFP = cfg['FPSOL']
 

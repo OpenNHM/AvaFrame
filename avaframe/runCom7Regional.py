@@ -58,7 +58,7 @@ def runCom7Regional(avalancheDir="", splitInputs=False, runComputations=False):
         outputDir = pathlib.Path(avalancheDir) / "com7Regional"
 
         # Load split inputs module configuration
-        splitCfg = cfgUtils.getModuleConfig(sI)
+        splitCfg = cfgUtils.getModuleConfig(sI, avalancheDir)
 
         # Run splitting process
         sI.splitInputsMain(pathlib.Path(avalancheDir), outputDir, splitCfg, cfgMain)
@@ -72,7 +72,7 @@ def runCom7Regional(avalancheDir="", splitInputs=False, runComputations=False):
     # Run main computations if requested
     if runComputations:
         # Load module configuration
-        cfg = cfgUtils.getModuleConfig(com7, fileOverride="", toPrint=False, onlyDefault=False)
+        cfg = cfgUtils.getModuleConfig(com7, avalancheDir, toPrint=False)
 
         # Call main function
         allPeakFilesDir, mergedRastersDir = com7.com7RegionalMain(cfgMain, cfg)

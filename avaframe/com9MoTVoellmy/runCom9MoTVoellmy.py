@@ -58,7 +58,7 @@ def runCom9MoTVoellmy(avalancheDir="", simType=""):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Get module config
-    cfgCom9MoTVoellmy = cfgUtils.getModuleConfig(com9MoTVoellmy, toPrint=False)
+    cfgCom9MoTVoellmy = cfgUtils.getModuleConfig(com9MoTVoellmy, avalancheDir, toPrint=False)
 
     # Override simTypeList if provided via command line
     if simType != "":

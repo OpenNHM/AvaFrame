@@ -36,7 +36,7 @@ flagShow = cfgMain['FLAGS'].getboolean('showPlot')
 
 avaDir = 'data/avaHockeyChannel'
 cfgMain['MAIN']['avalancheDir'] = avaDir
-cfgStats = cfgUtils.getModuleConfig(getStats)
+cfgStats = cfgUtils.getModuleConfig(getStats, avaDir)
 cfg = cfgStats['GENERAL']
 # Clean input directory(ies) of old work and output files
 initProj.cleanSingleAvaDir(avaDir)
@@ -65,7 +65,7 @@ if cfg.getboolean('aimec'):
     initProj.cleanModuleFiles(avaDir, ana3AIMEC)
     # run aimec
     statsAimecCfg = pathlib.Path('..', 'benchmarks', avaNameTest, '%sStats_ana3AIMECCfg.ini' % (avaName))
-    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC, statsAimecCfg)
+    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC, fileOverride=statsAimecCfg)
     cfgAimecSetup = cfgAIMEC['AIMECSETUP']
 
     # Setup input from com1DFA

@@ -125,8 +125,7 @@ def runSingleTest(
         # get comDFA configuration and update with snow slide parameter set
         standardCfg = cfgUtils.getModuleConfig(
             com1DFA,
-            fileOverride="",
-            modInfo=False,
+            avaDir,
             toPrint=False,
             onlyDefault=snowSlideCfg["com1DFA_com1DFA_override"].getboolean("defaultConfig"),
         )
@@ -172,7 +171,7 @@ def runSingleTest(
     # load configuration
     aimecCfg = refDir / ("%s_AIMECCfg.ini" % test["AVANAME"])
     if aimecCfg.is_file():
-        cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, aimecCfg)
+        cfgAimec = cfgUtils.getModuleConfig(ana3AIMEC, fileOverride=aimecCfg)
     else:
         cfgAimec = cfgUtils.getDefaultModuleConfig(ana3AIMEC)
 
@@ -204,7 +203,7 @@ def runSingleTest(
 
     # Create plots for report
     # Load input parameters from configuration file
-    cfgRep = cfgUtils.getModuleConfig(generateCompareReport)
+    cfgRep = cfgUtils.getModuleConfig(generateCompareReport, avaDir)
 
     plotListRep = {}
     reportD["Simulation Difference"] = {}

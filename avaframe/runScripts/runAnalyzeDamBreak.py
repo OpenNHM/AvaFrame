@@ -36,7 +36,7 @@ fU.makeADir(outDirTest)
 
 # Load configuration
 damBreakCfg = pathlib.Path(avalancheDir, 'Inputs', 'damBreak_com1DFACfg.ini')
-cfg = cfgUtils.getModuleConfig(com1DFA, damBreakCfg)
+cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=damBreakCfg)
 cfgGen = cfg['GENERAL']
 
 # Load flow thickness from analytical solution

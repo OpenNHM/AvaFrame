@@ -51,7 +51,7 @@ def generatePathAndSplitpoint(avalancheDir, cfgDFAPath, cfgMain, runDFAModule):
             # Clean avalanche directory of old work and output files from module
             initProj.cleanModuleFiles(avalancheDir, com1DFA, deleteOutput=True)
             # create and read the default com1DFA config (no local is read)
-            com1DFACfg = cfgUtils.getModuleConfig(com1DFA, fileOverride='', modInfo=False, toPrint=False,
+            com1DFACfg = cfgUtils.getModuleConfig(com1DFA, avalancheDir, toPrint=False,
                                                   onlyDefault=cfgDFAPath['com1DFA_com1DFA_override'].getboolean(
                                                       'defaultConfig'))
             # and override with settings from DFAPath config
@@ -59,12 +59,12 @@ def generatePathAndSplitpoint(avalancheDir, cfgDFAPath, cfgMain, runDFAModule):
                                                                          addModValues=False)
             outDir = pathlib.Path(avalancheDir, 'Outputs', 'ana5Utils', 'DFAPath')
             fU.makeADir(outDir)
-            # write configuration to file
+            # write configuration to file for documentation
             com1DFACfgFile = outDir / 'com1DFAPathGenerationCfg.ini'
             with open(com1DFACfgFile, 'w') as configfile:
                 com1DFACfg.write(configfile)
             # call com1DFA and perform simulations
-            dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=com1DFACfgFile)
+            dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=com1DFACfg)
     else: # read existing simulation results
         # read simulation dem
         demOri = gI.readDEM(avalancheDir)

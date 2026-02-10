@@ -373,6 +373,46 @@ def test_prepareInputData(tmp_path):
         in str(e.value)
     )
 
+    # setup required input data
+    inputSimFiles = {"entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "No"}}
+    dirName = pathlib.Path(__file__).parents[0]
+    avaDir = dirName / ".." / "data" / "avaParabolaTimeDep"
+    relFile = avaDir / "Inputs" / "REL" / "release1PF.shp"
+    inputSimFiles["releaseScenario"] = relFile
+    inputSimFiles["demFile"] = avaDir / "Inputs" / "DEM_PF_Topo.asc"
+    inputSimFiles["timeDepRelCsv"] = avaDir / "Inputs" / "REL" / "release1PF.csv"
+    inputSimFiles["entFile"] = ""
+    inputSimFiles["relThFile"] = ""
+    inputSimFiles["entThFile"] = ""
+    inputSimFiles["muFile"] = None
+    inputSimFiles["xiFile"] = None
+    inputSimFiles["kFile"] = None
+    inputSimFiles["tauCFile"] = None
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "secRelArea": "False",
+        "simTypeActual": "null",
+        "avalancheDir": str(avaDir),
+        "timeDependentRelease": "True",
+    }
+    cfg["GENERAL"]["relThFromFile"] = "False"
+    cfg["INPUT"] = {"DEM": "DEM_PF_Topo.asc"}
+    cfg["INPUT"]["relThFile"] = ""
+    cfg["INPUT"]["entThFile"] = ""
+    cfg["INPUT"]["releaseScenario"] = "release1PF"
+
+    # call function to be tested
+    demOri, inputSimLines = com1DFA.prepareInputData(inputSimFiles, cfg)
+
+    assert demOri["header"]["ncols"] == 1001
+    assert demOri["header"]["nrows"] == 401
+    assert inputSimLines["releaseLine"]["thickness"] == np.array([0.5])
+    assert inputSimLines["releaseLine"]["velocity"] == np.array([5])
+    assert inputSimLines["releaseLine"]["thicknessSource"] == ["csv file"]
+    assert inputSimLines["releaseLine"]["initializedFrom"] == "shapefile"
+    assert inputSimLines["resLine"] is None
+    assert inputSimLines["entLine"] is None
+
 
 def test_prepareReleaseEntrainment(tmp_path):
     """test preparing release areas"""
@@ -1594,6 +1634,10 @@ def test_initializeParticles():
         "tPlot",
         "dmEnt",
         "stoppedParticles",
+        "massInitialized",
+        "massEntrained",
+        "massDetrained",
+        "massStopped",
     ]
 
     # call function to be tested
@@ -1718,6 +1762,7 @@ def test_writeMBFile(tmp_path):
     infoDict["massDetrained"] = np.asarray([0, 0, 0, 0, 0])
     infoDict["massDetrainedTotal"] = np.asarray([0, 0, 0, 0, 0])
     infoDict["massTotal"] = np.asarray([60.0, 60.0, 70.0, 90.0, 120.0])
+    infoDict["massInitialized"] = np.asarray([0, 0, 0, 0, 0])
     infoDict["pfvTimeMax"] = np.asarray([0, 0, 0, 0, 0])
     infoDict["massStopped"] = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0])
     avaName = "data/avaTest"
@@ -1738,14 +1783,16 @@ def test_writeMBFile(tmp_path):
     assert np.array_equal(mbInfo[:, 4], infoDict["massDetrainedTotal"])
     assert np.array_equal(mbInfo[:, 1], infoDict["massTotal"])
     assert np.array_equal(mbInfo[:, 5], infoDict["massStopped"])
+    assert np.array_equal(mbInfo[:, 6], infoDict["massInitialized"])
     assert mbInfo.shape[0] == 5
-    assert mbInfo.shape[1] == 6
+    assert mbInfo.shape[1] == 7
 
     infoDict["massEntrained"] = np.asarray([0, 0, 0, 0, 0])
     infoDict["massDetrained"] = np.asarray([0, 10, 0, 30, 0])
-    infoDict["massTotal"] = np.asarray([60.0, 50.0, 50.0, 20.0, 20.0])
+    infoDict["massTotal"] = np.asarray([60.0, 50.0, 50.0, 20.0, 30.0])
     infoDict["massStopped"] = np.asarray([10.0, 10.0, 10.0, 50.0, 0.0])
     infoDict["massDetrainedTotal"] = np.asarray([0, 10, 10, 40, 40])
+    infoDict["massInitialized"] = np.asarray([0, 0, 0, 0, 10.0])
 
     com1DFA.writeMBFile(infoDict, avaDir, logName)
     mbFilePath = avaDir / "Outputs" / "com1DFA" / "mass_simTestName.txt"
@@ -1757,14 +1804,16 @@ def test_writeMBFile(tmp_path):
     assert np.array_equal(mbInfo[:, 4], infoDict["massDetrainedTotal"])
     assert np.array_equal(mbInfo[:, 1], infoDict["massTotal"])
     assert np.array_equal(mbInfo[:, 5], infoDict["massStopped"])
+    assert np.array_equal(mbInfo[:, 6], infoDict["massInitialized"])
     assert mbInfo.shape[0] == 5
-    assert mbInfo.shape[1] == 6
+    assert mbInfo.shape[1] == 7
 
     infoDict["massEntrained"] = np.asarray([0, 20, 0, 0, 10])
     infoDict["massDetrained"] = np.asarray([0, 10, 0, 30, 0])
     infoDict["massDetrainedTotal"] = np.asarray([0, 10, 10, 40, 40])
     infoDict["massTotal"] = np.asarray([60.0, 70.0, 70.0, 40.0, 50.0])
     infoDict["massStopped"] = np.asarray([0, 10, 0, 30, 0])
+    infoDict["massInitialized"] = np.asarray([0, 0, 0, 0, 0])
 
     com1DFA.writeMBFile(infoDict, avaDir, logName)
     mbFilePath = avaDir / "Outputs" / "com1DFA" / "mass_simTestName.txt"
@@ -1776,8 +1825,9 @@ def test_writeMBFile(tmp_path):
     assert np.array_equal(mbInfo[:, 4], infoDict["massDetrainedTotal"])
     assert np.array_equal(mbInfo[:, 1], infoDict["massTotal"])
     assert np.array_equal(mbInfo[:, 5], infoDict["massStopped"])
+    assert np.array_equal(mbInfo[:, 6], infoDict["massInitialized"])
     assert mbInfo.shape[0] == 5
-    assert mbInfo.shape[1] == 6
+    assert mbInfo.shape[1] == 7
 
 
 def test_savePartToPickle(tmp_path):
@@ -2079,7 +2129,6 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "simTypeActual": "entres",
         "secRelArea": "False",
         "relThFromFile": "False",
-        "relThFromFile": "False",
         "entThFromFile": "True",
         "entThPercentVariation": "",
         "relThPercentVariation": "",
@@ -2103,6 +2152,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "xsivoellmy": "4000.",
         "dam": "True",
         "explicitFriction": 0,
+        "timeDependentRelease": "False",
     }
     standardCfg["INPUT"] = {
         "entThThickness": "1.",
@@ -2150,7 +2200,6 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "simTypeActual": "entres",
         "secRelArea": "False",
         "relThFromFile": "False",
-        "relThFromFile": "False",
         "entThFromFile": "True",
         "entThPercentVariation": "",
         "relThPercentVariation": "",
@@ -2176,6 +2225,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "xsivoellmy": "4000.",
         "dam": "True",
         "explicitFriction": 0,
+        "timeDependentRelease": "False",
     }
 
     testCfg["INPUT"] = {
@@ -2260,7 +2310,6 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "secRelArea": "False",
         "relThFromFile": "False",
         "entThFromFile": "True",
-        "relThFromFile": "False",
         "entThPercentVariation": "",
         "relThPercentVariation": "",
         "entThRangeFromCiVariation": "",
@@ -2285,6 +2334,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "xsivoellmy": "4000.",
         "dam": "True",
         "explicitFriction": 0,
+        "timeDependentRelease": "False",
     }
     testCfg2["INPUT"] = {
         "entThThickness": "1.",
@@ -2493,7 +2543,6 @@ def test_initializeSimulation(tmp_path):
         "rasterData": relThField,
     }
 
-    cfg["GENERAL"]["relThFromFile"] = "False"
     cfg["GENERAL"]["relTh"] = ""
     cfg["GENERAL"]["relThFromFile"] = "True"
     inputSimLines["relThField"] = relThField
@@ -2514,6 +2563,7 @@ def test_initializeSimulation(tmp_path):
     assert dem2["originalHeader"]["yllcenter"] == 2.0
     assert particles2["nPart"] == 16
     assert particles2["mTot"] == 400.0
+    assert particles2["massInitialized"] == 400.0
     assert np.sum(particles["ux"]) == 0.0
     assert reportAreaInfo["Release area info"]["Projected Area [m2]"] == "4.00"
     assert reportAreaInfo["entrainment"] == "Yes"
@@ -2608,6 +2658,24 @@ def test_initializeSimulation(tmp_path):
     assert "xCrown" in inputSimLines["damLine"]
     assert "height" in inputSimLines["damLine"]
 
+    # test initial velocity
+    demData = np.arange(12).reshape(12, 1) * np.ones((1, 12))
+    demOri2 = {"header": demHeader, "rasterData": demData}
+    cfg["GENERAL"]["timeDependentRelease"] = "True"
+    cfg["GENERAL"]["dam"] = "False"
+    inputSimLines["damLine"] = None
+    inputSimLines["releaseLine"]["thicknessSource"] = ["csv file"]
+    inputSimLines["releaseLine"]["velocity"] = 10.0
+    particles4, fields4, dem4, reportAreaInfo4 = com1DFA.initializeSimulation(
+        cfg, outDir, demOri2, inputSimLines, logName
+    )
+
+    assert np.all(np.sqrt(particles4["uy"] ** 2 + particles4["ux"] ** 2 + particles4["uz"] ** 2) == 10.0)
+    assert np.all(particles4["velocityMag"] == 10.0)
+    assert np.any(fields4["pfv"] != 0)
+    assert np.isin(np.round(fields4["pfv"]), [0.0, 10.0]).all()
+    assert np.all(particles4["ux"] == 0.0)
+
 
 def test_runCom1DFA(tmp_path, caplog):
     """Check that runCom1DFA produces the good outputs"""
@@ -2629,7 +2697,7 @@ def test_runCom1DFA(tmp_path, caplog):
         com1DFA, fileOverride=cfgFile, modInfo=True
     )
 
-    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile)
+    dem, plotDict, reportDictList, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=modCfg)
 
     print("DONE")
 
@@ -2686,6 +2754,7 @@ def test_runCom1DFA(tmp_path, caplog):
         "dmEnt",
         "massStopped",
         "stoppedParticles",
+        "massInitialized",
     ]
 
     # read one particles dictionary
@@ -3068,7 +3137,7 @@ def test_tSteps_output_behavior(tmp_path, caplog):
     cfgMain = cfgUtils.getGeneralConfig()
     cfgMain["MAIN"]["avalancheDir"] = str(avaDir1)
     # Modify config to have empty tSteps and NO parameter variations
-    cfg = cfgUtils.getModuleConfig(com1DFA, cfgFile1)
+    cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=cfgFile1)
     cfg["GENERAL"]["tSteps"] = ""
     cfg["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg["GENERAL"]["dt"] = "0.1"  # Single value, no variations
@@ -3101,7 +3170,7 @@ def test_tSteps_output_behavior(tmp_path, caplog):
     cfgMain["MAIN"]["avalancheDir"] = str(avaDir2)
 
     # Modify config to have explicit tSteps including t=0 and NO parameter variations
-    cfg2 = cfgUtils.getModuleConfig(com1DFA, cfgFile2)
+    cfg2 = cfgUtils.getModuleConfig(com1DFA, fileOverride=cfgFile2)
     cfg2["GENERAL"]["tSteps"] = "0|5"
     cfg2["GENERAL"]["tEnd"] = "10"  # Short simulation
     cfg2["GENERAL"]["dt"] = "0.1"  # Single value, no variations
@@ -3131,7 +3200,7 @@ def test_tSteps_output_behavior(tmp_path, caplog):
     cfgMain["MAIN"]["avalancheDir"] = str(avaDir3)
 
     # Modify config to have exportData = False
-    cfg3 = cfgUtils.getModuleConfig(com1DFA, cfgFile3)
+    cfg3 = cfgUtils.getModuleConfig(com1DFA, fileOverride=cfgFile3)
     cfg3["GENERAL"]["tSteps"] = ""
     cfg3["GENERAL"]["tEnd"] = "5"  # Very short simulation
     cfg3["GENERAL"]["dt"] = "0.1"
@@ -3300,3 +3369,47 @@ def test_getModuleNames():
         assert result == ("com5SnowSlide", "com5"), (
             f"Expected ('com5SnowSlide', 'com5'), got {result}"
         )
+
+
+def test_com1DFAMainWithPathCfgInfo(tmp_path, caplog):
+    """Test that com1DFAMain handles pathlib.Path directory cfgInfo for batch mode
+
+    When cfgInfo is a pathlib.Path pointing to a directory, com1DFAMain should route
+    directly to batch mode (createSimDictFromCfgs).
+    This is the code path used when getModuleConfig is called with batchCfgDir parameter.
+    """
+    from unittest.mock import patch
+
+    # Setup avalanche directory structure
+    avaDir = tmp_path / "avaTest"
+    avaDir.mkdir()
+    (avaDir / "Inputs").mkdir()
+    (avaDir / "Outputs").mkdir()
+    (avaDir / "Work").mkdir()
+
+    # Setup batch config directory with .ini files
+    cfgDir = tmp_path / "batch_cfgs"
+    cfgDir.mkdir()
+    (cfgDir / "sim1.ini").write_text("[GENERAL]\nrelThPercentile = 50\n")
+
+    # Create cfgMain
+    cfgMain = configparser.ConfigParser()
+    cfgMain["MAIN"] = {"avalancheDir": str(avaDir)}
+
+    # Pass pathlib.Path directly as cfgInfo
+    cfgInfoPath = pathlib.Path(cfgDir)
+
+    with patch("avaframe.com1DFA.com1DFA.com1DFATools.createSimDictFromCfgs") as mockCreateSimDict:
+
+        mockCreateSimDict.return_value = ({}, {}, None, tmp_path / "out")
+
+        # Call with directory Path - should route to createSimDictFromCfgs
+        try:
+            com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgInfoPath)
+        except Exception:
+            pass  # We expect it to fail due to missing simulations, but that's OK
+
+        # createSimDictFromCfgs should be called with the Path
+        mockCreateSimDict.assert_called_once()
+        callArgs = mockCreateSimDict.call_args
+        assert callArgs[0][1] == cfgInfoPath

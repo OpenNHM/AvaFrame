@@ -55,7 +55,7 @@ def runCom6RockAvalanche(avalancheDir=""):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # load rock avalanche config
-    rockAvalancheCfg = cfgUtils.getModuleConfig(com6RockAvalanche)
+    rockAvalancheCfg = cfgUtils.getModuleConfig(com6RockAvalanche, avalancheDir)
 
     # perform com1DFA simulation with rock avalanche settings
     _, plotDict, reportDictList, _ = com6RockAvalanche.com6RockAvalancheMain(cfgMain, rockAvalancheCfg)

@@ -1,4 +1,4 @@
-""" Tests for module debrisFunctions """
+"""Tests for module debrisFunctions"""
 
 import numpy as np
 import pytest
@@ -7,13 +7,13 @@ import configparser
 import avaframe.com1DFA.debrisFunctions as debF
 
 
-def test_addHydrographParticles():
+def test_addReleaseParticles():
     inputSimLines = {
-        "hydrographAreaLine": {
-            "Name": ["testHydr"],
+        "releaseLine": {
+            "Name": ["testTimeDepRel"],
             "Start": np.asarray([0.0]),
             "Length": np.asarray([5]),
-            "type": "Hydrograph",
+            "type": "time dependent Release",
             "x": np.asarray(
                 [
                     0,
@@ -29,7 +29,7 @@ def test_addHydrographParticles():
             "thickness": 1,
         }
     }
-    thickness = inputSimLines["hydrographAreaLine"]["thickness"]
+    thickness = inputSimLines["releaseLine"]["thickness"]
     velocityMag = 0
 
     demHeader = {}
@@ -54,7 +54,7 @@ def test_addHydrographParticles():
         "gravAcc": "9.81",
         "cpIce": "2050",
         "TIni": "-10",
-        "avalancheDir": "data/avaKotHYDR",
+        "avalancheDir": "data/avaParabola",
         "massPerParticleDeterminationMethod": "MPPDH",
         "interpOption": "2",
         "initialiseParticlesFromFile": "False",
@@ -65,7 +65,7 @@ def test_addHydrographParticles():
         "initPartDistType": "uniform",
         "thresholdPointInPoly": "0.001",
         "massPerPart": "1000",
-        "thresholdPointInHydr": "0",
+        "thresholdPointInRel": "0",
     }
 
     particles = {
@@ -118,48 +118,114 @@ def test_addHydrographParticles():
     }
     zPartArray0Test = np.ones(particlesTest["nPart"])
 
-    particlesHydr, zPartArray0Hydr = debF.addHydrographParticles(
+    particlesNewRel, zPartArray0NewRel = debF.addReleaseParticles(
         cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0
     )
 
-    assert np.all(np.equal(zPartArray0Hydr, zPartArray0Test))
+    assert np.all(np.equal(zPartArray0NewRel, zPartArray0Test))
     for key in particlesTest:
         if key in ["nPart", "mTot"]:
-            assert particlesTest[key] == particlesHydr[key]
+            assert particlesTest[key] == particlesNewRel[key]
         else:
-            assert np.all(np.equal(particlesTest[key], particlesHydr[key]))
+            assert np.all(np.equal(particlesTest[key], particlesNewRel[key]))
     for key in ["ux", "uy", "uz", "velocityMag"]:
-        assert np.all(np.equal(np.zeros(particlesTest["nPart"]), particlesHydr[key]))
+        assert np.all(np.equal(np.zeros(particlesTest["nPart"]), particlesNewRel[key]))
 
     cfg["GENERAL"]["deltaTh"] = "0.25"
     cfg["GENERAL"]["initPartDistType"] = "random"
     cfg["GENERAL"]["thresholdMassSplit"] = "1.5"
 
-    particlesHydr, zPartArray0Hydr = debF.addHydrographParticles(
+    particlesNewRel, zPartArray0NewRel = debF.addReleaseParticles(
         cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0
     )
-    assert particlesHydr["nPart"] == 16 + 3
+    assert particlesNewRel["nPart"] == 16 + 3
     for key in ["ux", "uy", "uz", "velocityMag", "x", "y", "z"]:
-        assert len(particlesHydr[key]) == particlesHydr["nPart"]
-    assert particlesHydr["mTot"] == 7000
+        assert len(particlesNewRel[key]) == particlesNewRel["nPart"]
+    assert particlesNewRel["mTot"] == 7000
 
     particles["x"] = np.array([4, 10, 30])
     particles["y"] = np.array([5, 3, 30])
 
     with pytest.raises(ValueError):
-        debF.addHydrographParticles(cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0)
+        debF.addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0)
+
+
+def test_checkTimeDepRelease():
+    timeDepRelValues = {
+        "timeStep": np.array([0, 10, 20, 30, 35]),
+        "thickness": np.array([1, 1, 1, 1, 1]),
+        "velocity": np.array([10, 10, 10, 10, 10]),
+    }
+    timeDepRelCsv = "path2TimeDepRel.csv"
+    # no error should occur
+    debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+
+    timeDepRelValues["timeStep"] = np.array([20, 10, 0, 30, 35])
+    debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+
+    # timesteps are not unique
+    timeDepRelValues["timeStep"] = np.array([0, 10, 10, 30, 35])
+
+    with pytest.raises(ValueError) as e:
+        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)) in str(
+        e.value
+    )
+
+    timeDepRelValues["timeStep"] = np.array([0, 0])
+    with pytest.raises(ValueError) as e:
+        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)) in str(
+        e.value
+    )
+
+    # no timestep 0
+    timeDepRelValues["timeStep"] = np.array([20, 15, 10, 30, 35])
+
+    with pytest.raises(ValueError) as e:
+        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert (
+        "If release is time dependent, a thickness needs to be provided for  time step 0 s in %s"
+        % (timeDepRelCsv)
+    ) in str(e.value)
+
+    # thickness needs to be > 0
+    timeDepRelValues["timeStep"] = np.array([20, 10, 0, 30, 35])
+    timeDepRelValues["thickness"] = np.array([1, 0, 1, 1, 1])
+    with pytest.raises(ValueError) as e:
+        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("For every release time step a thickness > 0") in str(e.value)
+
+    timeDepRelValues["thickness"] = np.array([1, 1, -1, 1, 1])
+    with pytest.raises(ValueError) as e:
+        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("For every release time step a thickness > 0") in str(e.value)
+
+    # velocity needs to be >= 0
+    timeDepRelValues["thickness"] = np.array([1, 1, 1, 1, 1])
+    timeDepRelValues["velocity"] = np.array([10, 10, 10, -10, 10])
+    with pytest.raises(ValueError) as e:
+        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("The initial velocity provided in %s can not be negative." % (timeDepRelCsv)) in str(e.value)
+
 
 """
-TODO: When calling pytest, the following function raises an error ("Fatal Python error: Aborted")
+Test does not word because: When calling pytest, executing DFAfunctionsCython.upfateFieldsC() raises an error ("Fatal Python error: Aborted")
 (see issue #1002?)
+------------------------------
 
-def test_releaseHydrograph():
+def test_initializeTimeDepRelease():
+    timeDepRelValues = {
+        "timeStep": np.array([0, 5, 10]),
+        "thickness": np.array([1, 2, 3]),
+        "velocity": np.array([0, 0, 0]),
+    }
     inputSimLines = {
-        "hydrographAreaLine": {
-            "Name": ["testHydr"],
+        "releaseLine": {
+            "Name": ["testTimeDepRel"],
             "Start": np.asarray([0.0]),
             "Length": np.asarray([5]),
-            "type": "Hydrograph",
+            "type": "time dependent Release",
             "x": np.asarray(
                 [
                     0,
@@ -172,16 +238,32 @@ def test_releaseHydrograph():
             - 2.5,
             "y": np.asarray([0.0, 0.0, 10.0, 10.0, 0.0]) - 2.5,
             "thicknessSource": ["csv file"],
-            "thickness": 1,
-            "values": {
-                "timeStep": np.array([0, 1]),
-                "thickness": np.array([1, 1]),
-                "velocity": np.array([0, 0]),
-            },
+            "thickness": np.array([1]),
+            "timeDepRelValues": timeDepRelValues,
         }
     }
-    thickness = inputSimLines["hydrographAreaLine"]["thickness"]
-    velocityMag = 0
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "resType": "ppr|pft|pfv",
+        "rho": "1000.",
+        "rhoEnt": "1000",
+        "gravAcc": "9.81",
+        "cpIce": "2050",
+        "TIni": "-10",
+        "avalancheDir": "data/avaParabola",
+        "massPerParticleDeterminationMethod": "MPPDH",
+        "interpOption": "2",
+        "initialiseParticlesFromFile": "False",
+        "iniStep": "False",
+        "seed": "12345",
+        "sphKernelRadius": "1",
+        "deltaTh": "1",
+        "initPartDistType": "uniform",
+        "thresholdPointInPoly": "0.001",
+        "massPerPart": "1000",
+        "thresholdPointInRel": "0",
+        "timeDependentRelease": "True",
+    }
 
     demHeader = {}
     demHeader["xllcenter"] = 0
@@ -199,27 +281,6 @@ def test_releaseHydrograph():
     dem["Nz"] = np.zeros_like(dem["rasterData"])
     dem["headerNeighbourGrid"] = demHeader
 
-    cfg = configparser.ConfigParser()
-    cfg["GENERAL"] = {
-        "resType": "ppr|pft|pfv",
-        "rho": "1000.",
-        "rhoEnt": "1000.",
-        "gravAcc": "9.81",
-        "cpIce": "2050",
-        "TIni": "-10",
-        "avalancheDir": "data/avaKotHYDR",
-        "massPerParticleDeterminationMethod": "MPPDH",
-        "interpOption": "2",
-        "initialiseParticlesFromFile": "False",
-        "iniStep": "False",
-        "seed": "12345",
-        "sphKernelRadius": "1",
-        "deltaTh": "1",
-        "initPartDistType": "uniform",
-        "thresholdPointInPoly": "0.001",
-        "massPerPart": "1000",
-    }
-
     particles = {
         "nPart": 3,
         "x": np.array([10, 20, 30]),
@@ -227,17 +288,8 @@ def test_releaseHydrograph():
         "z": np.array([1, 1, 1]),
         "m": np.array([1000, 1000, 1000]),
         "idFixed": np.array([0, 0, 0]),
-        "dmDet": np.array([0, 0, 0]),
-        "dmEnt": np.array([0, 0, 0]),
-        "ux": np.array([0, 0, 0]),
-        "uy": np.array([0, 0, 0]),
-        "uz": np.array([0, 0, 0]),
-        "trajectoryAngle": np.array([0, 0, 0]),
-        "stoppedParticles": {
-            "m": np.empty(0),
-            "x": np.empty(0),
-            "y": np.empty(0),
-        },
+        "t": 1.0,
+        "dt": 0.1,
     }
     nPart = particles["nPart"]
     particles["totalEnthalpy"] = (
@@ -248,11 +300,15 @@ def test_releaseHydrograph():
     particles["mTot"] = np.sum(particles["m"])
     particles["tPlot"] = 0
     particles["h"] = np.ones(nPart)
+    particles["ux"] = np.zeros(nPart)
+    particles["uy"] = np.zeros(nPart)
+    particles["uz"] = np.zeros(nPart)
     particles["uAcc"] = np.zeros(nPart)
     particles["velocityMag"] = np.zeros(nPart)
     particles["trajectoryLengthXY"] = np.zeros(nPart)
     particles["trajectoryLengthXYCor"] = np.zeros(nPart)
     particles["trajectoryLengthXYZ"] = np.zeros(nPart)
+    particles["trajectoryAngle"] = np.zeros(nPart)
     particles["stoppCriteria"] = False
     particles["peakForceSPH"] = 0.0
     particles["forceSPHIni"] = 0.0
@@ -260,39 +316,28 @@ def test_releaseHydrograph():
     particles["xllcenter"] = dem["originalHeader"]["xllcenter"]
     particles["yllcenter"] = dem["originalHeader"]["yllcenter"]
     particles["nExitedParticles"] = 0.0
-
-    fields = {
-        "computeTA": 0,
-        "computeKE": 0,
-        "computeP": 0,
-        "pfv": np.zeros_like(dem["rasterData"]),
-        "ppr": np.zeros_like(dem["rasterData"]),
-        "pft": np.zeros_like(dem["rasterData"]),
-        "pta": np.zeros_like(dem["rasterData"]),
-        "pke": np.zeros_like(dem["rasterData"]),
-        "dmDet": np.zeros_like(dem["rasterData"]),
-    }
-    fields["pft"][[2, 4, 6], [1, 2, 6]] = 1
+    particles["dmDet"] = np.zeros(nPart)
+    particles["dmEnt"] = np.zeros(nPart)
+    particles["stoppedParticles"] = {}
+    particles["stoppedParticles"]["m"] = np.empty(0)
+    particles["stoppedParticles"]["x"] = np.empty(0)
+    particles["stoppedParticles"]["y"] = np.empty(0)
 
     zPartArray0 = np.array([1, 1, 1])
 
-    t = 0.00
+    fields = {}
+    fields["computeTA"] = False
+    fields["computeKE"] = False
+    fields["computeP"] = False
+    fields["pfv"] = np.zeros_like(dem["rasterData"])
+    fields["ppr"] = np.zeros_like(dem["rasterData"])
+    fields["pft"] = np.zeros_like(dem["rasterData"])
+    fields["pft"][[1, 2, 6], [2, 4, 6]] = 1
+    fields["pta"] = np.zeros_like(dem["rasterData"])
+    fields["pke"] = np.zeros_like(dem["rasterData"])
+    fields["dmDet"] = np.zeros_like(dem["rasterData"])
 
-    newParticleNumber = 4
-    particlesTest = {
-        "nPart": newParticleNumber + 3,
-        "mTot": 7000,
-        "x": np.append(particles["x"], np.array([0, 5, 0, 5])),
-        "y": np.append(particles["y"], np.array([0, 0, 5, 5])),
-        "z": np.append(particles["z"], np.ones([newParticleNumber])),
-        "m": np.append(particles["m"], np.ones([newParticleNumber]) * 1000),
-    }
-    zPartArray0Test = np.ones(particlesTest["nPart"])
+    t = 10
 
-    debF.updateParticlesHydrograph(cfg, inputSimLines, particles, fields, dem, zPartArray0, t)
-
+    debF.initializeTimeDepRelease(cfg, inputSimLines, particles, fields, dem, zPartArray0, t)
 """
-
-
-if __name__ == "__main__":
-    test_addHydrographParticles()

@@ -30,7 +30,7 @@ def test_mainCompareSimSolCom1DFA(tmp_path):
 
     cfgMain = cfgUtils.getGeneralConfig()
     cfgMain['MAIN']['avalancheDir'] = str(avalancheDir)
-    cfg = cfgUtils.getModuleConfig(com1DFA, simiSolCfg)
+    cfg = cfgUtils.getModuleConfig(com1DFA, fileOverride=simiSolCfg)
     # adjust settings for faster computation times
     cfg["GENERAL"]["cMax"] = "0.04"
     cfg["GENERAL"]["sphKernelRadius"] = "8"
@@ -38,7 +38,7 @@ def test_mainCompareSimSolCom1DFA(tmp_path):
     cfg["GENERAL"]["aPPK"] = "-0.5|-1"
     cfg["GENERAL"]["meshCellSize"] = "8"
 
-    # write updated cfg to file
+    # write updated cfg to file (needed for mainSimilaritySol later)
     cfgFile = pathlib.Path(destDir, "%s.ini" % ("simiSolUpdated_com1DFACfg"))
     with open(cfgFile, "w") as conf:
         cfg.write(conf)
@@ -46,9 +46,8 @@ def test_mainCompareSimSolCom1DFA(tmp_path):
     # Define release thickness distribution
     demFile = gI.getDEMPath(avalancheDir)
     relDict = simiSolTest.getReleaseThickness(avalancheDir, cfg, demFile)
-    # call com1DFA to perform simulations - provide configuration file and release thickness function
-    # (may be multiple sims)
-    _, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgFile)
+    # call com1DFA to perform simulations
+    _, _, _, simDF = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfg)
 
     simDF, _ = cfgUtils.readAllConfigurationInfo(avalancheDir)
     solSimi = simiSolTest.mainSimilaritySol(cfgFile)

@@ -1,6 +1,7 @@
 """
-    Run script for running python com1DFA kernel
+Run script for running python com1DFA kernel
 """
+
 # Load modules
 # importing general python modules
 import time
@@ -16,8 +17,9 @@ from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import logUtils
 from avaframe.in3Utils import fileHandlerUtils as fU
 
-def runCom1DFA(avalancheDir='', calibration=''):
-    """ Run com1DFA in the default configuration with only an
+
+def runCom1DFA(avalancheDir="", calibration=""):
+    """Run com1DFA in the default configuration with only an
     avalanche directory as input and the (optional) friction calibration
     size
 
@@ -38,21 +40,21 @@ def runCom1DFA(avalancheDir='', calibration=''):
     startTime = time.time()
 
     # log file name; leave empty to use default runLog.log
-    logName = 'runCom1DFA'
+    logName = "runCom1DFA"
 
     # Load avalanche directory from general configuration file
     # More information about the configuration can be found here
     # on the Configuration page in the documentation
     cfgMain = cfgUtils.getGeneralConfig()
-    if avalancheDir != '':
-        cfgMain['MAIN']['avalancheDir'] = avalancheDir
+    if avalancheDir != "":
+        cfgMain["MAIN"]["avalancheDir"] = avalancheDir
     else:
-        avalancheDir = cfgMain['MAIN']['avalancheDir']
+        avalancheDir = cfgMain["MAIN"]["avalancheDir"]
 
     # Start logging
     log = logUtils.initiateLogger(avalancheDir, logName)
-    log.info('MAIN SCRIPT')
-    log.info('Current avalanche: %s', avalancheDir)
+    log.info("MAIN SCRIPT")
+    log.info("Current avalanche: %s", avalancheDir)
 
     # ----------------
     # Clean input directory(ies) of old work and output files
@@ -61,18 +63,20 @@ def runCom1DFA(avalancheDir='', calibration=''):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Set friction model according to cmd argument
-    cfgCom1DFA = cfgUtils.getModuleConfig(com1DFA, toPrint=False)
+    cfgCom1DFA = cfgUtils.getModuleConfig(com1DFA, avalancheDir, toPrint=False)
 
-    if calibration.lower() == 'small':
-        cfgCom1DFA['GENERAL']['frictModel'] = 'samosATSmall'
-    elif calibration.lower() == 'medium':
-        cfgCom1DFA['GENERAL']['frictModel'] = 'samosATMedium'
-    elif calibration.lower() == 'large':
-        cfgCom1DFA['GENERAL']['frictModel'] = 'samosAT'
-    elif calibration.lower() == 'auto':
-        cfgCom1DFA['GENERAL']['frictModel'] = 'samosATAuto'
+    if isinstance(cfgCom1DFA, pathlib.Path):
+        log.warning("Expert mode detected - friction calibration override is ignored")
+    elif calibration.lower() == "small":
+        cfgCom1DFA["GENERAL"]["frictModel"] = "samosATSmall"
+    elif calibration.lower() == "medium":
+        cfgCom1DFA["GENERAL"]["frictModel"] = "samosATMedium"
+    elif calibration.lower() == "large":
+        cfgCom1DFA["GENERAL"]["frictModel"] = "samosAT"
+    elif calibration.lower() == "auto":
+        cfgCom1DFA["GENERAL"]["frictModel"] = "samosATAuto"
     else:
-        log.info('no friction calibration override given - using ini')
+        log.info("no friction calibration override given - using ini")
 
     # ----------------
     # Run dense flow
@@ -80,25 +84,31 @@ def runCom1DFA(avalancheDir='', calibration=''):
 
     # Get peakfiles to return to QGIS
     avaDir = pathlib.Path(avalancheDir)
-    inputDir = avaDir / 'Outputs' / 'com1DFA' / 'peakFiles'
+    inputDir = avaDir / "Outputs" / "com1DFA" / "peakFiles"
     peakFilesDF = fU.makeSimDF(inputDir, avaDir=avaDir)
 
     # Print time needed
     endTime = time.time()
-    log.info('Took %6.1f seconds to calculate.' % (endTime - startTime))
+    log.info("Took %6.1f seconds to calculate." % (endTime - startTime))
 
     return peakFilesDF
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Run com1DFA workflow')
-    parser.add_argument('avadir', metavar='avalancheDir', type=str, nargs='?', default='',
-                        help='the avalanche directory')
-    parser.add_argument('-fc', '--friction_calibration', choices=['auto', 'large', 'medium', 'small', 'ini'],
-                        type=str, default='ini',
-                        help='friction calibration override, possible values are large, medium , small, auto and ini.' +
-                             'Overrides default AND local configs')
+    parser = argparse.ArgumentParser(description="Run com1DFA workflow")
+    parser.add_argument(
+        "avadir", metavar="avalancheDir", type=str, nargs="?", default="", help="the avalanche directory"
+    )
+    parser.add_argument(
+        "-fc",
+        "--friction_calibration",
+        choices=["auto", "large", "medium", "small", "ini"],
+        type=str,
+        default="ini",
+        help="friction calibration override, possible values are large, medium , small, auto and ini."
+        + "Overrides default AND local configs",
+    )
 
     args = parser.parse_args()
     runCom1DFA(str(args.avadir), str(args.friction_calibration))

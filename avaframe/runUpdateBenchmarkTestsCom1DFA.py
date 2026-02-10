@@ -84,8 +84,7 @@ for test in testList:
         # get comDFA configuration and update with snow slide parameter set
         standardCfg = cfgUtils.getModuleConfig(
             com1DFA,
-            fileOverride="",
-            modInfo=False,
+            avaDir,
             toPrint=False,
             onlyDefault=snowSlideCfg["com1DFA_com1DFA_override"].getboolean("defaultConfig"),
         )

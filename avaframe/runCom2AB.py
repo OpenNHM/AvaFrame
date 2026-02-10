@@ -66,7 +66,7 @@ def runCom2AB(avalancheDir='', smallAva=False):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Call the main com2AB functions
-    cfgAB = cfgUtils.getModuleConfig(com2AB)
+    cfgAB = cfgUtils.getModuleConfig(com2AB, avalancheDir)
 
     # Override smallAva from ini file if needed
     if smallAva:

@@ -48,7 +48,7 @@ def runRelInfo(avalancheDir=''):
     initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
     # Load configuration file for com1DFA module
-    cfg = cfgUtils.getModuleConfig(com1DFA)
+    cfg = cfgUtils.getModuleConfig(com1DFA, avalancheDir)
 
     # fetch input data and create release info dataframe and csv file
     relDFDict = gI.createReleaseStats(avalancheDir, cfg)

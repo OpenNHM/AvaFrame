@@ -44,7 +44,7 @@ if __name__ == '__main__':
     # Load all input Parameters from config file
     # get the configuration of an already imported module
     # write config to log file
-    cfg = cfgUtils.getModuleConfig(ana3AIMEC)
+    cfg = cfgUtils.getModuleConfig(ana3AIMEC, avalancheDir)
 
     iP.cleanModuleFiles(avalancheDir, ana3AIMEC)
 

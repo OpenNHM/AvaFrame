@@ -19,7 +19,7 @@ cfgMain = cfgUtils.getGeneralConfig()
 avalancheDir = cfgMain['MAIN']['avalancheDir']
 
 # load configuration for plot generation
-cfg = cfgUtils.getModuleConfig(outQuickPlot)
+cfg = cfgUtils.getModuleConfig(outQuickPlot, avalancheDir)
 cfgPlot = cfg['ONEPLOT']
 
 # Start logging

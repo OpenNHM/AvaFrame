@@ -46,6 +46,189 @@ def test_getModuleConfig():
     assert cfg['GOODSECTION2']['goodKey4'] == 'False'
 
 
+def test_getModuleConfigExpertDir():
+    """Test expert config from avalancheDir/Inputs/CFGs/ takes priority over local_*"""
+    from avaframe.tests import test_logUtils
+
+    # Setup: avalanche directory with expert config
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+
+    # Load config with avalancheDir - should use expert config
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+    # Expert config sets inputDir = "expert/override/path" and fullLog = False
+    # This should override both default AND local_ values
+    assert cfg["GENERAL"]["inputDir"] == "expert/override/path"
+    assert cfg["GENERAL"]["fullLog"] == "False"
+
+    # Other values should come from default config (not local_*)
+    # The default test_logUtilsCfg.ini has goodKey1 = 1
+    assert cfg["GOODSECTION1"]["goodKey1"] == "1"
+
+
+def test_getModuleConfigEmptyAvalancheDir():
+    """Test that empty avalancheDir uses normal local_* behavior"""
+    from avaframe.tests import test_logUtils
+
+    # Load config without avalancheDir - should use local_* as before
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir="")
+
+    # Should match original behavior - local_ overrides default
+    # local_test_logUtilsCfg.ini has inputDir = "path/to/avalanche"
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+    assert cfg["GENERAL"]["fullLog"] == "True"
+
+
+def test_getModuleConfigMissingExpertConfig():
+    """Test that missing expert config falls back to local_* behavior"""
+    from avaframe.tests import test_logUtils
+
+    # Use avalanche dir that exists but has no expert config for this module
+    testDir = pathlib.Path(__file__).parent
+    # avaTestInputs exists but has no CFGs/ directory
+    avalancheDir = testDir / "data" / "avaTestInputs"
+
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+    # Should fall back to local_* behavior
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+    assert cfg["GENERAL"]["fullLog"] == "True"
+
+
+def test_getModuleConfigOnlyDefaultSkipsExpert():
+    """Test that onlyDefault=True skips expert config"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+
+    # With onlyDefault=True, should ignore expert config
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir, onlyDefault=True)
+
+    # Should use default values, not expert config values
+    # Default test_logUtilsCfg.ini has inputDir = "path/to/avalanche"
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+
+
+def test_getModuleConfigFileOverrideBeatsExpert():
+    """Test that fileOverride takes priority over expert config"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+    fileOverride = testDir / "local_test_logUtilsCfg.ini"
+
+    # fileOverride should win over expert config
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir, fileOverride=fileOverride)
+
+    # Should use fileOverride values, not expert config
+    # local_test_logUtilsCfg.ini has inputDir = "path/to/avalanche"
+    assert cfg["GENERAL"]["inputDir"] == "path/to/avalanche"
+    assert cfg["GENERAL"]["fullLog"] == "True"
+
+
+def test_getModuleConfigMalformedExpertConfig():
+    """Test that malformed expert config raises ConfigParser error"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaMalformedCfgTest"
+
+    with pytest.raises(configparser.Error):
+        cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+
+def test_getModuleConfigExpertPartialOverride():
+    """Test that expert config with partial parameters merges with default"""
+    from avaframe.tests import test_logUtils
+
+    testDir = pathlib.Path(__file__).parent
+    avalancheDir = testDir / "data" / "avaExpertCfgTest"
+
+    cfg = cfgUtils.getModuleConfig(test_logUtils, avalancheDir=avalancheDir)
+
+    # Expert config only sets [GENERAL] inputDir and fullLog
+    # All other sections/values should come from default
+    assert cfg["GENERAL"]["inputDir"] == "expert/override/path"  # from expert
+    assert cfg["GENERAL"]["fullLog"] == "False"  # from expert
+
+    # These should come from default config
+    assert "GOODSECTION1" in cfg.sections()
+    assert "GOODSECTION2" in cfg.sections()
+    assert cfg["GOODSECTION1"]["goodKey1"] == "1"
+
+
+def test_getModuleConfigBatchCfgDir(tmp_path):
+    """Test that batchCfgDir returns pathlib.Path when valid directory with .ini files"""
+    from avaframe.tests import test_logUtils
+
+    # Setup: create temp dir with .ini files
+    cfgDir = tmp_path / "cfgs"
+    cfgDir.mkdir()
+    (cfgDir / "test1.ini").write_text("[GENERAL]\nkey = value1\n")
+    (cfgDir / "test2.ini").write_text("[GENERAL]\nkey = value2\n")
+
+    result = cfgUtils.getModuleConfig(test_logUtils, batchCfgDir=cfgDir)
+
+    assert isinstance(result, pathlib.Path)
+    assert result == cfgDir
+
+
+def test_getModuleConfigBatchCfgDirNotExists(tmp_path):
+    """Test that batchCfgDir raises FileNotFoundError for non-existent directory"""
+    from avaframe.tests import test_logUtils
+
+    nonExistentDir = tmp_path / "does_not_exist"
+
+    with pytest.raises(FileNotFoundError, match="batchCfgDir does not exist"):
+        cfgUtils.getModuleConfig(test_logUtils, batchCfgDir=nonExistentDir)
+
+
+def test_getModuleConfigBatchCfgDirEmpty(tmp_path):
+    """Test that batchCfgDir raises FileNotFoundError for directory without .ini files"""
+    from avaframe.tests import test_logUtils
+
+    emptyDir = tmp_path / "empty_cfgs"
+    emptyDir.mkdir()
+    # Create a non-ini file to ensure it's not just checking for "any file"
+    (emptyDir / "readme.txt").write_text("not a config")
+
+    with pytest.raises(FileNotFoundError, match="batchCfgDir contains no .ini files"):
+        cfgUtils.getModuleConfig(test_logUtils, batchCfgDir=emptyDir)
+
+
+def test_getModuleConfigBatchCfgDirPriority(tmp_path):
+    """Test that batchCfgDir takes priority and ignores fileOverride and expert config"""
+    from avaframe.tests import test_logUtils
+
+    # Setup: batchCfgDir with .ini files
+    cfgDir = tmp_path / "batch_cfgs"
+    cfgDir.mkdir()
+    (cfgDir / "batch.ini").write_text("[GENERAL]\nkey = batch\n")
+
+    # Setup: fileOverride that would normally be used
+    overrideFile = tmp_path / "override.ini"
+    overrideFile.write_text("[GENERAL]\nkey = override\n")
+
+    # Setup: avalancheDir with expert config that would normally be used
+    avalancheDir = tmp_path / "avaTest"
+    expertDir = avalancheDir / "Inputs" / "CFGs"
+    expertDir.mkdir(parents=True)
+    (expertDir / "test_logUtilsCfg.ini").write_text("[GENERAL]\nkey = expert\n")
+
+    # batchCfgDir should win - returns Path, not ConfigParser
+    result = cfgUtils.getModuleConfig(
+        test_logUtils,
+        avalancheDir=avalancheDir,
+        fileOverride=overrideFile,
+        batchCfgDir=cfgDir
+    )
+
+    assert isinstance(result, pathlib.Path)
+    assert result == cfgDir
+
+
 def test_getGeneralConfig():
     '''Test for module getGeneralConfig'''
 
