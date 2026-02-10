@@ -285,7 +285,7 @@ def hockey(cfg):
 
     return x, y, zv
 
-def debrisFlowTopoAvarage(cfg):
+def debrisFlowTopoAverage(cfg):
     """
     Compute coordinates of an average parabolic-shaped slope as a generic topography for debris-flow simulations
     defined by a 2nd-degree polynomial: ax**2 + bx + c
@@ -790,7 +790,7 @@ def generateTopo(cfg, avalancheDir):
         [x, y, z] = pyramid(cfg)
 
     elif demType == "DFTA":
-        [x, y, z] = debrisFlowTopoAvarage(cfg)
+        [x, y, z] = debrisFlowTopoAverage(cfg)
 
     # If a drop shall be introduced
     if cfg["TOPO"].getboolean("drop"):
