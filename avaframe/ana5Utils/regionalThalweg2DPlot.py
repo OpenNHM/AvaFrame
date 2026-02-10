@@ -128,6 +128,10 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
         files = list(folder.glob(f"thalwegData_{centerOf}*"))
         x = []
         y = []
+        indStartAverageThalweg = []
+        indEndAverageThalweg = []
+        dataStartAverageThalweg = {}
+        dataEndAverageThalweg = {}
 
         for thalwegFile in files:
             data = np.load(thalwegFile, allow_pickle="TRUE")
@@ -136,10 +140,29 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
 
             y.append(newY)
             x.append(newX)
+
+            indStartAverageThalweg.append(data["indexStartAverageData"])
+            indEndAverageThalweg.append(data["indexEndAverageData"])
+            for key in data["startAverageData"].keys():
+                if key not in dataStartAverageThalweg.keys():
+                    dataStartAverageThalweg[key] = data["startAverageData"][key]
+                    dataEndAverageThalweg[key] = data["endAverageData"][key]
+                else:
+                    dataStartAverageThalweg[key] = np.append(dataStartAverageThalweg[key], data["startAverageData"][key])
+                    dataEndAverageThalweg[key] = np.append(dataEndAverageThalweg[key], data["endAverageData"][key])
     else:
         y = np.array(dataThalweg[f"y"])
         x = np.array(dataThalweg[f"x"])
+        indStartAverageThalweg = dataThalweg["indexStartAverageData"]
+        indEndAverageThalweg = dataThalweg["indexEndAverageData"]
+        dataStartAverageThalweg = dataThalweg["startAverageData"]
+        dataEndAverageThalweg = dataThalweg["endAverageData"]
 
+    averageThalweg = {"indStartAverageThalweg": indStartAverageThalweg,
+                      "indEndAverageThalweg": indEndAverageThalweg,
+                      "dataStartAverageThalweg": dataStartAverageThalweg,
+                      "dataEndAverageThalweg": dataEndAverageThalweg
+                      }
     # PLOT
     fig, axs = plt.subplots(2, 1)
 
@@ -147,7 +170,7 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
     fig.tight_layout(pad=3.0)
     fig.set_figwidth(8)
 
-    fig, axs[0] = tools.makeFieldPlot(axs[0], fig, pathDict, variable, x, y, thalwegPra=thalwegPra)
+    fig, axs[0] = tools.makeFieldPlot(axs[0], fig, pathDict, variable, x, y, averageThalweg,  thalwegPra=thalwegPra)
     axs[1] = tools.makeThalwegPlot(axs[1], dataThalweg, centerOf=centerOf)
 
     if size != "":

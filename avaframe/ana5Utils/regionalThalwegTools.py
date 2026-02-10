@@ -595,7 +595,7 @@ def getContigousPras(inputPath):
 """
 
 
-def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, thalwegPra=False):
+def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, averageThalweg, thalwegPra=False):
     """make a raster plot for FlowPy output
 
     Parameters
@@ -617,12 +617,14 @@ def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, thalwegPra=Fa
         Axis containg the plot
     """
     centerOf = pathDict["titleVariables"]["centerOf"]
+    xAverage = np.append(averageThalweg["dataStartAverageThalweg"]["x"], averageThalweg["dataEndAverageThalweg"]["x"])
+    yAverage = np.append(averageThalweg["dataStartAverageThalweg"]["y"], averageThalweg["dataEndAverageThalweg"]["y"])
     ax = plotField(ax, fig, pathDict, variable, thalwegPra=thalwegPra)
     # ax.scatter(xThalweg, yThalweg, c="r", s=0.3, zorder=5, label=f"thalweg {centerOf}")
     # ax.scatter(xThalweg[0], yThalweg[0], c="b", s=2.0, zorder=6, label="startcell")
     for i, (x, y) in enumerate(zip(xThalweg, yThalweg)):
         ax.plot(x, y, "-", c="k", lw=0.5, zorder=7, label=f"thalweg {centerOf}" if i == 0 else None)
-        ax.scatter(x, y, c="r", s=2, zorder=7)
+        ax.scatter(xAverage, yAverage, c="r", s=2, zorder=7)
 
     ax.legend()
     if thalwegPra:
