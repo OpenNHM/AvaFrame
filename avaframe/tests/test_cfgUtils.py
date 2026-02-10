@@ -1228,3 +1228,111 @@ def test_parseSimName_realWorld_examples():
     assert result3["frictIndi"] == "M"
     assert result3["simType"] == "ent"
     assert result3["modelType"] == "dfa"
+
+
+# --- Multi-layer parseSimName tests ---
+
+
+def test_parseSimName_layer_newFormat_resTypeOnly():
+    """Test parsing new format with layer and resType, no timeStep"""
+    name = "release1_a1b2c3_com8_C_null_psa_L1_ppr"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "release1"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com8"
+    assert result["defID"] == "C"
+    assert result["frictIndi"] is None
+    assert result["simType"] == "null"
+    assert result["modelType"] == "psa"
+    assert result["layer"] == "L1"
+    assert result["resType"] == "ppr"
+    assert result["timeStep"] is None
+
+
+def test_parseSimName_layer_newFormat_withTimeStep():
+    """Test parsing new format with layer, resType, and timeStep"""
+    name = "release1_a1b2c3_com8_C_null_psa_L2_pfv_t12.50"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["layer"] == "L2"
+    assert result["resType"] == "pfv"
+    assert result["timeStep"] == "t12.50"
+    assert result["modName"] == "com8"
+    assert result["modelType"] == "psa"
+
+
+def test_parseSimName_layer_newFormat_allOptional():
+    """Test parsing new format with defID, frictIndi, layer, resType, timeStep"""
+    name = "release1_a1b2c3_com8_D_S_ent_psa_L3_pft_t50.00"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["defID"] == "D"
+    assert result["frictIndi"] == "S"
+    assert result["simType"] == "ent"
+    assert result["modelType"] == "psa"
+    assert result["layer"] == "L3"
+    assert result["resType"] == "pft"
+    assert result["timeStep"] == "t50.00"
+
+
+def test_parseSimName_layer_AF_separator():
+    """Test parsing with _AF_ separator and layer"""
+    name = "myRelease_Test_AF_a1b2c3_com8_C_null_psa_L1_ppr"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["releaseName"] == "myRelease_Test"
+    assert result["simHash"] == "a1b2c3"
+    assert result["modName"] == "com8"
+    assert result["layer"] == "L1"
+    assert result["resType"] == "ppr"
+
+
+def test_parseSimName_layer_multiDigit():
+    """Test parsing with multi-digit layer number"""
+    name = "release1_a1b2c3_com8_C_null_psa_L12_ppr"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["layer"] == "L12"
+    assert result["resType"] == "ppr"
+
+
+def test_parseSimName_noLayer_backwardCompat():
+    """Test that existing names without layer still parse correctly with layer=None"""
+    # New format without layer
+    name1 = "release1_a1b2c3_com1_C_S_ent_dfa_ppr_t50.2"
+    result1 = cfgUtils.parseSimName(name1)
+    assert result1["layer"] is None
+    assert result1["resType"] == "ppr"
+    assert result1["timeStep"] == "t50.2"
+
+    # New format, resType only
+    name2 = "release1_a1b2c3_com1_C_ent_dfa_pfv"
+    result2 = cfgUtils.parseSimName(name2)
+    assert result2["layer"] is None
+    assert result2["resType"] == "pfv"
+    assert result2["timeStep"] is None
+
+    # Old format without layer
+    name3 = "release1_a1b2c3_C_S_ent_dfa_ppr"
+    result3 = cfgUtils.parseSimName(name3)
+    assert result3["layer"] is None
+    assert result3["resType"] == "ppr"
+
+    # Bare simName (no resType, no layer)
+    name4 = "release1_a1b2c3_com1_C_null_dfa"
+    result4 = cfgUtils.parseSimName(name4)
+    assert result4["layer"] is None
+    assert result4["resType"] is None
+
+
+def test_parseSimName_layer_onlyNoResType():
+    """Test parsing with layer but no resType — layer appears at offset+2 position"""
+    # This is an edge case: simName_L1 with no resType after it
+    # The parser should recognize L1 as a layer, leaving resType=None
+    name = "release1_a1b2c3_com8_C_null_psa_L1"
+    result = cfgUtils.parseSimName(name)
+
+    assert result["layer"] == "L1"
+    assert result["resType"] is None
+    assert result["timeStep"] is None

@@ -695,8 +695,21 @@ def makeSimFromResDF(avaDir, comModule, inputDir="", simName=""):
 
     datafiles = list(inputDir.glob(ascName)) + list(inputDir.glob(tifName))
 
-    # build the result data frame
-    resTypeListFromFiles = list(set([file.stem.split("_")[-1] for file in datafiles]))
+    # Parse all filenames once to determine column names and cache results
+    parsedFiles = []
+    colNamesFromFiles = set()
+    for file in datafiles:
+        parts = cfgUtils.parseSimName(file.stem)
+        resType = parts["resType"] if parts["resType"] else file.stem.split("_")[-1]
+        layer = parts["layer"]
+        if layer:
+            colName = "%s_%s" % (resType, layer.lower())
+        else:
+            colName = resType
+        colNamesFromFiles.add(colName)
+        parsedFiles.append((file, parts, resType, layer, colName))
+
+    # Build the result data frame
     columnsList = [
         "simName",
         "releaseArea",
@@ -705,17 +718,13 @@ def makeSimFromResDF(avaDir, comModule, inputDir="", simName=""):
         "simType",
         "modelType",
         "cellSize",
-    ] + resTypeListFromFiles
+        "layers",
+    ] + sorted(colNamesFromFiles)
     dataDF = pd.DataFrame(columns=columnsList)
     resTypeListOne = []
 
-    for file in datafiles:
+    for file, simNameParts, resType, layer, colName in parsedFiles:
         name = file.stem
-        # Parse the filename to extract components
-        simNameParts = cfgUtils.parseSimName(name)
-
-        # Extract simName (without resType/timeStep) and resType
-        resType = simNameParts["resType"] if simNameParts["resType"] else name.split("_")[-1]
 
         # Reconstruct simName without resType and timeStep
         # Preserve _AF_ separator if present in original name
@@ -753,11 +762,18 @@ def makeSimFromResDF(avaDir, comModule, inputDir="", simName=""):
             # add info about the cell size
             header = IOf.readRasterHeader(file)
             dataDF.loc[simName, "cellSize"] = header["cellsize"]
-        # add full path to resType
-        dataDF.loc[simName, resType] = pathlib.Path(file)
-        # list all res types found
-        if resType not in resTypeListOne:
-            resTypeListOne.append(resType)
+        # add full path to resType column (layer-aware)
+        dataDF.loc[simName, colName] = pathlib.Path(file)
+        # update layers metadata for multi-layer files
+        if layer:
+            existingLayers = dataDF.loc[simName, "layers"]
+            if pd.isna(existingLayers):
+                dataDF.loc[simName, "layers"] = layer
+            elif layer not in existingLayers:
+                dataDF.loc[simName, "layers"] = existingLayers + "|" + layer
+        # list all column names found
+        if colName not in resTypeListOne:
+            resTypeListOne.append(colName)
 
     # add a hash for each line of the DF and use as index - required for identifcation
     hash = pd.util.hash_pandas_object(dataDF)
