@@ -53,7 +53,8 @@ def test_dfaComp2Aimec(tmp_path):
     pathDataComp = testPath / 'Outputs' / 'com1DFAComp' / 'peakFiles'
     cfg = configparser.ConfigParser()
     cfg['AIMECSETUP'] = {'comModules': 'com1DFARef|com1DFAComp', 'testName': '', 'referenceSimValue': '',
-                         'referenceSimName': '', 'varParList': ''}
+                         'referenceSimName': '', 'varParList': '',
+                         'runoutResType': 'ppr', 'resTypes': 'ppr|pft|pfv', 'runoutLayer': ''}
     cfg['FLAGS'] = {'flagMass': 'True'}
     inputDF, pathDict = dfa2Aimec.dfaBench2Aimec(testPath, cfg, 'release1HX', 'release1HX')
 
@@ -150,7 +151,8 @@ def test_dfaBench2Aimec():
     # setup required input
     cfg = configparser.ConfigParser()
     cfg['AIMECSETUP'] = {'comModules': 'com1DFARef|com1DFAComp', 'testName': '', 'referenceSimValue': '',
-                         'referenceSimName': '', 'varParList': ''}
+                         'referenceSimName': '', 'varParList': '',
+                         'runoutResType': 'ppr', 'resTypes': 'ppr|pft|pfv', 'runoutLayer': ''}
     cfg['FLAGS'] = {'flagMass': 'True'}
     dirPath = pathlib.Path(__file__).parents[0]
     avaTestName = 'avaHelixChannelPytest'

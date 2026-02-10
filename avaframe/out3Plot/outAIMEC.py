@@ -57,6 +57,7 @@ def visuTransfo(rasterTransfo, inputData, cfgSetup, pathDict):
     ####################################
     # Get input data
     runoutResType = cfgSetup['runoutResType']
+    displayRunoutResType = pathDict.get('displayRunoutResType', runoutResType)
     unit = pU.cfgPlotUtils['unit' + runoutResType]
     # read paths
     projectName = pathDict['projectName']
@@ -137,13 +138,13 @@ def visuTransfo(rasterTransfo, inputData, cfgSetup, pathDict):
         ax2.text(
             0.5,
             0.5,
-            "reference only 0 values for %s" % runoutResType,
+            "reference only 0 values for %s" % displayRunoutResType,
             horizontalalignment="center",
             verticalalignment="center",
             transform=ax2.transAxes,
         )
     else:
-        pU.addColorBar(im, ax2, ticks, unit, title=runoutResType)
+        pU.addColorBar(im, ax2, ticks, unit, title=displayRunoutResType)
 
     outFileName = '_'.join([projectName, 'DomainTransformation'])
     pU.saveAndOrPlot(pathDict, outFileName, fig)
@@ -249,6 +250,9 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
 
     percentile = cfgSetup.getfloat('percentile')
     runoutResType = cfgSetup['runoutResType']
+    # layer-resolved name for data access (e.g. ppr_l2); falls back to base name for single-layer
+    resolvedRunoutResType = pathDict.get('runoutResType', runoutResType)
+    displayRunoutResType = pathDict.get('displayRunoutResType', runoutResType)
     thresholdValue = cfgSetup['thresholdValue']
     unit = pU.cfgPlotUtils['unit' + runoutResType]
     name = pU.cfgPlotUtils['name' + runoutResType]
@@ -258,10 +262,10 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
     s = rasterTransfo['s']
     l = rasterTransfo['l']
     indStartOfRunout = rasterTransfo['indStartOfRunout']
-    rasterdataPres = newRasters['newRefRaster' + runoutResType.upper()]
+    rasterdataPres = newRasters['newRefRaster' + resolvedRunoutResType.upper()]
     runout = resAnalysisDF['sRunout'].to_numpy()
     crossValue = 'Cross' + cfgSetup['runoutCrossType'].upper()[0] + cfgSetup['runoutCrossType'].lower()[1:]
-    pprCrossMax = np.stack(resAnalysisDF[runoutResType.lower() + crossValue].to_numpy())
+    pprCrossMax = np.stack(resAnalysisDF[resolvedRunoutResType.lower() + crossValue].to_numpy())
     ############################################
     # compute mean, median and percenti. of peak field cross max values and mask array with threshold
     pMean = np.mean(pprCrossMax, axis=0)
@@ -275,7 +279,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
     if np.all(np.isnan(runout)):
         log.warning(
             "No %s values exceeding threshold of %.2f found to analyze"
-            % (runoutResType, float(thresholdValue))
+            % (displayRunoutResType, float(thresholdValue))
         )
         outFilePath = ""
     else:
@@ -403,7 +407,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
                 norm=normSC,
                 marker=pU.markers[0],
                 label=(
-                    "runout points (%s<%.1f%s)" % (runoutResType, cfgSetup.getfloat("thresholdValue"), unit)
+                    "runout points (%s<%.1f%s)" % (displayRunoutResType, cfgSetup.getfloat("thresholdValue"), unit)
                 ),
             )
             if displayColorBar:
@@ -415,7 +419,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
         ax1.set_xlim([xMin, xMax])
         ax1.set_title(
             "%s field (reference) for (%s>%.1f%s)"
-            % (name, runoutResType, cfgSetup.getfloat("thresholdValue"), unit)
+            % (name, displayRunoutResType, cfgSetup.getfloat("thresholdValue"), unit)
         )
         ax1.set_aspect("equal")
         pU.putAvaNameOnPlot(ax1, projectName)
@@ -425,7 +429,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
             ax1.text(
                 0.5,
                 0.5,
-                "reference only 0 values for %s" % runoutResType,
+                "reference only 0 values for %s" % displayRunoutResType,
                 horizontalalignment="center",
                 verticalalignment="center",
                 transform=ax1.transAxes,
@@ -451,7 +455,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
         ax2.set_xlabel("$S_{xy}$ (thalweg) [m]")
         ax2.set_xlim([s.min(), s.max()])
         ax2.set_ylim(auto=True)
-        ax2.set_ylabel("$%s_{%s}$ [%s]" % (runoutResType, crossValue, unit))
+        ax2.set_ylabel("$%s_{%s}$ [%s]" % (displayRunoutResType, crossValue, unit))
 
         # add middle panel with cross max values along s
         # loop over all sims and compute colorbar value and add line plot
@@ -466,7 +470,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
             if resAnalysisRow["simName"] == pathDict["refSimName"]:
                 ax3.plot(
                     s,
-                    resAnalysisRow[runoutResType.lower() + crossValue],
+                    resAnalysisRow[resolvedRunoutResType.lower() + crossValue],
                     c="k",
                     label="reference",
                     zorder=nSamples + 1,
@@ -476,12 +480,12 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
                     cmapVal = cmapValues3[varParStrValues.index(resAnalysisRow[varParList[0]])]
                     ax3.plot(
                         s,
-                        resAnalysisRow[runoutResType.lower() + crossValue],
+                        resAnalysisRow[resolvedRunoutResType.lower() + crossValue],
                         c=cmap3.to_rgba(cmapVal),
                         label=resAnalysisRow[varParList[0]],
                     )
                 else:
-                    ax3.plot(s, resAnalysisRow[runoutResType.lower() + crossValue], c=cmapSC(cmapVal))
+                    ax3.plot(s, resAnalysisRow[resolvedRunoutResType.lower() + crossValue], c=cmapSC(cmapVal))
             countSim = countSim + 1
 
         # add colorbar
@@ -500,7 +504,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
         ax3.set_xlabel("$S_{xy}$ (thalweg) [m]")
         ax3.set_xlim([s.min(), s.max()])
         ax3.set_ylim(auto=True)
-        ax3.set_ylabel("$%s_{%s}$ [%s]" % (runoutResType, crossValue, unit))
+        ax3.set_ylabel("$%s_{%s}$ [%s]" % (displayRunoutResType, crossValue, unit))
 
         outFileName = "_".join(
             [projectName, runoutResType, str(thresholdValue).replace(".", "p"), "slComparisonStat"]
@@ -689,8 +693,11 @@ def visuComparison(rasterTransfo, inputs, pathDict):
     simName = inputs['simName']
     refSimName = pathDict['refSimName']
     runoutResType = inputs['runoutResType']
-    unit = pU.cfgPlotUtils['unit' + runoutResType]
-    name = pU.cfgPlotUtils['name' + runoutResType]
+    # base name without layer suffix for cosmetic lookups (units, names, colorMaps)
+    baseRunoutResType = inputs.get('baseRunoutResType', runoutResType)
+    displayRunoutResType = inputs.get('displayRunoutResType', runoutResType)
+    unit = pU.cfgPlotUtils['unit' + baseRunoutResType]
+    name = pU.cfgPlotUtils['name' + baseRunoutResType]
     thresholdArray = inputs['thresholdArray']
     thresholdValue = thresholdArray[-1]
 
@@ -702,7 +709,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
         outFilePath = None
     else:
         cmapTF, _, ticks, normTF = pU.makeColorMap(
-            pU.colorMaps[runoutResType], np.nanmin((refData)), np.nanmax((refData)), continuous=pU.contCmap
+            pU.colorMaps[baseRunoutResType], np.nanmin((refData)), np.nanmax((refData)), continuous=pU.contCmap
         )
         cmapTF.set_bad(color="w")
 
@@ -788,7 +795,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
                 # add legend associated to the contour plot
                 handles, _ = contourRef.legend_elements()
                 ax2.legend(
-                    title=runoutResType + " contour lines [" + unit + "]",
+                    title=displayRunoutResType + " contour lines [" + unit + "]",
                     handles=handles,
                     labels=labels,
                     ncol=ncolLegend,
@@ -862,7 +869,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
                 pU.putAvaNameOnPlot(ax1, namePrint)
 
             ax1.set_title(
-                "%s difference (sim - reference) in runout area" % runoutResType
+                "%s difference (sim - reference) in runout area" % displayRunoutResType
                 + "\n"
                 + "blue = FN, red = FP"
             )
@@ -878,8 +885,8 @@ def visuComparison(rasterTransfo, inputs, pathDict):
                     ax3,
                     insert="False",
                     title=[
-                        "%s diff histogram" % runoutResType,
-                        "%s diff CDF (95%% and 99%% centiles)" % runoutResType,
+                        "%s diff histogram" % displayRunoutResType,
+                        "%s diff CDF (95%% and 99%% centiles)" % displayRunoutResType,
                     ],
                 )
 
@@ -887,7 +894,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
             divider = make_axes_locatable(ax2)
             cax = divider.append_axes("right", size="5%", pad=0.1)
             pU.addColorBar(
-                im3, ax2, None, None, title=runoutResType + (" [%s]" % unit), extend="both", cax=cax
+                im3, ax2, None, None, title=displayRunoutResType + (" [%s]" % unit), extend="both", cax=cax
             )
             ax2.set_aspect("equal")
             ax1.set_aspect("equal")
@@ -908,13 +915,13 @@ def visuComparison(rasterTransfo, inputs, pathDict):
 
         if pathDict["compType"][0] == "comModules":
             ax2.set_title(
-                "%s difference and contour lines" % runoutResType
+                "%s difference and contour lines" % displayRunoutResType
                 + "\n"
                 + "refMod = full, compMod = dashed line"
             )
         else:
             ax2.set_title(
-                "%s difference and contour lines" % runoutResType + "\n" + "ref = full, sim = dashed line"
+                "%s difference and contour lines" % displayRunoutResType + "\n" + "ref = full, sim = dashed line"
             )
 
         # fig.subplots_adjust(hspace=0.13, wspace=0.3)
@@ -1008,6 +1015,7 @@ def resultVisu(cfgSetup, inputsDF, pathDict, cfgFlags, rasterTransfo, resAnalysi
     ####################################
     # Get input data
     runoutResType = cfgSetup['runoutResType']
+    displayRunoutResType = pathDict.get('displayRunoutResType', runoutResType)
     varParList = cfgSetup['varParList'].split('|')
     unit = cfgSetup['unit']
     paraVar = cfgSetup['varParList'].split('|')[0]
@@ -1066,7 +1074,7 @@ def resultVisu(cfgSetup, inputsDF, pathDict, cfgFlags, rasterTransfo, resAnalysi
         cbar.ax.set_ylabel('hit rate density')
     else:
         sc = ax1.scatter(rFP, rTP, c=colorSC, cmap=cmapSC, norm=normSC, marker=pU.markers[0],
-                         label=('runout points (%s<%.1f%s)' % (runoutResType, cfgSetup.getfloat('thresholdValue'),
+                         label=('runout points (%s<%.1f%s)' % (displayRunoutResType, cfgSetup.getfloat('thresholdValue'),
                                                                   pU.cfgPlotUtils['unit' + runoutResType])))
 
         if displayColorBar:
@@ -1147,6 +1155,7 @@ def plotContoursTransformed(contourDict, pathDict, rasterTransfo, cfgSetup, inpu
     l = rasterTransfo['l']
     indStartOfRunout = rasterTransfo['indStartOfRunout']
     unit = pU.cfgPlotUtils['unit' + cfgSetup['runoutResType']]
+    displayRunoutResType = pathDict.get('displayRunoutResType', cfgSetup['runoutResType'])
     colorOrdering = False
     nSamples = inputsDF.shape[0]
 
@@ -1193,7 +1202,7 @@ def plotContoursTransformed(contourDict, pathDict, rasterTransfo, cfgSetup, inpu
 
     # PANEL 1 show contour lines of all sims in contourDict for thresholdValue runoutResType
     ax1 = fig.add_subplot(gs[0, 0:2])
-    ax1.set_title('%s %s %s contour lines' % (cfgSetup['runoutResType'], cfgSetup['thresholdValue'],
+    ax1.set_title('%s %s %s contour lines' % (displayRunoutResType, cfgSetup['thresholdValue'],
         unit))
     ax1.set_xlabel('$S_{XY}$ (thalweg) [m]')
     ax1.set_ylabel('$L_{XY}$ (thalweg) [m]')
@@ -1837,6 +1846,7 @@ def plotRunoutLineComparisonToReference(cfgSetup, refLine, runoutLine, pathDict,
 
     colors = {'line': 'lightcoral', 'point': 'gold','poly': 'purple'}
     unitResType = pU.cfgPlotUtils['unit' + cfgSetup['runoutResType']]
+    displayRunoutResType = pathDict.get('displayRunoutResType', cfgSetup['runoutResType'])
 
     # create figure
     fig = plt.figure(figsize=(pU.figW*1.5, pU.figH))
@@ -1845,7 +1855,7 @@ def plotRunoutLineComparisonToReference(cfgSetup, refLine, runoutLine, pathDict,
     # add panel one with lines and differences across thalweg Lxy
     ax1 = fig.add_subplot(gs[0:3, 0:2])
     ax1.set_title('Runout line (sim %s > %s %s) difference (from reference %s)' %
-                  (cfgSetup['runoutResType'], cfgSetup['thresholdValue'], unitResType, refLine['type']))
+                  (displayRunoutResType, cfgSetup['thresholdValue'], unitResType, refLine['type']))
     ax2 = ax1.twinx()
     ax1.bar(refLine['l'], runoutLine['s']-refLine['s'], width=5, zorder=1)
     ax2.plot(runoutLine['l'], runoutLine['s'], label='sim', c='k', zorder=3)

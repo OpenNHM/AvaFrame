@@ -71,7 +71,7 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None):
     com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles)
 
 
-def copyRawToLayerPeakFiles(workDir, simType, outputDirPeakFile):
+def copyRawToLayerPeakFiles(workDir, outputDirPeakFile):
     """Rename and copy raw MoT-PSA output files to peakFiles with L1/L2 layer naming.
 
     MoT-PSA produces raw suffixes (p1/p2_max, h1/h2_max, s1/s2_max) that map
@@ -84,8 +84,6 @@ def copyRawToLayerPeakFiles(workDir, simType, outputDirPeakFile):
     ----------
     workDir : pathlib.Path
         simulation work directory containing raw MoT-PSA output files
-    simType : str
-        simulation type (e.g. "null", "ent") used in the rename pattern
     outputDirPeakFile : pathlib.Path
         target directory for renamed peak files
     """
@@ -97,17 +95,10 @@ def copyRawToLayerPeakFiles(workDir, simType, outputDirPeakFile):
     ]
     for globPattern, rawL1, rawL2, resType in layerRenameMap:
         rawFiles = list(workDir.glob(globPattern))
-        # Replace raw L1 suffix with L1 layer + resType (e.g. null_psa_p1_max -> null_psa_L1_ppr)
+        # Replace raw suffixes with layer naming (e.g. p1_max -> L1_ppr, p2_max -> L2_ppr)
         targetFiles = [
-            pathlib.Path(str(f.name).replace(
-                "%s_psa_%s" % (simType, rawL1), "%s_psa_L1_%s" % (simType, resType)))
+            pathlib.Path(str(f.name).replace(rawL1, "L1_%s" % resType).replace(rawL2, "L2_%s" % resType))
             for f in rawFiles
-        ]
-        # Replace raw L2 suffix with L2 layer + resType (e.g. null_psa_p2_max -> null_psa_L2_ppr)
-        targetFiles = [
-            pathlib.Path(str(f).replace(
-                "%s_psa_%s" % (simType, rawL2), "%s_psa_L2_%s" % (simType, resType)))
-            for f in targetFiles
         ]
         # Prepend output directory and copy
         targetFiles = [outputDirPeakFile / f for f in targetFiles]
@@ -124,7 +115,7 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
     Parameters
     ----------
     simDict : dict
-        simulation dictionary keyed by simKey, each value contains "simType"
+        simulation dictionary
     cfgMain : configparser.ConfigParser
         main AvaFrame configuration (avalancheDir, plot flags)
     inputSimFiles : dict
@@ -140,14 +131,11 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
     for key in simDict:
         workDir = pathlib.Path(avalancheDir) / "Work" / "com8MoTPSA" / str(key)
 
-        # identify simType
-        simType = simDict[key]["simType"]
-
         # Copy DataTime.txt
         dataTimeFile = workDir / "DataTime.txt"
         shutil.copy2(dataTimeFile, outputDir / (str(key) + "_DataTime.txt"))
 
-        copyRawToLayerPeakFiles(workDir, simType, outputDirPeakFile)
+        copyRawToLayerPeakFiles(workDir, outputDirPeakFile)
 
     # create plots and report
     modName = __name__.split(".")[-1]

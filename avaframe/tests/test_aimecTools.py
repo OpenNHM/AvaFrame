@@ -276,7 +276,8 @@ def test_computeRunoutLine(tmp_path):
 
     # call function to be tested
     runoutLine = aT.computeRunoutLine(
-        cfgSetup, rasterTransfo, transformedRasters, "", "line", name="", basedOnMax=False
+        cfgSetup, rasterTransfo, transformedRasters, "", "line", name="", basedOnMax=False,
+        runoutResType=cfgSetup["runoutResType"]
     )
 
     #    print('runoutLine', runoutLine)
@@ -301,7 +302,8 @@ def test_computeRunoutLine(tmp_path):
 
     # call function to be tested
     runoutLine = aT.computeRunoutLine(
-        cfgSetup, rasterTransfo, transformedRasters, "", "line", name="", basedOnMax=False
+        cfgSetup, rasterTransfo, transformedRasters, "", "line", name="", basedOnMax=False,
+        runoutResType=cfgSetup["runoutResType"]
     )
 
     #    print('runoutLine', runoutLine)
@@ -431,51 +433,207 @@ def test_checkAIMECinputs_singleLayer_unchanged():
     """Single-layer data with no runoutLayer: existing behavior preserved"""
     cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="")
     pathDict = {"resTypeList": ["ppr", "pft", "pfv"]}
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1", "sim2"],
+        "ppr": ["/path/ppr1.asc", "/path/ppr2.asc"],
+        "pft": ["/path/pft1.asc", "/path/pft2.asc"],
+        "pfv": ["/path/pfv1.asc", "/path/pfv2.asc"],
+    })
 
-    result = aT.checkAIMECinputs(cfgSetup, pathDict)
+    result = aT.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
 
-    assert "ppr" in result["resTypeList"]
-    assert "pft" in result["resTypeList"]
-    assert "pfv" in result["resTypeList"]
-    # runoutResType should stay as-is for single-layer
+    assert sorted(result["resTypeList"]) == ["pft", "pfv", "ppr"]
     assert result["runoutResType"] == "ppr"
+    assert result.get("runoutLayer", "") == ""
 
 
 def test_checkAIMECinputs_multiLayer_withRunoutLayer():
-    """Multi-layer data with runoutLayer=L1: resolves base resTypes to layer-suffixed columns"""
+    """Multi-layer data with runoutLayer=L1: resTypeList contains base names"""
     cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="L1")
     pathDict = {"resTypeList": ["ppr_l1", "ppr_l2", "pft_l1", "pft_l2", "pfv_l1", "pfv_l2"]}
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1"],
+        "ppr_l1": ["/path/L1_ppr.asc"],
+        "ppr_l2": ["/path/L2_ppr.asc"],
+        "pft_l1": ["/path/L1_pft.asc"],
+        "pft_l2": ["/path/L2_pft.asc"],
+        "pfv_l1": ["/path/L1_pfv.asc"],
+        "pfv_l2": ["/path/L2_pfv.asc"],
+    })
 
-    result = aT.checkAIMECinputs(cfgSetup, pathDict)
+    result = aT.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
 
-    # resTypeList should contain resolved layer-suffixed names for L1 only
-    assert "ppr_l1" in result["resTypeList"]
-    assert "pft_l1" in result["resTypeList"]
-    assert "pfv_l1" in result["resTypeList"]
-    # L2 columns should NOT be in the resolved list
-    assert "ppr_l2" not in result["resTypeList"]
-    # runoutResType should be resolved to the layer-suffixed column name
-    assert result["runoutResType"] == "ppr_l1"
+    # resTypeList should contain base names, not layer-suffixed
+    assert sorted(result["resTypeList"]) == ["pft", "pfv", "ppr"]
+    # runoutResType should be base name
+    assert result["runoutResType"] == "ppr"
+    assert result["runoutLayer"] == "L1"
 
 
 def test_checkAIMECinputs_multiLayer_noRunoutLayer_errors():
     """Multi-layer data without runoutLayer: must error out"""
     cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="")
-    # resTypeList has layer-suffixed names but no base 'ppr' — multi-layer data
     pathDict = {"resTypeList": ["ppr_l1", "ppr_l2", "pft_l1", "pft_l2", "pfv_l1", "pfv_l2"]}
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1"],
+        "ppr_l1": ["/path/L1_ppr.asc"],
+        "ppr_l2": ["/path/L2_ppr.asc"],
+        "pft_l1": ["/path/L1_pft.asc"],
+        "pft_l2": ["/path/L2_pft.asc"],
+        "pfv_l1": ["/path/L1_pfv.asc"],
+        "pfv_l2": ["/path/L2_pfv.asc"],
+    })
 
     with pytest.raises(FileNotFoundError, match="Multi-layer result files detected.*runoutLayer"):
-        aT.checkAIMECinputs(cfgSetup, pathDict)
+        aT.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
 
 
 def test_checkAIMECinputs_multiLayer_runoutLayer_L2():
-    """Multi-layer data with runoutLayer=L2: resolves to L2 columns"""
+    """Multi-layer data with runoutLayer=L2: base names in resTypeList"""
     cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pfv", runoutLayer="L2")
     pathDict = {"resTypeList": ["ppr_l1", "ppr_l2", "pfv_l1", "pfv_l2"]}
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1"],
+        "ppr_l1": ["/path/L1_ppr.asc"],
+        "ppr_l2": ["/path/L2_ppr.asc"],
+        "pfv_l1": ["/path/L1_pfv.asc"],
+        "pfv_l2": ["/path/L2_pfv.asc"],
+    })
 
-    result = aT.checkAIMECinputs(cfgSetup, pathDict)
+    result = aT.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
 
-    assert "ppr_l2" in result["resTypeList"]
-    assert "pfv_l2" in result["resTypeList"]
-    assert "ppr_l1" not in result["resTypeList"]
-    assert result["runoutResType"] == "ppr_l2"
+    assert sorted(result["resTypeList"]) == ["pfv", "ppr"]
+    assert result["runoutResType"] == "ppr"
+    assert result["runoutLayer"] == "L2"
+    assert result["displayRunoutResType"] == "ppr (if multilayer: L2)"
+
+
+def test_checkAIMECinputs_mixed_modules():
+    """Mixed single-layer + multi-layer: base names resolvable for all sims"""
+    cfgSetup = _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pfv", runoutLayer="L2")
+    pathDict = {"resTypeList": []}  # empty from makeSimFromResDF in mixed case
+    inputsDF = pd.DataFrame({
+        "simName": ["sim_com1", "sim_com8"],
+        "ppr": ["/path/com1_ppr.asc", np.nan],
+        "pfv": ["/path/com1_pfv.asc", np.nan],
+        "ppr_l1": [np.nan, "/path/L1_ppr.asc"],
+        "ppr_l2": [np.nan, "/path/L2_ppr.asc"],
+        "pfv_l1": [np.nan, "/path/L1_pfv.asc"],
+        "pfv_l2": [np.nan, "/path/L2_pfv.asc"],
+    })
+
+    result = aT.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
+
+    assert sorted(result["resTypeList"]) == ["pfv", "ppr"]
+    assert result["runoutResType"] == "ppr"
+    assert result["runoutLayer"] == "L2"
+
+
+# --- resolveResTypeColumn tests ---
+
+
+def test_resolveResTypeColumn_singleLayer():
+    """Single-layer sim: returns base column name"""
+    row = pd.Series({"ppr": "/path/to/ppr.asc", "pfv": "/path/to/pfv.asc"})
+    assert aT.resolveResTypeColumn(row, "ppr") == "ppr"
+    assert aT.resolveResTypeColumn(row, "pfv") == "pfv"
+
+
+def test_resolveResTypeColumn_multiLayer_withLayer():
+    """Multi-layer sim with layer set: returns layer-suffixed column"""
+    row = pd.Series({"ppr_l1": "/path/to/L1_ppr.asc", "ppr_l2": "/path/to/L2_ppr.asc"})
+    assert aT.resolveResTypeColumn(row, "ppr", layer="L2") == "ppr_l2"
+    assert aT.resolveResTypeColumn(row, "ppr", layer="L1") == "ppr_l1"
+
+
+def test_resolveResTypeColumn_singleLayer_withLayer_fallback():
+    """Single-layer sim with layer set but no layer columns: falls back to base"""
+    row = pd.Series({"ppr": "/path/to/ppr.asc", "pfv": "/path/to/pfv.asc"})
+    assert aT.resolveResTypeColumn(row, "ppr", layer="L2") == "ppr"
+
+
+def test_resolveResTypeColumn_missing_returns_none():
+    """No matching column at all: returns None"""
+    row = pd.Series({"pfv": "/path/to/pfv.asc"})
+    assert aT.resolveResTypeColumn(row, "ppr", layer="L2") is None
+
+
+def test_resolveResTypeColumn_nan_skipped():
+    """Column exists but is NaN: treated as missing"""
+    row = pd.Series({"ppr": np.nan, "ppr_l2": "/path/to/L2_ppr.asc"})
+    assert aT.resolveResTypeColumn(row, "ppr", layer="L2") == "ppr_l2"
+    # base column is NaN, no layer set — returns None
+    row2 = pd.Series({"ppr": np.nan})
+    assert aT.resolveResTypeColumn(row2, "ppr") is None
+
+
+# --- computeBaseResTypeList tests ---
+
+
+def test_computeBaseResTypeList_singleLayerOnly():
+    """All sims are single-layer: returns base resType names"""
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1", "sim2"],
+        "simHash": ["abc", "def"],
+        "layers": [np.nan, np.nan],
+        "cellSize": [5, 5],
+        "ppr": ["/path/sim1_ppr.asc", "/path/sim2_ppr.asc"],
+        "pfv": ["/path/sim1_pfv.asc", "/path/sim2_pfv.asc"],
+        "pft": ["/path/sim1_pft.asc", "/path/sim2_pft.asc"],
+    })
+    result = aT.computeBaseResTypeList(inputsDF, runoutLayer="")
+    assert sorted(result) == ["pft", "pfv", "ppr"]
+
+
+def test_computeBaseResTypeList_multiLayerOnly():
+    """All sims are multi-layer: returns base names resolvable via runoutLayer"""
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1"],
+        "simHash": ["abc"],
+        "layers": ["L1|L2"],
+        "cellSize": [5],
+        "ppr_l1": ["/path/L1_ppr.asc"],
+        "ppr_l2": ["/path/L2_ppr.asc"],
+        "pfv_l1": ["/path/L1_pfv.asc"],
+        "pfv_l2": ["/path/L2_pfv.asc"],
+    })
+    result = aT.computeBaseResTypeList(inputsDF, runoutLayer="L2")
+    assert sorted(result) == ["pfv", "ppr"]
+
+
+def test_computeBaseResTypeList_mixed():
+    """Mixed single-layer and multi-layer: returns only base names resolvable for ALL sims"""
+    inputsDF = pd.DataFrame({
+        "simName": ["sim_com1", "sim_com8"],
+        "simHash": ["abc", "def"],
+        "layers": [np.nan, "L1|L2"],
+        "cellSize": [5, 5],
+        "ppr": ["/path/com1_ppr.asc", np.nan],
+        "pfv": ["/path/com1_pfv.asc", np.nan],
+        "pft": ["/path/com1_pft.asc", np.nan],
+        "ppr_l1": [np.nan, "/path/L1_ppr.asc"],
+        "ppr_l2": [np.nan, "/path/L2_ppr.asc"],
+        "pfv_l1": [np.nan, "/path/L1_pfv.asc"],
+        "pfv_l2": [np.nan, "/path/L2_pfv.asc"],
+        "pfd_l1": [np.nan, "/path/L1_pfd.asc"],
+        "pfd_l2": [np.nan, "/path/L2_pfd.asc"],
+    })
+    result = aT.computeBaseResTypeList(inputsDF, runoutLayer="L2")
+    # ppr and pfv are resolvable for both sims; pft and pfd are not
+    assert sorted(result) == ["pfv", "ppr"]
+
+
+def test_computeBaseResTypeList_mixed_noLayer_errors():
+    """Mixed modules without runoutLayer: multi-layer sims can't resolve base names"""
+    inputsDF = pd.DataFrame({
+        "simName": ["sim_com1", "sim_com8"],
+        "simHash": ["abc", "def"],
+        "layers": [np.nan, "L1|L2"],
+        "cellSize": [5, 5],
+        "ppr": ["/path/com1_ppr.asc", np.nan],
+        "ppr_l1": [np.nan, "/path/L1_ppr.asc"],
+        "ppr_l2": [np.nan, "/path/L2_ppr.asc"],
+    })
+    # Without runoutLayer, multi-layer sim can't resolve 'ppr' (base column is NaN)
+    result = aT.computeBaseResTypeList(inputsDF, runoutLayer="")
+    assert result == []
