@@ -24,6 +24,15 @@ log = logging.getLogger(__name__)
 
 
 def com8MoTPSAMain(cfgMain, cfgInfo=None):
+    """Run the full MoT-PSA workflow: generate configs, run simulations in parallel, postprocess.
+
+    Parameters
+    ----------
+    cfgMain : configparser.ConfigParser
+        main AvaFrame configuration (avalancheDir, nCPU, plot flags)
+    cfgInfo : dict or None, optional
+        override configuration info passed to MoTGenerateConfigs
+    """
     # Get all necessary information from the configuration files
     currentModule = sys.modules[__name__]
     simDict, inputSimFiles = mT.MoTGenerateConfigs(cfgMain, cfgInfo, currentModule)
@@ -62,7 +71,65 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None):
     com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles)
 
 
+def copyRawToLayerPeakFiles(workDir, simType, outputDirPeakFile):
+    """Rename and copy raw MoT-PSA output files to peakFiles with L1/L2 layer naming.
+
+    MoT-PSA produces raw suffixes (p1/p2_max, h1/h2_max, s1/s2_max) that map
+    to AvaFrame result types (ppr, pfd, pfv). The digit in the raw suffix encodes
+    the layer: 1 -> L1 (dense flow), 2 -> L2 (powder snow).
+
+    Example: simKey_null_psa_p1_max.asc -> simKey_null_psa_L1_ppr.asc
+
+    Parameters
+    ----------
+    workDir : pathlib.Path
+        simulation work directory containing raw MoT-PSA output files
+    simType : str
+        simulation type (e.g. "null", "ent") used in the rename pattern
+    outputDirPeakFile : pathlib.Path
+        target directory for renamed peak files
+    """
+    # Each entry: (glob pattern, raw L1 suffix, raw L2 suffix, AvaFrame resType)
+    layerRenameMap = [
+        ("*p?_max*", "p1_max", "p2_max", "ppr"),
+        ("*h?_max*", "h1_max", "h2_max", "pfd"),
+        ("*s?_max*", "s1_max", "s2_max", "pfv"),
+    ]
+    for globPattern, rawL1, rawL2, resType in layerRenameMap:
+        rawFiles = list(workDir.glob(globPattern))
+        # Replace raw L1 suffix with L1 layer + resType (e.g. null_psa_p1_max -> null_psa_L1_ppr)
+        targetFiles = [
+            pathlib.Path(str(f.name).replace(
+                "%s_psa_%s" % (simType, rawL1), "%s_psa_L1_%s" % (simType, resType)))
+            for f in rawFiles
+        ]
+        # Replace raw L2 suffix with L2 layer + resType (e.g. null_psa_p2_max -> null_psa_L2_ppr)
+        targetFiles = [
+            pathlib.Path(str(f).replace(
+                "%s_psa_%s" % (simType, rawL2), "%s_psa_L2_%s" % (simType, resType)))
+            for f in targetFiles
+        ]
+        # Prepend output directory and copy
+        targetFiles = [outputDirPeakFile / f for f in targetFiles]
+        for source, target in zip(rawFiles, targetFiles):
+            shutil.copy2(source, target)
+
+
 def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
+    """Postprocess MoT-PSA results: rename outputs to L1/L2 peak files, generate plots and reports.
+
+    For each simulation, copies DataTime.txt and renames raw MoT-PSA output files
+    (p1/p2_max, h1/h2_max, s1/s2_max) to AvaFrame layer naming (L1/L2 + ppr/pfd/pfv).
+
+    Parameters
+    ----------
+    simDict : dict
+        simulation dictionary keyed by simKey, each value contains "simType"
+    cfgMain : configparser.ConfigParser
+        main AvaFrame configuration (avalancheDir, plot flags)
+    inputSimFiles : dict
+        input file paths, must contain "demFile"
+    """
     avalancheDir = cfgMain["MAIN"]["avalancheDir"]
     # Copy max files to output directory
 
@@ -80,48 +147,7 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
         dataTimeFile = workDir / "DataTime.txt"
         shutil.copy2(dataTimeFile, outputDir / (str(key) + "_DataTime.txt"))
 
-        # TODO: functionize it
-        # Copy ppr files
-        pprFiles = list(workDir.glob("*p?_max*"))
-        targetFiles = [
-            pathlib.Path(str(f.name).replace("%s_psa_p1_max" % simType, "%s_dfa_ppr" % simType))
-            for f in pprFiles
-        ]
-        targetFiles = [
-            pathlib.Path(str(f).replace("%s_psa_p2_max" % simType, "%s_psa_ppr" % simType))
-            for f in targetFiles
-        ]
-        targetFiles = [outputDirPeakFile / f for f in targetFiles]
-        for source, target in zip(pprFiles, targetFiles):
-            shutil.copy2(source, target)
-
-        # Copy pfd files
-        pfdFiles = list(workDir.glob("*h?_max*"))
-        targetFiles = [
-            pathlib.Path(str(f.name).replace("%s_psa_h1_max" % simType, "%s_dfa_pfd" % simType))
-            for f in pfdFiles
-        ]
-        targetFiles = [
-            pathlib.Path(str(f).replace("%s_psa_h2_max" % simType, "%s_psa_pfd" % simType))
-            for f in targetFiles
-        ]
-        targetFiles = [outputDirPeakFile / f for f in targetFiles]
-        for source, target in zip(pfdFiles, targetFiles):
-            shutil.copy2(source, target)
-
-        # Copy pfv files
-        pfvFiles = list(workDir.glob("*s?_max*"))
-        targetFiles = [
-            pathlib.Path(str(f.name).replace("%s_psa_s1_max" % simType, "%s_dfa_pfv" % simType))
-            for f in pfvFiles
-        ]
-        targetFiles = [
-            pathlib.Path(str(f).replace("%s_psa_s2_max" % simType, "%s_psa_pfv" % simType))
-            for f in targetFiles
-        ]
-        targetFiles = [outputDirPeakFile / f for f in targetFiles]
-        for source, target in zip(pfvFiles, targetFiles):
-            shutil.copy2(source, target)
+        copyRawToLayerPeakFiles(workDir, simType, outputDirPeakFile)
 
     # create plots and report
     modName = __name__.split(".")[-1]
@@ -134,6 +160,18 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
 
 
 def com8MoTPSATask(rcfFile):
+    """Run a single MoT-PSA simulation by invoking the MoT-PSA executable with an rcf file.
+
+    Parameters
+    ----------
+    rcfFile : str or pathlib.Path
+        path to the .rcf configuration file for this simulation
+
+    Returns
+    -------
+    list
+        the command that was executed (["./MoT-PSA", rcfFile])
+    """
     # TODO: Obvious...
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     command = ["./MoT-PSA", rcfFile]
@@ -144,6 +182,26 @@ def com8MoTPSATask(rcfFile):
 
 
 def com8MoTPSAPreprocess(simDict, inputSimFiles, cfgMain):
+    """Prepare all MoT-PSA simulations: derive input rasters, set config paths, write rcf files.
+
+    For each simulation in simDict, processes release/entrainment/bed shear/deposition
+    input data, configures MoT-PSA file paths and parameters, and writes the .rcf
+    configuration file needed by the MoT-PSA executable.
+
+    Parameters
+    ----------
+    simDict : dict
+        simulation dictionary keyed by simKey, each value contains "cfgSim" and "simType"
+    inputSimFiles : dict
+        input file paths (DEM, release scenarios, etc.)
+    cfgMain : configparser.ConfigParser
+        main AvaFrame configuration (avalancheDir)
+
+    Returns
+    -------
+    list of pathlib.Path
+        paths to the generated .rcf files, one per simulation
+    """
     # Load avalanche directory from general configuration file
     avalancheDir = cfgMain["MAIN"]["avalancheDir"]
     # set inputsDir where original input data and remeshed rasters are stored
