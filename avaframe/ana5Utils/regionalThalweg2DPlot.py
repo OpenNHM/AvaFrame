@@ -192,7 +192,7 @@ def plotThalwegAltitude(pathDict, dataThalweg):
     dataThalweg["startOfRunoutAreaAngle"] = False
 
     velocityThalweg = tools.zDelta2velocity(dataThalweg["zDelta"])
-    pftCrossMax = dataThalweg["flux"] * 100
+    pftCrossMax = dataThalweg["flux"] * 10
     # pftCrossMax = np.ones_like(velocityThalweg) * 10
 
     cfg = cfgUtils.getModuleConfig(ana3AIMEC)

@@ -676,6 +676,13 @@ def makeThalwegPlot(ax, dataThalweg, centerOf=""):
     exp = dataThalweg["exponent"]
     zDeltaMax = dataThalweg["zDeltaMax"]
 
+    dataStartAverageThalweg = dataThalweg["startAverageData"]
+    dataEndAverageThalweg = dataThalweg["endAverageData"]
+
+    sAverage = np.append(dataStartAverageThalweg["s"], dataEndAverageThalweg["s"]) + s[dataThalweg["indexStartAverageData"]]
+    zAverage = np.append(dataStartAverageThalweg["z"], dataEndAverageThalweg["z"])
+
+
     s_max = s[zdelta == max(zdelta)]
     z_max = z[zdelta == max(zdelta)]
     zdelta_max = zdelta[zdelta == max(zdelta)]
@@ -691,7 +698,7 @@ def makeThalwegPlot(ax, dataThalweg, centerOf=""):
 
     ax.plot(s, z, c="gray", linestyle="-", label=f"""$z_{{{centerOf}}}$""")
     ax.plot(s, [d + z for d, z in zip(z, zdelta)], "r", label=f"""$z^{{vel}}_{{{centerOf}}}$""")
-
+    ax.scatter(sAverage, zAverage, c="r", s=10, zorder=10)
     ax.vlines(
         s_max[0],
         z_max[0],
