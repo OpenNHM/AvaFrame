@@ -16,6 +16,7 @@ from matplotlib.patches import Patch
 import avaframe.in2Trans.rasterUtils as rasterUtils
 import avaframe.in1Data.getInput as gI
 import avaframe.out3Plot.plotUtils as pU
+import avaframe.in3Utils.geoTrans as gT
 
 # create local logger
 log = logging.getLogger(__name__)
@@ -637,7 +638,7 @@ def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, averageThalwe
     return fig, ax
 
 
-def makeThalwegPlot(ax, dataThalweg, centerOf=""):
+def makeThalwegPlot(ax, dataThalweg, pathDict, centerOf=""):
     """make a 2D thalweg plot for FlowPy output
 
     Parameters
@@ -652,6 +653,8 @@ def makeThalwegPlot(ax, dataThalweg, centerOf=""):
         alpha (float or int): input parameter of the simulation: alpha angle
         exp (float or int): input parameter of the simulation: exponent
         zDeltaMax (float or int): input parameter of the simulation: zDelta Maximum threshold
+    pathDict: dict
+        contains paths
     centerOf: str
         which center of is used (possible: '' (default),'CoE', 'CoZd', 'CoF')
 
@@ -660,7 +663,44 @@ def makeThalwegPlot(ax, dataThalweg, centerOf=""):
     ax: matplotlib axis
         Axis containg the thalweg plot
     """
+    demDict = gI.readDEM(pathDict["avalancheDir"])
+    # TODO: Check if flipping DEM is needed!(gI.readDem flips the raster.)
+    dem = np.flipud(demDict["rasterData"])
+    header = demDict["header"]
+    cellSize = header["cellsize"]
 
+    file = getRasterFile(pathDict["pathToOutput"], variable="zdelta")
+    rasterDict = rasterUtils.readRaster(file, flip=False)
+    zDeltaRaster = rasterDict["rasterData"]
+    zDeltaRaster = np.where(zDeltaRaster > 0, zDeltaRaster, 0)
+
+    x = np.array(dataThalweg["x"])
+    y = np.array(dataThalweg["y"])
+
+    # get s, z and zDelta along thalweg (read from raster)
+    z, _ = gT.projectOnGrid(
+            x,
+            y,
+            dem,
+            csz=header["cellsize"],
+            xllc=header["xllcenter"],
+            yllc=header["yllcenter"],
+        )
+
+    zdelta, _ = gT.projectOnGrid(
+        x,
+        y,
+        zDeltaRaster,
+        csz=header["cellsize"],
+        xllc=header["xllcenter"],
+        yllc=header["yllcenter"],
+    )
+
+    ds = np.sqrt((x[1:] - x[:-1]) ** 2 + (y[1:] - y[:-1]) ** 2)
+    s = np.append(np.array([0]), np.cumsum(ds))
+
+    # use centered values for s, zDelta and z
+    '''
     try:
         s = np.array(dataThalweg[f"travelLength"])
     except:
@@ -670,6 +710,7 @@ def makeThalwegPlot(ax, dataThalweg, centerOf=""):
     except:
         z = np.array(dataThalweg[f"z"])
     zdelta = np.array(dataThalweg[f"zDelta"])
+    '''
 
     # get FlowPy input parameter
     alpha = dataThalweg["alpha"]
@@ -696,9 +737,9 @@ def makeThalwegPlot(ax, dataThalweg, centerOf=""):
 
     ax.hlines(max(z) - dh, ds * 0.85, ds, colors="k", linestyles="dotted", linewidths=0.7)
 
-    ax.plot(s, z, c="gray", linestyle="-", label=f"""$z_{{{centerOf}}}$""")
-    ax.plot(s, [d + z for d, z in zip(z, zdelta)], "r", label=f"""$z^{{vel}}_{{{centerOf}}}$""")
-    ax.scatter(sAverage, zAverage, c="r", s=10, zorder=10)
+    ax.plot(s, z, c="gray", linestyle="-", label="z")
+    ax.plot(s, [d + z for d, z in zip(z, zdelta)], "r", label="$z^{vel}$")
+
     ax.vlines(
         s_max[0],
         z_max[0],
@@ -741,8 +782,8 @@ def makeThalwegPlot(ax, dataThalweg, centerOf=""):
     # ax.text(s_max[0] + 1, z_max[0] + zdelta_max[0]/2, '$v_{max}$ = ' + str(np.round(np.sqrt(zdelta_max[0] * 2 * 9.81),1)) + ' m/s', va = 'center')
     # ax.text((max(s)/5*4), min(z) + (max(z) - min(z)) / 22, fr'{angle_degrees:.1f}°', fontsize=11, ha='center')
     # ax.text((ds*0.88), (max(z)-dh) * 1.05, fr'{alpha:.1f}°', fontsize=11, ha='center')
-    ax.set(xlabel=f"""$s_{{{centerOf}}}$ in [m]""")
-    ax.set(ylabel="elevation in [m]")
+    ax.set(xlabel="$s_{xy}$ [m]")
+    ax.set(ylabel="elevation [m]")
     ax.legend()
 
     ax.text(

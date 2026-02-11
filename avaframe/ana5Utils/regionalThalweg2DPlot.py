@@ -171,7 +171,7 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
     fig.set_figwidth(8)
 
     fig, axs[0] = tools.makeFieldPlot(axs[0], fig, pathDict, variable, x, y, averageThalweg,  thalwegPra=thalwegPra)
-    axs[1] = tools.makeThalwegPlot(axs[1], dataThalweg, centerOf=centerOf)
+    axs[1] = tools.makeThalwegPlot(axs[1], dataThalweg, pathDict, centerOf=centerOf)
 
     if size != "":
         axs[0].set_title(f"Avalanche size: {size}")
