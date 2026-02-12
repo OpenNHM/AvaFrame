@@ -12,8 +12,10 @@ from matplotlib.colors import LightSource
 from matplotlib.colors import BoundaryNorm
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
+import matplotlib.patheffects as pe
 
 import avaframe.in2Trans.rasterUtils as rasterUtils
+import avaframe.out3Plot.outCom1DFA as outCom1DFA
 import avaframe.in1Data.getInput as gI
 import avaframe.out3Plot.plotUtils as pU
 import avaframe.in3Utils.geoTrans as gT
@@ -901,3 +903,55 @@ def plotThalweg_wetAndDry(path, resName, startRow, startCol, size=None, centerOf
     axs.set_title(f"size: {size}")
     if savePath is not None:
         fig.savefig(f"{savePath}/Thalweg{centerOf}_wetAndDry_{startRow}_{startCol}.png")
+
+
+def DFAThalwegPlot(ax1, avaProfileMass, pathDict, rasterVariable):
+    """
+
+    """
+
+    file = getRasterFile(pathDict["pathToOutput"], variable=rasterVariable)
+    rasterDict = rasterUtils.readRaster(file)
+    raster = rasterDict["rasterData"]
+    raster = np.where(raster > 0, raster, 0)
+
+    dem = gI.readDEM(pathDict["avalancheDir"])
+    # TODO: Check if flipping DEM is needed!(gI.readDem flips the raster.)
+    #dem = np.flipud(demDict["rasterData"])
+    #header = demDict["header"]
+
+    # compute simulation run out angle
+    indStart = avaProfileMass['indStartMassAverage']
+    indEnd = avaProfileMass['indEndMassAverage']
+    s0 = avaProfileMass['s'][indStart]
+    avaProfileMass['s'] = avaProfileMass['s'] - s0
+    z0 = avaProfileMass['z'][indStart]
+    # get parabola
+    # get angles of profiles
+
+    # Create figures and plots
+
+    # make the top-down view plot
+    rowsMin, rowsMax, colsMin, colsMax = pU.constrainPlotsToData(raster, 5, extentOption=True,
+                                                                 constrainedData=False, buffer='')
+    ax1, extent, cbar0, cs1 = outCom1DFA.addResult2Plot(ax1, dem['header'], raster, 'pta')
+    cbar0.ax.set_ylabel('peak travel angle')
+    # add DEM hillshade with contour lines
+    ax1 = outCom1DFA.addDem2Plot(ax1, dem, what='hillshade', extent=extent)
+    # add path
+    ax1.plot(avaProfileMass['x'][:indStart + 1], avaProfileMass['y'][:indStart + 1], '-y.', zorder=20,
+             label='_top extension', lw=2, path_effects=[pe.Stroke(linewidth=3, foreground='b'), pe.Normal()])
+    ax1.plot(avaProfileMass['x'][indEnd:], avaProfileMass['y'][indEnd:], '-y.', zorder=20,
+             label='_bottom extension', lw=2, path_effects=[pe.Stroke(linewidth=3, foreground='g'), pe.Normal()])
+    ax1.plot(avaProfileMass['x'][indStart:indEnd + 1], avaProfileMass['y'][indStart:indEnd + 1], '-y.', zorder=20,
+             label='_Center of mass path', lw=2, path_effects=[pe.Stroke(linewidth=3, foreground='k'), pe.Normal()])
+
+    ax1.set_xlabel('x [m]')
+    ax1.set_ylabel('y [m]')
+    ax1.axis('equal')
+    #ax1.set_ylim([rowsMin, rowsMax])
+    #ax1.set_xlim([colsMin, colsMax])
+    ax1.set_title('Avalanche thalweg')
+    pU.putAvaNameOnPlot(ax1, pathDict["avalancheDir"])
+
+    return ax1

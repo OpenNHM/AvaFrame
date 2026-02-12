@@ -81,6 +81,7 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
         dataThalweg = tools.readThalwegData(pathToOutput / "thalwegData", pathDict["titleVariables"])
         plotThalweg2D(pathDict, cfg, dataThalweg)
         plotThalwegAltitude(pathDict, dataThalweg)
+        plotDFAGenerationLocation(pathDict, dataThalweg, rasterVariable="fpTravelAngleMax")
 
     if plotAllThalwegs or plotAllCenterOf:
         for thalwegDataFile in files:
@@ -99,6 +100,7 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
             dataThalweg = np.load(thalwegDataFile, allow_pickle="TRUE")
             plotThalweg2D(pathDict, cfg, dataThalweg)
             plotThalwegAltitude(pathDict, dataThalweg)
+            plotDFAGenerationLocation(pathDict, dataThalweg, rasterVariable="fpTravelAngleMax")
 
 
 def plotThalweg2D(pathDict, cfg, dataThalweg):
@@ -178,6 +180,19 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
 
     outFileNamePart = tools.getOutFileNamePartly(pathDict["titleVariables"])
     outFileName = f"Thalweg2D_{outFileNamePart}.png"
+    fig.savefig(savePath / outFileName)
+    log.info(f"saved plot: {(savePath / outFileName)}")
+
+
+def plotDFAGenerationLocation(pathDict, profile, rasterVariable="fpTravelAngleMax"):
+    savePath = pathDict["savePath"]
+
+    fig, ax1 = plt.subplots(figsize=(10, 8), dpi=150, constrained_layout=True)
+    avaProfile = profile["resampleProfile"]
+    ax1 = tools.DFAThalwegPlot(ax1, avaProfile, pathDict, rasterVariable)
+
+    outFileNamePart = tools.getOutFileNamePartly(pathDict["titleVariables"])
+    outFileName = f"DFA_thalwegLocation_{outFileNamePart}.png"
     fig.savefig(savePath / outFileName)
     log.info(f"saved plot: {(savePath / outFileName)}")
 
