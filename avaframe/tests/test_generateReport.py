@@ -79,7 +79,7 @@ def test_writeReport(tmp_path):
 
     # Test
     assert lineVals[0] == '# This is my report title \n'
-    assert lineVals[2] == '### Avalanche directory: *data/avaTest* \n'
+    assert lineVals[2] == '### Simulation directory: *data/avaTest* \n'
     assert lineVals[4] == '### Date: 1/01/2021 12:46:56 \n'
     assert lineVals[11] == '| ---------- | ------ | \n'
     assert lineVals[12] == '| release area | release1HS2 | \n'
@@ -107,7 +107,7 @@ def test_writeReport(tmp_path):
 #        print('lineVals2', lineVals2)
 
         assert lineVals2[0] == '# This is my report title \n'
-        assert lineVals2[2] == '### Avalanche directory: *data/avaTest* \n'
+        assert lineVals2[2] == '### Simulation directory: *data/avaTest* \n'
         assert lineVals2[4] == '### Date: 1/01/2021 12:46:56 \n'
         assert lineVals2[11] == '| ---------- | ------ | \n'
         assert lineVals2[12] == '| release area | release1HS2 | \n'

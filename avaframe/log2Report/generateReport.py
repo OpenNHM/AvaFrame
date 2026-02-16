@@ -90,9 +90,9 @@ def writeReportFile(reportD, pfile):
         if reportD[key][subKey] == 'title':
             addLineBlock('#', reportD[key], pfile, onlyFirstLine=True)
 
-        # Avalanche name
+        # Simulation directory
         if reportD[key][subKey] == 'avaName':
-            addLineBlock('### Avalanche directory:', reportD[key], pfile, italicFont=True)
+            addLineBlock('### Simulation directory:', reportD[key], pfile, italicFont=True)
 
         # Simulation name
         if reportD[key][subKey] == 'simName':

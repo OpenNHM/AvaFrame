@@ -424,7 +424,7 @@ def com1DFACore(cfg, avaDir, cuSimName, inputSimFiles, outDir, simHash=""):
     # write report dictionary
     reportDict = createReportDict(avaDir, cuSimName, relName, inputSimLines, cfg, reportAreaInfo)
     # add time and mass info to report
-    reportDict = reportAddTimeMassInfo(reportDict, tCPUDFA, infoDict)
+    reportDict = reportAddTimeMassInfo(reportDict, tCPUDFA, infoDict, cfg)
 
     if cfg["EXPORTS"].getboolean("exportData") == False:
         reportDict["contours"] = contourDictXY
@@ -543,7 +543,7 @@ def setThickness(cfg, lineTh, typeTh):
     # set thickness value info read from ini file that has been updated from shp or ini previously
     for count, id in enumerate(lineTh["id"]):
         if cfg["GENERAL"].getboolean("timeDependentRelease"):
-            lineTh["thickness"][count] = float(lineTh["thickness"][count])
+            lineTh["thickness"][count] = float(lineTh["thickness"][count].item())
 
         elif cfg["GENERAL"].getboolean(thFlag):
             thName = typeTh + id
@@ -639,7 +639,7 @@ def prepareInputData(inputSimFiles, cfg):
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
         releaseLine["type"] = "time dependent Release"
         timeDepRelValues, _ = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
-        releaseLine["thickness"] = [timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0]]
+        releaseLine["thickness"] = [timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0].item()]
         releaseLine["thicknessSource"] = ["csv file"]
         releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
         releaseLine["timeDepRelValues"] = timeDepRelValues
@@ -847,6 +847,12 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
             "Release thickness [m]": relDict["thickness"],
         },
     }
+    if cfgGen.getboolean("timeDependentRelease"):
+        reportST["Release Area"].pop("Release thickness [m]")
+        reportST["Release Area"]["Release thickness (at timestep 0 s) [m]"] = relDict["thickness"]
+        reportST["Release Area"]["Release thickness (summed over timesteps) [m]"] = np.sum(
+            relDict["timeDepRelValues"]["thickness"]
+        )
 
     # add frict parameters
     if cfgGen["frictModel"].lower() == "samosat":
@@ -984,7 +990,7 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
     return reportST
 
 
-def reportAddTimeMassInfo(reportDict, tCPUDFA, infoDict):
+def reportAddTimeMassInfo(reportDict, tCPUDFA, infoDict, cfg):
     """Add time and mass info to report"""
 
     # add mass info
@@ -996,6 +1002,16 @@ def reportAddTimeMassInfo(reportDict, tCPUDFA, infoDict):
     reportDict["Simulation Parameters"].update(
         {"Entrained volume [m3]": ("%.2f" % infoDict["entrained volume"])}
     )
+    reportDict["Simulation Parameters"].update(
+        {"Detrained mass [kg]": ("%.2f" % infoDict["detrained mass"])}
+    )
+    reportDict["Simulation Parameters"].update(
+        {"Total initialized mass [kg]": ("%.2f" % infoDict["initialized mass"])}
+    )
+    if cfg["GENERAL"].getboolean("timeDependentRelease"):
+        reportDict["Release Area"].update(
+            {"Model release volume (summed over timesteps) [m3]": ("%.2f" % infoDict["initialized volume"])}
+        )
 
     # add stop info
     reportDict["Simulation Parameters"].update(infoDict["stopInfo"])
@@ -1233,6 +1249,11 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     reportAreaInfo["Release area info"]["Model release volume [m3]"] = "%.2f" % (
         particles["mTot"] / cfgGen.getfloat("rho")
     )
+    if cfgGen.getboolean("timeDependentRelease"):
+        # rename column
+        reportAreaInfo["Release area info"]["Model release volume (at timestep 0 s) [m3]"] = reportAreaInfo[
+            "Release area info"
+        ].pop("Model release volume [m3]")
 
     # initialize Dam
     damLine = inputSimLines["damLine"]
@@ -2337,6 +2358,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         "entrained volume": (np.sum(massEntrained) / cfgGen.getfloat("rhoEnt")),
         "pfvTimeMax": pfvTimeMax,
         "massInitialized": massInitialized,
+        "initialized mass": np.sum(massInitialized),
+        "initialized volume": np.sum(massInitialized) / cfgGen.getfloat("rho"),
     }
 
     # determine if stop criterion is reached or end time
@@ -2349,7 +2372,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
             {
                 "stopInfo": {
                     "Stop criterion": "end Time reached: %.2f" % avaTime,
-                    "Avalanche run time [s]": "%.2f" % avaTime,
+                    "Process run time [s]": "%.2f" % avaTime,
                 }
             }
         )
@@ -2358,7 +2381,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
             {
                 "stopInfo": {
                     "Stop criterion": "< %.2f percent of PKE" % stopCritPer,
-                    "Avalanche run time [s]": "%.2f" % avaTime,
+                    "Process run time [s]": "%.2f" % avaTime,
                 }
             }
         )
@@ -3686,7 +3709,8 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary", ti
         releaseLine = shpConv.readLine(releaseFile, "release1", demVol)
         if releaseType == "timeDepRel":
             timeDepRelValues, _ = gI.getTimeDepRelCsv(timeDepRelFile)
-            releaseLine["thickness"] = [timeDepRelValues["thickness"][0]]
+            # for time dependent release use the release volume summed up over all timesteps
+            releaseLine["thickness"] = [np.sum(timeDepRelValues["thickness"])]
         # check if release features overlap between features
         thresholdPointInPoly = cfg["GENERAL"].getfloat("thresholdPointInPoly")
         geoTrans.prepareArea(releaseLine, demVol, thresholdPointInPoly, combine=True, checkOverlap=True)
