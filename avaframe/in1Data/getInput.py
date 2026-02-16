@@ -704,7 +704,9 @@ def fetchReleaseFile(inputSimFiles, releaseScenario, cfgSim, releaseList):
         cfgSim["INPUT"]["relThFile"] = str(
             releaseScenarioPath.parts[-2] + "/" + releaseScenarioPath.parts[-1]
         )
-    elif cfgSim["GENERAL"]["relThFromFile"] == "True" and cfgSim["GENERAL"]["timeDependentRelease"] == "False":
+    elif (
+            cfgSim["GENERAL"]["relThFromFile"] == "True" and cfgSim["GENERAL"]["timeDependentRelease"] == "False"
+    ):
         # shapefile with thickness attributes - handle thickness/id/ci95 values
         for scenario in releaseList:
             if scenario == releaseScenario:
@@ -1159,6 +1161,10 @@ def getTimeDepRelCsv(timeDepRelCsv):
     timeDepRelDF: dataframe
         contains time dependent release values: timestep, thickness, velocity
     """
+    if timeDepRelCsv is None:
+        message = "No csv file containing time dependent release values is provided"
+        log.error(message)
+        raise FileNotFoundError(message)
     timeDepRelDF = pd.read_csv(timeDepRelCsv, index_col=False)
     timeDepRelDF = timeDepRelDF.fillna(0.0)
     # delete empty spaces and write column names in low case
@@ -1167,8 +1173,8 @@ def getTimeDepRelCsv(timeDepRelCsv):
     # sort the columns according to the first column (timestep)
     timeDepRelDF = timeDepRelDF.sort_values(by="timestep")
     timeDepRelValues = {
-        "timeStep": timeDepRelDF["timestep"].to_numpy(),
-        "thickness": timeDepRelDF["thickness"].to_numpy(),
-        "velocity": timeDepRelDF["velocity"].to_numpy(),
+        "timeStep": timeDepRelDF["timestep"].to_numpy(dtype=np.float64),
+        "thickness": timeDepRelDF["thickness"].to_numpy(dtype=np.float64),
+        "velocity": timeDepRelDF["velocity"].to_numpy(dtype=np.float64),
     }
     return timeDepRelValues, timeDepRelDF

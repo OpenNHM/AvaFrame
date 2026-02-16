@@ -3278,6 +3278,13 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
             cfgSim["INPUT"]["secondaryRelThFile"] = pathToSecRel
             inputSimFiles["entResInfo"]["secondaryRelRemeshed"] = remeshedSecRel
 
+        if cfgSim["GENERAL"]["timeDependentRelease"] == "True":
+            cfgSim["INPUT"]["timeDepRelCsv"] = inputSimFiles["timeDepRelCsv"]
+            timeDepRelValues, _ = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
+            cfgSim["INPUT"]["timeDepRelTimeStep"] = str(timeDepRelValues["timeStep"])
+            cfgSim["INPUT"]["timeDepRelThickness"] = str(timeDepRelValues["thickness"])
+            cfgSim["INPUT"]["timeDepRelVelocity"] = str(timeDepRelValues["velocity"])
+
         if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
             # check if spatialVoellmy is chosen that friction fields have correct extent
             if cfgSim["GENERAL"]["frictModel"].lower() == "spatialvoellmy":

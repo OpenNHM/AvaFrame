@@ -44,6 +44,8 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
     inputSimFiles["tauCFile"] = None
+    inputSimFiles["timeDepRelCsv"] = None
+
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "secRelArea": "False",
@@ -121,6 +123,7 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
     inputSimFiles["tauCFile"] = None
+    inputSimFiles["timeDepRelCsv"] = None
     cfg["GENERAL"]["simTypeActual"] = "res"
     cfg["GENERAL"]["relThFromFile"] = "False"
     cfg["INPUT"]["relThFile"] = ""
@@ -151,6 +154,7 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
     inputSimFiles["tauCFile"] = None
+    inputSimFiles["timeDepRelCsv"] = None
     cfg["GENERAL"]["simTypeActual"] = "res"
     cfg["GENERAL"]["relThFromFile"] = "True"
     cfg["INPUT"]["relThFile"] = str(dirName / "data" / "relThFieldTestFile.asc")
@@ -188,6 +192,7 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
     inputSimFiles["tauCFile"] = None
+    inputSimFiles["timeDepRelCsv"] = None
     testField = np.zeros((10, 10))
     testFile = pathlib.Path(tmp_path, "testFile2")
 
@@ -231,6 +236,7 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
     inputSimFiles["tauCFile"] = None
+    inputSimFiles["timeDepRelCsv"] = None
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "secRelArea": "False",
@@ -279,6 +285,7 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
     inputSimFiles["tauCFile"] = None
+    inputSimFiles["timeDepRelCsv"] = None
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "secRelArea": "True",
@@ -330,6 +337,7 @@ def test_prepareInputData(tmp_path):
     inputSimFiles["xiFile"] = None
     inputSimFiles["kFile"] = None
     inputSimFiles["tauCFile"] = None
+    inputSimFiles["timeDepRelCsv"] = None
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "secRelArea": "False",
@@ -2186,6 +2194,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "damFile": None,
         "entFile": pathlib.Path(avaDir, "Inputs", "ENT", "entAlr.shp"),
         "resFile": pathlib.Path(avaDir, "Inputs", "ENT", "entAlr.shp"),
+        "timeDepRelCsv": None,
     }
     variationDict = {"rho": np.asarray([200.0, 150.0]), "releaseScenario": ["relAlr"]}
 
@@ -2277,6 +2286,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "damFile": relPath,
         "entFile": pathlib.Path(avaDir, "Inputs", "ENT", "entAlr.shp"),
         "resFile": pathlib.Path(avaDir, "Inputs", "RES", "entAlr.shp"),
+        "timeDepRelCsv": None,
     }
     variationDict = {
         "rho": np.asarray([200.0, 150.0]),
@@ -2300,6 +2310,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "damFile": relPath,
         "entFile": pathlib.Path(avaDir, "Inputs", "ENT", "entAlr.shp"),
         "resFile": pathlib.Path(avaDir, "Inputs", "ENT", "entAlr.shp"),
+        "timeDepRelCsv": None,
     }
     testCfg2 = configparser.ConfigParser()
     testCfg2.optionxform = str
@@ -2377,6 +2388,150 @@ def test_prepareVarSimDict(tmp_path, caplog):
         )
     assert ("Simulation %s already exists, not repeating it" % simName2) in caplog.text
     assert simName2 not in simDict2
+
+    # test for time dependent release
+    # setup required input
+    standardCfg = configparser.ConfigParser()
+    standardCfg.optionxform = str
+    standardCfg["GENERAL"] = {
+        "simTypeList": "null",
+        "modelType": "dfa",
+        "simTypeActual": "null",
+        "secRelArea": "False",
+        "relThFromFile": "True",
+        "entThFromFile": "True",
+        "entThPercentVariation": "",
+        "relThPercentVariation": "",
+        "entThRangeVariation": "",
+        "relThRangeVariation": "",
+        "entThDistVariation": "",
+        "relThDistVariation": "",
+        "entThRangeFromCiVariation": "",
+        "relThRangeFromCiVariation": "",
+        "meshCellSize": "5.",
+        "meshCellSizeThreshold": "0.001",
+        "sphKernelRadius": "meshCellSize",
+        "frictModel": "samosAT",
+        "musamosat": "0.155",
+        "tau0samosat": "0",
+        "Rs0samosat": "0.222",
+        "kappasamosat": "0.43",
+        "Rsamosat": "0.05",
+        "Bsamosat": "4.13",
+        "muvoellmy": "4000.",
+        "xsivoellmy": "4000.",
+        "dam": "False",
+        "rho": "200.0",
+        "explicitFriction": 0,
+        "timeDependentRelease": "True",
+    }
+    standardCfg["INPUT"] = {
+        "entThThickness": "1.",
+        "entThId": "0",
+        "entThCi95": "None",
+        "releaseScenario": "",
+        "relThFile": "",
+    }
+
+    testDir = pathlib.Path(__file__).parents[0]
+    inputDir = testDir / ".." / "data" / "avaParabolaTimeDep" / "Inputs"
+    avaDirInputs = pathlib.Path(tmp_path, "avaTestNew2", "Inputs")
+    avaDir = pathlib.Path(tmp_path, "avaTestNew2")
+    shutil.copytree(inputDir, avaDirInputs)
+    avaDEM = avaDir / "Inputs" / "DEM_PF_Topo.asc"
+
+    standardCfg["INPUT"]["DEM"] = "DEM_PF_Topo.asc"
+    standardCfg["GENERAL"]["avalancheDir"] = str(avaDir)
+    relPath = pathlib.Path(avaDir, "Inputs", "REL", "release1PF.shp")
+    inputSimFiles = {
+        "relFiles": [relPath],
+        "entResInfo": {
+            "flagEnt": "No",
+            "flagRes": "No",
+            "entThFileType": None,
+            "relThFileType": ".csv",
+            "resFileType": None,
+            "secondaryRelThFileType": None,
+        },
+        "demFile": avaDEM,
+        "damFile": None,
+        "entFile": None,
+        "resFile": None,
+        "timeDepRelCsv": pathlib.Path(avaDir, "Inputs", "REL", "release1PF.csv"),
+    }
+    variationDict = {"releaseScenario": ["release1PF"]}
+
+    # call function to be tested
+    simDict = com1DFA.prepareVarSimDict(standardCfg, inputSimFiles, variationDict)
+
+    testCfg = configparser.ConfigParser()
+    testCfg.optionxform = str
+    testCfg["GENERAL"] = {
+        "simTypeList": "null",
+        "modelType": "dfa",
+        "simTypeActual": "null",
+        "secRelArea": "False",
+        "relThFromFile": "True",
+        "entThFromFile": "True",
+        "entThPercentVariation": "",
+        "relThPercentVariation": "",
+        "rho": "200.0",
+        "entThRangeVariation": "",
+        "relThRangeVariation": "",
+        "entThDistVariation": "",
+        "relThDistVariation": "",
+        "entThRangeFromCiVariation": "",
+        "relThRangeFromCiVariation": "",
+        "meshCellSize": "5.",
+        "meshCellSizeThreshold": "0.001",
+        "sphKernelRadius": "5.",
+        "frictModel": "samosAT",
+        "musamosat": "0.155",
+        "tau0samosat": "0",
+        "Rs0samosat": "0.222",
+        "kappasamosat": "0.43",
+        "Rsamosat": "0.05",
+        "Bsamosat": "4.13",
+        "muvoellmy": "4000.",
+        "xsivoellmy": "4000.",
+        "dam": "False",
+        "explicitFriction": 0,
+        "timeDependentRelease": "True",
+    }
+
+    testCfg["INPUT"] = {
+        "releaseScenario": "release1PF",
+    }
+    testCfg["INPUT"]["DEM"] = "DEM_PF_Topo.asc"
+    testCfg["INPUT"]["relThFile"] = ""
+    testCfg["INPUT"]["timeDepRelCsv"] = str(pathlib.Path(avaDir, "Inputs", "REL", "release1PF.csv"))
+    testCfg["INPUT"]["timeDepRelTimeStep"] = str(np.array([0., 30., 60.]))
+    testCfg["INPUT"]["timeDepRelThickness"] = str(np.array([0.5, 1., 1.]))
+    testCfg["INPUT"]["timeDepRelVelocity"] = str(np.array([5., 3., 0.]))
+    testCfg["GENERAL"]["avalancheDir"] = str(avaDir)
+
+    simHash = cfgUtils.cfgHash(testCfg)
+    simName1 = "release1PF_" + simHash + "_com1_C_L_null_dfa"
+    testDict = {
+        simName1: {
+            "simHash": simHash,
+            "releaseScenario": "release1PF",
+            "simType": "null",
+            "relFile": relPath,
+            "cfgSim": testCfg,
+        }
+    }
+
+    for key in testDict[simName1]:
+        #        print(simDict)
+        #        print(simDict[simName1][key])
+        assert simDict[simName1][key] == testDict[simName1][key]
+
+    for section in testCfg.sections():
+        for key in testCfg[section]:
+            assert simDict[simName1]["cfgSim"][section][key] == testCfg[section][key]
+
+
 
 
 def test_initializeSimulation(tmp_path):
