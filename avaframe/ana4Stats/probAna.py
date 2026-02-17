@@ -462,7 +462,7 @@ def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf=
 
     # fetch all result files and filter simulations according to parametersDict
     if modName.lower() in ["com1dfa", "com5snowslide", "com6rockavalanche", "com8motpsa", "com9motvoellmy"]:
-        simNameList = cfgHandling.filterSims(avaDir, parametersDict, specDir=inputDir, simDF=simDFActual)
+        simNameList = cfgHandling.filterSims(avaDir, parametersDict, specDir=inputDir, simDF=simDFActual, modName=modName)
         filtering = True
     else:
         simNameList = []

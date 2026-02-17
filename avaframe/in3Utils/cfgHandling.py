@@ -93,7 +93,7 @@ def addInfoToSimName(avalancheDir, csvString=""):
     return simDF[vars]
 
 
-def filterSims(avalancheDir, parametersDict, specDir="", simDF=""):
+def filterSims(avalancheDir, parametersDict, specDir="", simDF="", modName='com1DFA'):
     """Filter simulations using a list of parameters and a pandas dataFrame of simulation configurations
     if ~ is used as a prefix for a parameter - it is filtered according to values that do NOT match the value
     provided with the ~Parameter
@@ -108,6 +108,8 @@ def filterSims(avalancheDir, parametersDict, specDir="", simDF=""):
         path to a directory where simulation configuration files can be found - optional
     simDF: pandas DataFrame
         optional - if simDF already available
+    modName: str
+        name of computational module used to perform simulations to be filtered
 
     Returns
     --------
@@ -118,7 +120,7 @@ def filterSims(avalancheDir, parametersDict, specDir="", simDF=""):
     if isinstance(simDF, pd.DataFrame) is False:
         # load dataFrame for all configurations
         simDF = cfgUtils.createConfigurationInfo(
-            avalancheDir, standardCfg="", writeCSV=False, specDir=specDir
+            avalancheDir, standardCfg="", writeCSV=False, specDir=specDir, comModule=modName
         )
 
     # filter simulations all conditions in the parametersDict have to be met
