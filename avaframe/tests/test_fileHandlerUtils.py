@@ -494,3 +494,38 @@ def test_makeSimFromResDF_multiLayer_simName_reconstructed(tmp_path):
     assert "L1" not in dataDF["simName"].iloc[0]
     assert "L2" not in dataDF["simName"].iloc[0]
     assert dataDF["simName"].iloc[0] == simBase
+
+
+# --- Multi-layer makeSimDF tests ---
+
+
+def test_makeSimDF_layerColumn(tmp_path):
+    """makeSimDF should include a layer column populated from parseSimName"""
+    peakDir = tmp_path / "peakFiles"
+    peakDir.mkdir()
+
+    _createTestRaster(peakDir / "release1_abc123_null_psa_L1_ppr.asc")
+    _createTestRaster(peakDir / "release1_abc123_null_psa_L2_ppr.asc")
+    _createTestRaster(peakDir / "release1_abc123_null_psa_L1_pfv.asc")
+
+    dataDF = fU.makeSimDF(str(peakDir))
+
+    assert "layer" in dataDF.columns
+    # 3 files -> 3 rows
+    assert len(dataDF) == 3
+    layers = sorted(dataDF["layer"].tolist())
+    assert layers == ["L1", "L1", "L2"]
+
+
+def test_makeSimDF_layerColumn_singleLayer(tmp_path):
+    """makeSimDF layer column should be empty string for single-layer files"""
+    peakDir = tmp_path / "peakFiles"
+    peakDir.mkdir()
+
+    _createTestRaster(peakDir / "release1_abc123_null_dfa_ppr.asc")
+    _createTestRaster(peakDir / "release1_abc123_null_dfa_pfv.asc")
+
+    dataDF = fU.makeSimDF(str(peakDir))
+
+    assert "layer" in dataDF.columns
+    assert all(v == "" for v in dataDF["layer"].tolist())
