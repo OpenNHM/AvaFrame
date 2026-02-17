@@ -77,6 +77,9 @@ also filtering is implemented. For other modules the only requirement is that si
 * *modelType*: for example **dfa** (dense flow avalanche) or **psa** (powder snow avalanche)
 * *resultType*: result variable, for example **pft**, **ppr**, **pfv**
 
+For multi-layer modules (e.g. com8MoTPSA), an additional layer component (e.g. **L1**, **L2**) is inserted
+before the resultType: ``..._modelType_layer_resultType.*``
+
 In order to run:
 
 * first go to ``AvaFrame/avaframe``

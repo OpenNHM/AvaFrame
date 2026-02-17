@@ -5,6 +5,7 @@
 # Load modules
 # importing general python modules
 import pathlib
+import re
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.cm import ScalarMappable
@@ -51,14 +52,16 @@ minVal = np.nanmin(values)
 maxVal = np.nanmax(values)
 cmapSCVals = np.linspace(0, 1, len(values))
 # create colormap and setup ticks and itemsList
-unit = pU.cfgPlotUtils['unit' + resType]
+# strip layer suffix for unit lookup (e.g. pfv_l1 -> pfv)
+baseResType = re.sub(r"_l\d+$", "", resType)
+unit = pU.cfgPlotUtils['unit' + baseResType]
 cmapSC, colorSC, ticksSC, normSC, unitSC, itemsList, displayColorBar = pU.getColors4Scatter(values, len(values),
                                                                                                 unit)
 # create figure
 fig = plt.figure(figsize=(pU.figW * 2, pU.figH * 1.5))
 ax1 = fig.add_subplot(211)
 ax2 = fig.add_subplot(212)
-testField = IOf.readRaster(dataDF['pfv'].iloc[0])
+testField = IOf.readRaster(dataDF[resType].iloc[0])
 nrowsHalf = int(testField['rasterData'].shape[0] * 0.5)
 log.info('Dimension of raster: %d, %d' % (testField['rasterData'].shape[0], testField['rasterData'].shape[1]))
 log.info('Profile plotted for row %d' % nrowsHalf)

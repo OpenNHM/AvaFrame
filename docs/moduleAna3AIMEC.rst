@@ -107,6 +107,11 @@ To run
    - D - *modelType*: can be any descriptive string of the employed model (here dfa for dense flow  avalanche) 
    - E - *result type*: is pft (peak flow thickness) and pfv (peak flow velocity)
 
+   For multi-layer modules (e.g. com8MoTPSA), an additional layer component is inserted
+   before the result type: *A_B_C_D_L_E.*, where L is the layer identifier (e.g. L1, L2).
+   When analyzing multi-layer results, set ``runoutLayer`` in the AIMEC configuration
+   to select which layer to use for the runout analysis (e.g. ``runoutLayer = L1``).
+
 Theory
 -----------
 

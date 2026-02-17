@@ -88,8 +88,11 @@ def extractMaxValues(inputDir, avaDir, varPar, restrictType='', nameScenario='',
             mean = np.nanmean(data)
             std = np.nanstd(data)
             statVals = {'max': max, 'min': min, 'mean': mean, 'std': std}
-            # add statistical measures
-            peakValues[simName].update({peakFilesDF['resType'][m]: statVals})
+            # use layer-suffixed key for multi-layer results (e.g. ppr_l1)
+            resType = peakFilesDF['resType'][m]
+            if 'layer' in peakFilesDF.columns and peakFilesDF['layer'][m]:
+                resType = "%s_%s" % (resType, peakFilesDF['layer'][m].lower())
+            peakValues[simName].update({resType: statVals})
 
             # fetch varPar value and nameScenario
             varParVal = simDF[simDF['simName'] == simName][varPar].iloc[0]

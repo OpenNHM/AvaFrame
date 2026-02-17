@@ -589,6 +589,7 @@ def makeSimDF(inputDir, avaDir="", simID="simID"):
         "cellSize": [],
         simID: [],
         "timeStep": [],
+        "layer": [],
     }
 
     # Set name of avalanche if avaDir is given
@@ -614,6 +615,7 @@ def makeSimDF(inputDir, avaDir="", simID="simID"):
         data["modelType"].append(simNameParts["modelType"])
         data["resType"].append(simNameParts["resType"] if simNameParts["resType"] else "")
         data["timeStep"].append(simNameParts["timeStep"] if simNameParts["timeStep"] else "")
+        data["layer"].append(simNameParts["layer"] if simNameParts["layer"] else "")
 
         # Reconstruct simName (without resType and timeStep)
         # Preserve _AF_ separator if present in original name
