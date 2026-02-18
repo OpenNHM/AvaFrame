@@ -309,9 +309,11 @@ def plotProbMap(avaDir, inDir, cfgFull, demPlot=False):
         # create figure and add title
         fig = plt.figure(figsize=(pU.figW*2, pU.figH))
 
+        layer = cfgFull['GENERAL'].get('layer', '')
+        peakVarLabel = '%s (%s)' % (cfgFull['GENERAL']['peakVar'], layer) if layer else cfgFull['GENERAL']['peakVar']
         fullTitle = '%s %s based on %s $>$ %s %s' % (avaName,
                                                      cfg['name'],
-                                                     cfgFull['GENERAL']['peakVar'],
+                                                     peakVarLabel,
                                                      cfgFull['GENERAL']['peakLim'],
                                                      cfgFull['GENERAL']['unit'])
         suptitle = fig.suptitle(fullTitle, fontsize=14, color='0.5')

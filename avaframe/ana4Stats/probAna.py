@@ -490,6 +490,18 @@ def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf=
 
         raise FileNotFoundError(message)
 
+    # check layer configuration for multi-layer results
+    peakVar = cfg["GENERAL"]["peakVar"]
+    layer = cfg["GENERAL"].get("layer", "")
+    hasMultiLayer = any(peakFilesDF["layer"] != "")
+    if hasMultiLayer and layer == "":
+        message = (
+            "Multi-layer results detected but no layer specified. "
+            "Set 'layer' in probAnaCfg.ini (e.g. layer = L1)"
+        )
+        log.error(message)
+        raise ValueError(message)
+
     # get header info from peak files - this should be the same for all peakFiles
     header = IOf.readRasterHeader(peakFilesDF["files"][0])
     refData = IOf.readRaster(peakFilesDF["files"][0])
@@ -505,8 +517,9 @@ def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf=
     for m in range(len(peakFilesDF["names"])):
         # only take simulations that match filter criteria from parametersDict
         if (peakFilesDF["simName"][m] in simNameList) or filtering == False:
-            # Load peak field for desired peak field parameter
-            if peakFilesDF["resType"][m] == cfg["GENERAL"]["peakVar"]:
+            # Load peak field for desired peak field parameter, filtering by layer if set
+            layerMatch = (layer == "") or (peakFilesDF["layer"][m].lower() == layer.lower())
+            if peakFilesDF["resType"][m] == peakVar and layerMatch:
                 # Load data
                 fileName = peakFilesDF["files"][m]
                 dataLim = np.zeros((nRows, nCols))
@@ -534,7 +547,7 @@ def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf=
                 )
                 contourDict[fileName.stem] = contourDictXY
 
-                log.info("File Name: %s , simulation parameter %s " % (fileName, cfg["GENERAL"]["peakVar"]))
+                log.info("File Name: %s , simulation parameter %s " % (fileName, peakVar))
 
                 # Check if peak values exceed desired threshold
                 dataLim[data > float(cfg["GENERAL"]["peakLim"])] = 1.0
@@ -543,19 +556,21 @@ def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf=
 
     # Create probability map ranging from 0-1
     probMap = probSum / count
-    unit = pU.cfgPlotUtils["unit%s" % cfg["GENERAL"]["peakVar"]]
+    unit = pU.cfgPlotUtils["unit%s" % peakVar]
     log.info(
         "probability analysis performed for peak parameter: %s and a peak value "
-        "threshold of: %s %s" % (cfg["GENERAL"]["peakVar"], cfg["GENERAL"]["peakLim"], unit)
+        "threshold of: %s %s" % (peakVar, cfg["GENERAL"]["peakLim"], unit)
     )
     log.info("%s peak fields added to analysis" % count)
 
     # Save to raster file
     avaName = avaDir.name
-    outFileName = "%s_prob_%s_%s_lim%s" % (
+    layerStr = "_%s" % layer if layer else ""
+    outFileName = "%s_prob_%s_%s%s_lim%s" % (
         avaName,
         probConf,
-        cfg["GENERAL"]["peakVar"],
+        peakVar,
+        layerStr,
         cfg["GENERAL"]["peakLim"],
     )
     outFile = outDir / outFileName
