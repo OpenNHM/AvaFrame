@@ -462,7 +462,9 @@ def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf=
 
     # fetch all result files and filter simulations according to parametersDict
     if modName.lower() in ["com1dfa", "com5snowslide", "com6rockavalanche", "com8motpsa", "com9motvoellmy"]:
-        simNameList = cfgHandling.filterSims(avaDir, parametersDict, specDir=inputDir, simDF=simDFActual, modName=modName)
+        simNameList = cfgHandling.filterSims(
+            avaDir, parametersDict, specDir=inputDir, simDF=simDFActual, modName=modName
+        )
         filtering = True
     else:
         simNameList = []
@@ -557,15 +559,15 @@ def probAnalysis(avaDir, cfg, modName, parametersDict="", inputDir="", probConf=
     # Create probability map ranging from 0-1
     probMap = probSum / count
     unit = pU.cfgPlotUtils["unit%s" % peakVar]
+    layerStr = "_%s" % layer if layer else ""
     log.info(
-        "probability analysis performed for peak parameter: %s and a peak value "
-        "threshold of: %s %s" % (peakVar, cfg["GENERAL"]["peakLim"], unit)
+        "probability analysis performed for peak parameter: %s, layer: %s and a peak value "
+        "threshold of: %s %s" % (peakVar, layer or "single-layer", cfg["GENERAL"]["peakLim"], unit)
     )
     log.info("%s peak fields added to analysis" % count)
 
     # Save to raster file
     avaName = avaDir.name
-    layerStr = "_%s" % layer if layer else ""
     outFileName = "%s_prob_%s_%s%s_lim%s" % (
         avaName,
         probConf,
