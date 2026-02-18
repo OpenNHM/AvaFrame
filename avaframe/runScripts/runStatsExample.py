@@ -92,9 +92,14 @@ inputDir = avaDir / 'Outputs' / modName / 'peakFiles'
 parametersDict = fU.getFilterDict(cfgStats, 'FILTER')
 
 # get statisical measure of simulations
-peakValues = getStats.extractMaxValues(inputDir, avaDir, cfgStats['GENERAL']['varPar'],
-                      restrictType=cfgStats['GENERAL']['restrictType'], nameScenario=cfgStats['GENERAL']['nameScenario'],
-                      parametersDict=parametersDict)
+peakValues, _ = getStats.extractMaxValues(
+    inputDir,
+    avaDir,
+    cfgStats["GENERAL"]["varPar"],
+    restrictType=cfgStats["GENERAL"]["restrictType"],
+    nameScenario=cfgStats["GENERAL"]["nameScenario"],
+    parametersDict=parametersDict,
+)
 
 # log to screen
 for key in peakValues:

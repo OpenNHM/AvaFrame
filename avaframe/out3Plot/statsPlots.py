@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import pathlib
+import re
 
 # local imports
 import avaframe.out3Plot.plotUtils as pU
@@ -26,26 +27,30 @@ import avaframe.in3Utils.geoTrans as gT
 log = logging.getLogger(__name__)
 
 
-def plotValuesScatter(peakValues, resType1, resType2, cfg, avalancheDir, statsMeasure='max', flagShow=False):
-    """ Produce scatter plot of statistical measures (eg. max values) (resType1 und resType2),
-        for one set of simulations or multiple
+def plotValuesScatter(
+    peakValues, resType1, resType2, cfg, avalancheDir, statsMeasure="max", flagShow=False, layer=""
+):
+    """Produce scatter plot of statistical measures (eg. max values) (resType1 und resType2),
+    for one set of simulations or multiple
 
-        Parameters
-        -----------
-        peakDictList: dict
-            peakValues dictionary that contain max values of peak parameters and parameter variation info
-        resType1: str
-            result parameter 1, 'ppr', 'pft', 'pfv'
-        resType2: str
-            result parameter 1, 'ppr', 'pft', 'pfv'
-        cfg: dict
-            configuration, for now contains output location and varPar: parameter that is varied
-            to perfom a set of simulations
-        statsMeasure: str
-            statistical measure for plotting, options: max, mean, min, std
-        flagShow: bool
-            if True show plot
-        """
+    Parameters
+    -----------
+    peakDictList: dict
+        peakValues dictionary that contain max values of peak parameters and parameter variation info
+    resType1: str
+        result parameter 1, 'ppr', 'pft', 'pfv'
+    resType2: str
+        result parameter 1, 'ppr', 'pft', 'pfv'
+    cfg: dict
+        configuration, for now contains output location and varPar: parameter that is varied
+        to perfom a set of simulations
+    statsMeasure: str
+        statistical measure for plotting, options: max, mean, min, std
+    flagShow: bool
+        if True show plot
+    layer: str
+        layer info for multilayer results
+    """
 
     varPar = cfg['varPar']
     # extract values from dictionaries
@@ -60,10 +65,17 @@ def plotValuesScatter(peakValues, resType1, resType2, cfg, avalancheDir, statsMe
     log.info('Number of simulations is: %d' % (len(varVal)))
 
     # Get name and units for resTypes and parameter variation to annotate plots
-    name1 = pU.cfgPlotUtils['name%s' % resType1]
-    name2 = pU.cfgPlotUtils['name%s' % resType2]
-    unit1 = pU.cfgPlotUtils['unit%s' % resType1]
-    unit2 = pU.cfgPlotUtils['unit%s' % resType2]
+    baseResType1 = re.sub(r"_l\d+$", "", resType1)
+    baseResType2 = re.sub(r"_l\d+$", "", resType2)
+    # if multilayer add layer info to label names
+    if layer != "":
+        suffix = " (%s)" % layer
+    else:
+        suffix = ""
+    name1 = pU.cfgPlotUtils["name%s" % baseResType1] + suffix
+    name2 = pU.cfgPlotUtils["name%s" % baseResType2] + suffix
+    unit1 = pU.cfgPlotUtils["unit%s" % baseResType1]
+    unit2 = pU.cfgPlotUtils["unit%s" % baseResType2]
     nameVar = cfg['varParName']
     unitVar = cfg['varParUnit']
 
@@ -95,25 +107,36 @@ def plotValuesScatter(peakValues, resType1, resType2, cfg, avalancheDir, statsMe
     plotPath = pU.saveAndOrPlot({'pathResult': outDir}, plotName, fig)
 
 
-def plotValuesScatterHist(peakValues, resType1, resType2, cfg, avalancheDir,
-                          statsMeasure='max', flagShow=False, flagHue=False):
-    """ Produce scatter and marginal kde plot of max values, for one set of simulations or multiple
+def plotValuesScatterHist(
+    peakValues,
+    resType1,
+    resType2,
+    cfg,
+    avalancheDir,
+    statsMeasure="max",
+    flagShow=False,
+    flagHue=False,
+    layer="",
+):
+    """Produce scatter and marginal kde plot of max values, for one set of simulations or multiple
 
-        Parameters
-        -----------
-        peakValues: dict
-            peakValues dictionary that contain max values of peak parameters and parameter variation info
-        resType1: str
-            result parameter 1, 'ppr', 'pft', 'pfv'
-        resType2: str
-            result parameter 1, 'ppr', 'pft', 'pfv'
-        cfg: dict
-            configuration, for now contains output location and varPar: parameter that is varied
-            to perfom a set of simulations
-        statsMeasure: str
-            statistical measure for plotting, options: max, mean, min, std
-        flagShow: bool
-            if True show plot
+    Parameters
+    -----------
+    peakValues: dict
+        peakValues dictionary that contain max values of peak parameters and parameter variation info
+    resType1: str
+        result parameter 1, 'ppr', 'pft', 'pfv'
+    resType2: str
+        result parameter 1, 'ppr', 'pft', 'pfv'
+    cfg: dict
+        configuration, for now contains output location and varPar: parameter that is varied
+        to perfom a set of simulations
+    statsMeasure: str
+        statistical measure for plotting, options: max, mean, min, std
+    flagShow: bool
+        if True show plot
+    layer: str
+        layer info for multilayer results
 
     """
 
@@ -123,7 +146,7 @@ def plotValuesScatterHist(peakValues, resType1, resType2, cfg, avalancheDir,
     values1 = []
     values2 = []
     scenario = []
-
+    # if multilayer add layer info to label names
     for key in peakValues:
         values1.append(peakValues[key][resType1][statsMeasure])
         values2.append(peakValues[key][resType2][statsMeasure])
@@ -134,10 +157,16 @@ def plotValuesScatterHist(peakValues, resType1, resType2, cfg, avalancheDir,
     log.info('Number of simulations is: %d' % (len(varVal)))
 
     # Get name and units for resTypes and parameter variation to annotate plots
-    name1 = pU.cfgPlotUtils['name%s' % resType1]
-    name2 = pU.cfgPlotUtils['name%s' % resType2]
-    unit1 = pU.cfgPlotUtils['unit%s' % resType1]
-    unit2 = pU.cfgPlotUtils['unit%s' % resType2]
+    baseResType1 = re.sub(r"_l\d+$", "", resType1)
+    baseResType2 = re.sub(r"_l\d+$", "", resType2)
+    if layer != "":
+        suffix = " (%s)" % layer
+    else:
+        suffix = ""
+    name1 = pU.cfgPlotUtils["name%s" % baseResType1] + suffix
+    name2 = pU.cfgPlotUtils["name%s" % baseResType2] + suffix
+    unit1 = pU.cfgPlotUtils["unit%s" % baseResType1]
+    unit2 = pU.cfgPlotUtils["unit%s" % baseResType2]
     nameVar = cfg['varParName']
     unitVar = cfg['varParUnit']
     varValV = np.array(varVal)
