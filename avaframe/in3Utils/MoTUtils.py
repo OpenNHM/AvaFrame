@@ -7,8 +7,6 @@ import shutil
 
 import numpy as np
 
-from avaframe.com1DFA import com1DFA as com1DFA
-from avaframe.com1DFA import com1DFATools as com1DFATools
 from avaframe.in2Trans import rasterUtils as rU
 
 log = logging.getLogger(__name__)
@@ -123,45 +121,6 @@ def runAndCheckMoT(command):
                 continue
             else:
                 log.info(line)
-
-
-def MoTGenerateConfigs(cfgMain, cfgInfo, currentModule):
-    """
-    Creates configuration objects for com8MoTPSA and com9MoTVoellmy.
-
-    Parameters
-    ------------
-    cfgMain: configparser object
-        main configuration of AvaFrame
-    cfgInfo: str or pathlib Path or configparser object
-        path to configuration file if overwrite is desired - optional
-        if not local (if available) or default configuration will be loaded
-        if cfgInfo is a configparser object take this as initial config
-    currentModule: module object
-        is being passed to cfgUtils.writeCfgFile to create the correct the cfg
-
-
-    Returns
-    --------
-    simDict: dict
-        dictionary with one key per simulation to perform including its config object
-    inputSimFiles: dict
-        dictionary with input files info
-    """
-
-    # Route based on cfgInfo type: directory Path = batch mode, otherwise single config mode
-    if isinstance(cfgInfo, pathlib.Path) and cfgInfo.is_dir():
-        # Batch mode - cfgInfo is directory path (from getModuleConfig with batchCfgDir)
-        simDict, inputSimFiles, simDFExisting, outDir = com1DFATools.createSimDictFromCfgs(
-            cfgMain, cfgInfo, module=currentModule
-        )
-    else:
-        # Single config mode - cfgInfo is ConfigParser, file path string, or empty string
-        simDict, outDir, inputSimFiles, simDFExisting = com1DFA.com1DFAPreprocess(
-            cfgMain, cfgInfo, module=currentModule
-        )
-
-    return simDict, inputSimFiles
 
 
 def copyMoTFiles(workDir, outputDir, searchString, replaceString):

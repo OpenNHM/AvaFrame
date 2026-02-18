@@ -54,7 +54,7 @@ def com9MoTVoellmyMain(cfgMain, cfgInfo=None):
 
     # Get all necessary information from the configuration files
     currentModule = sys.modules[__name__]  # As if you would to import com9MoTVoellmy
-    simDict, inputSimFiles = mT.MoTGenerateConfigs(cfgMain, cfgInfo, currentModule)
+    simDict, _, inputSimFiles, _ = com1DFA.com1DFAPreprocess(cfgMain, cfgInfo, module=currentModule)
 
     # convert DEM from nan to 0 values
     # TODO: suggest MoT-PSA to handle nan values
