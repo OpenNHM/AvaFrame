@@ -3554,17 +3554,40 @@ def test_com1DFAMainWithPathCfgInfo(tmp_path, caplog):
     # Pass pathlib.Path directly as cfgInfo
     cfgInfoPath = pathlib.Path(cfgDir)
 
-    with patch("avaframe.com1DFA.com1DFA.com1DFATools.createSimDictFromCfgs") as mockCreateSimDict:
+    with patch("avaframe.com1DFA.com1DFA.com1DFAPreprocess") as mockPreprocess:
 
-        mockCreateSimDict.return_value = ({}, {}, None, tmp_path / "out")
+        mockPreprocess.return_value = ({}, tmp_path / "out", {}, None)
 
-        # Call with directory Path - should route to createSimDictFromCfgs
+        # Call with directory Path - should route through com1DFAPreprocess
         try:
             com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgInfoPath)
         except Exception:
             pass  # We expect it to fail due to missing simulations, but that's OK
 
-        # createSimDictFromCfgs should be called with the Path
-        mockCreateSimDict.assert_called_once()
-        callArgs = mockCreateSimDict.call_args
+        # com1DFAPreprocess should be called with the Path
+        mockPreprocess.assert_called_once()
+        callArgs = mockPreprocess.call_args
         assert callArgs[0][1] == cfgInfoPath
+
+
+def test_com1DFAPreprocessWithDirectoryPath(tmp_path):
+    """Test that com1DFAPreprocess handles a directory Path (batch mode)
+
+    When cfgInfo is a pathlib.Path pointing to a directory, com1DFAPreprocess should
+    route to createSimDictFromCfgs and return values in its standard order:
+    (simDict, outDir, inputSimFiles, simDFExisting)
+    """
+
+    dirPath = pathlib.Path(__file__).parents[0]
+    testPath = dirPath / "data" / "com1DFAConfigs"
+    inputDir = dirPath / "data" / "testCom1DFA2"
+    avaDir = pathlib.Path(tmp_path, "testCom1DFA")
+    shutil.copytree(inputDir, avaDir)
+    cfgMain = configparser.ConfigParser()
+    cfgMain["MAIN"] = {"avalancheDir": avaDir}
+
+    simDict, outDir, inputSimFiles, simDFExisting = com1DFA.com1DFAPreprocess(cfgMain, testPath)
+
+    assert len(simDict) == 16
+    assert simDFExisting is None
+    assert "demFile" in inputSimFiles

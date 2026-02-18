@@ -90,6 +90,13 @@ def com1DFAPreprocess(cfgMain, cfgInfo, module=com1DFA):
 
     avalancheDir = cfgMain["MAIN"]["avalancheDir"]
 
+    # batch mode: cfgInfo is a directory containing multiple .ini files
+    if isinstance(cfgInfo, pathlib.Path) and cfgInfo.is_dir():
+        simDict, inputSimFiles, simDFExisting, outDir = com1DFATools.createSimDictFromCfgs(
+            cfgMain, cfgInfo, module=module
+        )
+        return simDict, outDir, inputSimFiles, simDFExisting
+
     # read initial configuration
     if isinstance(cfgInfo, configparser.ConfigParser):
         cfgStart = cfgInfo
@@ -136,13 +143,7 @@ def com1DFAMain(cfgMain, cfgInfo=""):
 
     avalancheDir = cfgMain["MAIN"]["avalancheDir"]
 
-    # Route based on cfgInfo type: directory Path = batch mode, otherwise single config mode
-    if isinstance(cfgInfo, pathlib.Path) and cfgInfo.is_dir():
-        # Batch mode - cfgInfo is directory path (from getModuleConfig with batchCfgDir)
-        simDict, inputSimFiles, simDFExisting, outDir = com1DFATools.createSimDictFromCfgs(cfgMain, cfgInfo)
-    else:
-        # Single config mode - cfgInfo is ConfigParser, file path string, or empty string
-        simDict, outDir, inputSimFiles, simDFExisting = com1DFAPreprocess(cfgMain, cfgInfo)
+    simDict, outDir, inputSimFiles, simDFExisting = com1DFAPreprocess(cfgMain, cfgInfo)
 
     log.info("The following simulations will be performed")
     for key in simDict:

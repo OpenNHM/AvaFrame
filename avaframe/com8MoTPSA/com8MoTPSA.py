@@ -35,7 +35,7 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None):
     """
     # Get all necessary information from the configuration files
     currentModule = sys.modules[__name__]
-    simDict, inputSimFiles = mT.MoTGenerateConfigs(cfgMain, cfgInfo, currentModule)
+    simDict, _, inputSimFiles, _ = com1DFA.com1DFAPreprocess(cfgMain, cfgInfo, module=currentModule)
 
     # convert DEM from nan to 0 values
     # TODO: suggest MoT-PSA to handle nan values

@@ -575,49 +575,6 @@ def test_setVariableForestParameters_noForest(tmp_path):
     assert result["File names"]["Tree diameter filename"] == "-"
 
 
-def test_MoTGenerateConfigs(tmp_path):
-    """Test MoTGenerateConfigs function"""
-    import configparser
-    import sys
-    from unittest.mock import MagicMock
-
-    # Create a mock module
-    mockModule = MagicMock()
-    mockModule.__name__ = "avaframe.com9MoTVoellmy.com9MoTVoellmy"
-
-    # Setup config
-    cfgMain = configparser.ConfigParser()
-    cfgMain["MAIN"] = {
-        "avalancheDir": str(tmp_path / "avaTest"),
-        "simTypeList": "null"
-    }
-
-    cfgInfo = None
-
-    # Mock the com1DFA functions
-    mockSimDict = {
-        "sim001": {
-            "cfgSim": configparser.ConfigParser()
-        }
-    }
-    mockInputSimFiles = {
-        "demFile": tmp_path / "dem.asc",
-        "relFiles": []
-    }
-
-    with patch('avaframe.in3Utils.MoTUtils.com1DFA.com1DFAPreprocess') as mockPreprocess:
-
-        mockPreprocess.return_value = (mockSimDict, tmp_path / "out", mockInputSimFiles, None)
-
-        # Call function
-        simDict, inputSimFiles = MoTUtils.MoTGenerateConfigs(cfgMain, cfgInfo, mockModule)
-
-        # Verify results
-        assert simDict == mockSimDict
-        assert inputSimFiles == mockInputSimFiles
-        mockPreprocess.assert_called_once()
-
-
 def test_RunAndCheckMoT_HighTimeStepCount():
     """Test that time step counter logs after 100 steps"""
     # Create output with 105 lines containing "Step" to trigger printCounter > 100
