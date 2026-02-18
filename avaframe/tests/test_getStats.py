@@ -54,11 +54,20 @@ def test_getStats(tmp_path):
     # parameter dictionary
     varPar = 'relTh'
     inputDir = avaDirPeakFiles
-    peakValues = getStats.extractMaxValues(inputDir, avaDirtmp, varPar, restrictType='ppr', nameScenario='', parametersDict='')
+    peakValues, hasMultiLayer = getStats.extractMaxValues(
+        inputDir, avaDirtmp, varPar, restrictType="ppr", nameScenario="", parametersDict=""
+    )
 
     # call function to be tested test 2
     parametersDict = {'relTh': 1.0}
-    peakValues2 = getStats.extractMaxValues(inputDir, avaDirtmp, varPar, restrictType='', nameScenario='releaseScenario', parametersDict=parametersDict)
+    peakValues2, hasMultiLayer = getStats.extractMaxValues(
+        inputDir,
+        avaDirtmp,
+        varPar,
+        restrictType="",
+        nameScenario="releaseScenario",
+        parametersDict=parametersDict,
+    )
 
     assert peakValues['release1_null_dfa_1000000']['varPar'] == 1.0
     assert peakValues['release1_null_dfa_2000000']['varPar'] == 2.0
@@ -69,6 +78,19 @@ def test_getStats(tmp_path):
     assert peakValues['release1_null_dfa_2000000']['ppr']['min'] == 1.0
     assert peakValues['release1_null_dfa_2000000']['ppr']['mean'] == 3.0
     assert peakValues2['release1_null_dfa_1000000']['scenario'] == 'release1'
+    assert hasMultiLayer is False
+
+    with pytest.raises(ValueError) as e:
+        peakValues3, hasMultiLayer4 = getStats.extractMaxValues(
+            avaDirPeakFiles,
+            avaDirtmp,
+            varPar,
+            restrictType="",
+            nameScenario="",
+            parametersDict="",
+            layer="L1",
+        )
+    assert ("No multi-layer results detected but layer is specified") in str(e.value)
 
 
 def test_getStats_multiLayer(tmp_path):
@@ -94,8 +116,8 @@ def test_getStats_multiLayer(tmp_path):
     shutil.copy(cfg1, avaDirConfigFiles / "release1_null_dfa_1000000.ini")
 
     varPar = "relTh"
-    peakValues = getStats.extractMaxValues(
-        avaDirPeakFiles, avaDirtmp, varPar, restrictType="", nameScenario="", parametersDict=""
+    peakValues, hasMultiLayer = getStats.extractMaxValues(
+        avaDirPeakFiles, avaDirtmp, varPar, restrictType="", nameScenario="", parametersDict="", layer="L1"
     )
 
     simName = "release1_null_dfa_1000000"
@@ -105,3 +127,17 @@ def test_getStats_multiLayer(tmp_path):
     # L1 has data1 values (max=4), L2 has data2 values (max=10)
     assert peakValues[simName]["ppr_l1"]["max"] == 4.0
     assert peakValues[simName]["ppr_l2"]["max"] == 10.0
+    assert hasMultiLayer
+
+    with pytest.raises(ValueError) as e:
+        peakValues2, hasMultiLayer2 = getStats.extractMaxValues(
+            avaDirPeakFiles,
+            avaDirtmp,
+            varPar,
+            restrictType="",
+            nameScenario="",
+            parametersDict="",
+            layer="",
+        )
+    assert ("Multi-layer results detected but no layer specified.") in str(e.value)
+

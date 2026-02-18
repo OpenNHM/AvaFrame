@@ -19,10 +19,11 @@ from avaframe.in3Utils import fileHandlerUtils as fU
 from avaframe.out3Plot import plotUtils as pU
 import avaframe.in2Trans.rasterUtils as IOf
 
-
 ################USER Input#############
 varPar = "relTh0"
 resType = "pfv"
+layer = ""
+modName = "com1DFA"
 ############################################################
 
 # Load avalanche directory from general configuration file
@@ -38,12 +39,28 @@ log.info("MAIN SCRIPT")
 log.info("Current avalanche: %s", avalancheDir)
 
 # load dataFrame for all configurations
-simDF = cfgUtils.createConfigurationInfo(avalancheDir)
+simDF = cfgUtils.createConfigurationInfo(avalancheDir, comModule=modName)
 
 # create data frame that lists all available simulations and path to their result type result files
-inputsDF, resTypeList = fU.makeSimFromResDF(avalancheDir, "com1DFA")
+inputsDF, resTypeList = fU.makeSimFromResDF(avalancheDir, comModule=modName)
 # merge  parameters as columns to dataDF for matching simNames
 dataDF = inputsDF.merge(simDF, left_on="simName", right_on="simName")
+
+# check for multilayer results
+# fetch all result files
+peakFilesDF = fU.makeSimDF(pathlib.Path(avalancheDir, "Outputs", modName, "peakFiles"), avaDir=avalancheDir)
+hasMultiLayer = any(peakFilesDF["layer"] != "")
+if hasMultiLayer and layer == "":
+    message = (
+        "Multi-layer results detected but no layer specified. "
+        "Set 'layer' in the beginning of the script (e.g. layer = L1)"
+    )
+    log.error(message)
+    raise ValueError(message)
+elif hasMultiLayer and layer != "":
+    resTypeFile = resType + "_" + layer.lower()
+else:
+    resTypeFile = resType
 
 # fetch unique values of varPar
 values = sorted(set(dataDF[varPar].to_list()))
@@ -52,22 +69,20 @@ minVal = np.nanmin(values)
 maxVal = np.nanmax(values)
 cmapSCVals = np.linspace(0, 1, len(values))
 # create colormap and setup ticks and itemsList
-# strip layer suffix for unit lookup (e.g. pfv_l1 -> pfv)
-baseResType = re.sub(r"_l\d+$", "", resType)
-unit = pU.cfgPlotUtils['unit' + baseResType]
+unit = pU.cfgPlotUtils["unit" + resType]
 cmapSC, colorSC, ticksSC, normSC, unitSC, itemsList, displayColorBar = pU.getColors4Scatter(values, len(values),
                                                                                                 unit)
 # create figure
 fig = plt.figure(figsize=(pU.figW * 2, pU.figH * 1.5))
 ax1 = fig.add_subplot(211)
 ax2 = fig.add_subplot(212)
-testField = IOf.readRaster(dataDF[resType].iloc[0])
+testField = IOf.readRaster(dataDF[resTypeFile].iloc[0])
 nrowsHalf = int(testField['rasterData'].shape[0] * 0.5)
 log.info('Dimension of raster: %d, %d' % (testField['rasterData'].shape[0], testField['rasterData'].shape[1]))
 log.info('Profile plotted for row %d' % nrowsHalf)
 for index, row in dataDF.iterrows():
     # read field
-    field = IOf.readRaster(row[resType])
+    field = IOf.readRaster(row[resTypeFile])
     fieldData = field['rasterData']
     cmapVal = cmapSCVals[values.index(row[varPar])]
     ax1.plot(fieldData[nrowsHalf, :],  c=cmapSC(cmapVal))
@@ -83,4 +98,3 @@ ax2.imshow(testField['rasterData'])
 ax2.hlines(nrowsHalf, 0, testField['rasterData'].shape[1], "white", label="profile location")
 ax2.legend()
 pU.saveAndOrPlot({"pathResult": outDir}, ('profile_%s_%s' % (resType, varPar)), fig)
-
