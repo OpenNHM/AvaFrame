@@ -1239,3 +1239,118 @@ def test_createSample_invalid_method():
     # Check if appropriate error is raised
     with pytest.raises(AssertionError):
         createSample(testConfig, testParList)
+
+
+def _writeSmallAsc(filePath, nRows, nCols, data):
+    """Helper to write a minimal .asc raster file for testing"""
+    header = (
+        "ncols %d\n"
+        "nrows %d\n"
+        "xllcenter 0.0\n"
+        "yllcenter 0.0\n"
+        "cellsize 5.0\n"
+        "nodata_value -9999\n" % (nCols, nRows)
+    )
+    with open(filePath, "w") as f:
+        f.write(header)
+        for row in data:
+            f.write(" ".join(str(v) for v in row) + "\n")
+
+
+def test_probAnalysis_singleLayer_unchanged(tmp_path):
+    """Single-layer results with empty layer config work as before"""
+
+    # Create minimal directory structure
+    avaDir = tmp_path / "avaTest"
+    peakDir = avaDir / "Outputs" / "testMod" / "peakFiles"
+    peakDir.mkdir(parents=True)
+    outDir = avaDir / "Outputs" / "ana4Stats"
+    outDir.mkdir(parents=True)
+
+    # Create two single-layer ppr files with values > threshold(1.0) in different cells
+    nRows, nCols = 3, 3
+    data1 = [[0, 0, 0], [0, 5.0, 0], [0, 0, 0]]
+    data2 = [[0, 0, 0], [0, 5.0, 0], [0, 0, 2.0]]
+
+    _writeSmallAsc(peakDir / "rel1_abc123_com1_C_null_dfa_ppr.asc", nRows, nCols, data1)
+    _writeSmallAsc(peakDir / "rel1_def456_com1_C_null_dfa_ppr.asc", nRows, nCols, data2)
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {"peakLim": "1.0", "peakVar": "ppr", "layer": ""}
+
+    # Use a non-filtering modName so all files are included
+    analysisPerformed, contourDict = pA.probAnalysis(avaDir, cfg, "testMod")
+
+    assert analysisPerformed is True
+    # Both sims have center cell > threshold, so probability = 1.0 there
+    # Only sim2 has bottom-right > threshold, so probability = 0.5 there
+    probFile = outDir / "avaTest_prob__ppr_lim1.0.asc"
+    assert probFile.exists()
+    probData = np.loadtxt(probFile, skiprows=6)
+    assert probData.shape == (nRows, nCols)
+    # Center cell: both sims exceed threshold → 1.0
+    assert np.isclose(probData[1, 1], 1.0)
+    # Bottom-right: only 1 of 2 sims exceeds → 0.5
+    assert np.isclose(probData[2, 2], 0.5)
+
+
+def test_probAnalysis_multiLayer_withLayer(tmp_path):
+    """Multi-layer results with layer set filters to only the specified layer"""
+
+    avaDir = tmp_path / "avaTest"
+    peakDir = avaDir / "Outputs" / "com8MoTPSA" / "peakFiles"
+    peakDir.mkdir(parents=True)
+    outDir = avaDir / "Outputs" / "ana4Stats"
+    outDir.mkdir(parents=True)
+
+    nRows, nCols = 3, 3
+    # L1 files: high values everywhere
+    dataL1 = [[5.0, 5.0, 5.0], [5.0, 5.0, 5.0], [5.0, 5.0, 5.0]]
+    # L2 files: only center cell has high value
+    dataL2 = [[0, 0, 0], [0, 3.0, 0], [0, 0, 0]]
+
+    _writeSmallAsc(peakDir / "rel1_abc123_com8_C_null_psa_L1_ppr.asc", nRows, nCols, dataL1)
+    _writeSmallAsc(peakDir / "rel1_abc123_com8_C_null_psa_L2_ppr.asc", nRows, nCols, dataL2)
+    _writeSmallAsc(peakDir / "rel1_def456_com8_C_null_psa_L1_ppr.asc", nRows, nCols, dataL1)
+    _writeSmallAsc(peakDir / "rel1_def456_com8_C_null_psa_L2_ppr.asc", nRows, nCols, dataL2)
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {"peakLim": "1.0", "peakVar": "ppr", "layer": "L2"}
+
+    analysisPerformed, contourDict = pA.probAnalysis(
+        avaDir, cfg, "testMod", inputDir=avaDir / "Outputs" / "com8MoTPSA"
+    )
+
+    assert analysisPerformed is True
+    # Only L2 files should be included: both have center=3.0 > 1.0, rest=0
+    probFile = outDir / "avaTest_prob__ppr_L2_lim1.0.asc"
+    assert probFile.exists()
+    probData = np.loadtxt(probFile, skiprows=6)
+    # Center cell: both L2 sims exceed → 1.0
+    assert np.isclose(probData[1, 1], 1.0)
+    # Corner cells: no L2 sim exceeds → 0.0
+    assert np.isclose(probData[0, 0], 0.0)
+
+
+def test_probAnalysis_multiLayer_noLayer_errors(tmp_path):
+    """Multi-layer results without layer config raises an error"""
+
+    avaDir = tmp_path / "avaTest"
+    peakDir = avaDir / "Outputs" / "com8MoTPSA" / "peakFiles"
+    peakDir.mkdir(parents=True)
+    outDir = avaDir / "Outputs" / "ana4Stats"
+    outDir.mkdir(parents=True)
+
+    nRows, nCols = 3, 3
+    data = [[0, 0, 0], [0, 5.0, 0], [0, 0, 0]]
+
+    _writeSmallAsc(peakDir / "rel1_abc123_com8_C_null_psa_L1_ppr.asc", nRows, nCols, data)
+    _writeSmallAsc(peakDir / "rel1_abc123_com8_C_null_psa_L2_ppr.asc", nRows, nCols, data)
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {"peakLim": "1.0", "peakVar": "ppr", "layer": ""}
+
+    with pytest.raises(ValueError, match="Multi-layer results detected"):
+        pA.probAnalysis(
+            avaDir, cfg, "testMod", inputDir=avaDir / "Outputs" / "com8MoTPSA"
+        )

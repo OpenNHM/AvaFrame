@@ -91,7 +91,8 @@ for avaDir in avalancheDirectories:
                     }
         oP.plotContours(contourDict,
                         cfgProb['GENERAL']['peakVar'],
-                        cfgProb['GENERAL']['peakLim'], pathDict)
+                        cfgProb['GENERAL']['peakLim'], pathDict,
+                        layer=cfgProb['GENERAL'].get('layer', ''))
 
     # plot probability maps
     sP.plotProbMap(avaDir, inputDir, cfgProb, demPlot=True)

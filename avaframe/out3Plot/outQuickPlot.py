@@ -547,7 +547,7 @@ def generateOnePlot(dataDict, outDir, cfg, plotDict):
     return plotDict
 
 
-def plotContours(contourDict, resType, thresholdValue, pathDict, addLegend=True):
+def plotContours(contourDict, resType, thresholdValue, pathDict, addLegend=True, layer=""):
     """ plot contour lines of all transformed fields
 
         Parameters
@@ -562,14 +562,17 @@ def plotContours(contourDict, resType, thresholdValue, pathDict, addLegend=True)
             dictionary with info on project name, ...
         addLegend: bool
             if True add legend to plot
+        layer: str
+            layer identifier for multi-layer results (e.g. L1, L2), empty for single-layer
     """
 
     unit = pU.cfgPlotUtils['unit' + resType]
+    resTypeLabel = '%s (%s)' % (resType, layer) if layer else resType
     fig = plt.figure(figsize=(pU.figW*2, pU.figH))
 
     # show flow path
     ax1 = fig.add_subplot(121)
-    ax1.set_title('%s %s %s contour lines' % (resType, thresholdValue, unit))
+    ax1.set_title('%s %s %s contour lines' % (resTypeLabel, thresholdValue, unit))
     ax1.set_ylabel('x [m]')
     ax1.set_xlabel('y [m]')
     pU.putAvaNameOnPlot(ax1, pathDict['avaDir'])

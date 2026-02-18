@@ -110,7 +110,8 @@ def runProbAna(avalancheDir=''):
                     }
         oP.plotContours(contourDict,
                         cfgProb['GENERAL']['peakVar'],
-                        cfgProb['GENERAL']['peakLim'], pathDict, addLegend=False)
+                        cfgProb['GENERAL']['peakLim'], pathDict, addLegend=False,
+                        layer=cfgProb['GENERAL'].get('layer', ''))
 
     # plot probability maps
     sP.plotProbMap(avalancheDir, inputDir, cfgProb, demPlot=True)
