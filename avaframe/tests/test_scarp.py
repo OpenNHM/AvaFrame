@@ -121,8 +121,8 @@ def test_plane_parameter_extraction(scarp_test_data):
 
     # Extract plane parameters (as done in scarpAnalysisMain)
     planesZseed = list(map(float, SHPdata["zseed"]))
-    planesDip = list(map(float, SHPdata["dip"]))
-    planesSlope = list(map(float, SHPdata["slopeangle"]))
+    planesDip = list(map(float, SHPdata["dipdir"]))
+    planesSlope = list(map(float, SHPdata["dipAngle"]))
 
     # Assertions
     assert len(planesZseed) == SHPdata["nFeatures"], (
@@ -132,7 +132,7 @@ def test_plane_parameter_extraction(scarp_test_data):
     assert len(planesSlope) == SHPdata["nFeatures"], (
         "Should have slope for each feature"
     )
-    assert SHPdata["nFeatures"] == 2, "Test data should have 2 features"
+    assert SHPdata["nFeatures"] == 1, "Test data should have 1 feature"
 
     # Build feature string
     planeFeatures = []

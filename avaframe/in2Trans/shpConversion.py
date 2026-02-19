@@ -59,9 +59,9 @@ def SHP2Array(infile, defname=None):
             number of features per line (parts)
         zseed
             np array with the height of each scarp plane-feature (as many values as features)
-        slopeAngle
-            np array with the slope angle of each scarp plane-feature (as many values as features)
-        dip
+        dipDir
+            np array with the dip direction of each scarp plane-feature (as many values as features)
+        dipAngle
             np array with the dip angle of each scarp plane-feature (as many values as features)
         semiminor
             np array with the semi-minor axis of each scarp ellipsoid-feature (as many values as features)
@@ -84,12 +84,12 @@ def SHP2Array(infile, defname=None):
     ci95 = None
     layerN = None
     zseed_value = None
-    dip_value = None
-    slopeAngle_value = None
+    dipdir_value = None
+    dipAngle_value = None
     semiminor_value = None
     maxdepth_value = None
     semimajor_value = None
-    tilt_value = None
+    rotAngle_value = None
     direc_value = None
     offset_value = None
 
@@ -108,13 +108,13 @@ def SHP2Array(infile, defname=None):
     ci95List = []
     layerNameList = []
     zseedList = []
-    dipList = []
+    dipdirList = []
     slopeList = []
-    slopeAngleList = []
+    dipAngleList = []
     semiminorList = []
     semimajorList = []
     maxdepthList = []
-    tiltList = []
+    rotAngleList = []
     direcList = []
     offsetList = []
 
@@ -157,21 +157,21 @@ def SHP2Array(infile, defname=None):
                 if name == "slope":
                     # for dams
                     slope = value
-                if name == "slopeangle":
+                if name == "dipangle":
                     # for dams
-                    slopeAngle_value = value
+                    dipAngle_value = value
                 if name == "zseed":
                     zseed_value = value
-                if name == "dip":
-                    dip_value = value
+                if name == "dipdir":
+                    dipdir_value = value
                 if name == "semiminor":
                     semiminor_value = value
                 if name == "maxdepth":
                     maxdepth_value = value
                 if name == "semimajor":
                     semimajor_value = value
-                if name == "tilt":
-                    tilt_value = value
+                if name == "rotangle":
+                    rotAngle_value = value
                 if name == "direc":
                     direc_value = value
                 if name == "offset":
@@ -201,13 +201,13 @@ def SHP2Array(infile, defname=None):
         layerNameList.append(layerN)
         idList.append(str(rec.oid))
         zseedList.append(zseed_value)
-        dipList.append(dip_value)
+        dipdirList.append(dipdir_value)
         slopeList.append(slope)
-        slopeAngleList.append(slopeAngle_value)
+        dipAngleList.append(dipAngle_value)
         semiminorList.append(semiminor_value)
         semimajorList.append(semimajor_value)
         maxdepthList.append(maxdepth_value)
-        tiltList.append(tilt_value)
+        rotAngleList.append(rotAngle_value)
         direcList.append(direc_value)
         offsetList.append(offset_value)
 
@@ -234,13 +234,13 @@ def SHP2Array(infile, defname=None):
     SHPdata["layerName"] = layerNameList
     SHPdata["nParts"] = nParts
     SHPdata["nFeatures"] = len(Start)
-    SHPdata["slopeangle"] = slopeAngleList
+    SHPdata["dipAngle"] = dipAngleList
     SHPdata["zseed"] = zseedList
-    SHPdata["dip"] = dipList
+    SHPdata["dipdir"] = dipdirList
     SHPdata["maxdepth"] = maxdepthList
     SHPdata["semimajor"] = semimajorList
     SHPdata["semiminor"] = semiminorList
-    SHPdata["tilt"] = tiltList
+    SHPdata["rotAngle"] = rotAngleList
     SHPdata["direc"] = direcList
     SHPdata["offset"] = offsetList
 

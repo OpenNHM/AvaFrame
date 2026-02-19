@@ -83,15 +83,16 @@ def scarpAnalysisMain(cfg, baseDir):
         # Read required attributes directly from the shapefile's attribute table
         try:
             planesZseed = list(map(float, SHPdata['zseed']))
-            planesDip = list(map(float, SHPdata['dip']))
-            planesSlope = list(map(float, SHPdata['slopeangle']))
+            planesDipDir = list(map(float, SHPdata['dipdir']))
+            planesDipAngle = list(map(float, SHPdata['dipAngle']))
+    
         except KeyError as e:
-            raise ValueError(f"Required attribute '{e.args[0]}' not found in shapefile. Make sure 'zseed', 'dip', and 'slope' fields exist.")
+            raise ValueError(f"Required attribute '{e.args[0]}' not found in shapefile. Make sure 'zseed', 'dipdir', and 'dipangle' fields exist.")
 
-        if not (len(planesZseed) == len(planesDip) == len(planesSlope) == SHPdata["nFeatures"]):
+        if not (len(planesZseed) == len(planesDipDir) == len(planesDipAngle) == SHPdata["nFeatures"]):
             raise ValueError("Mismatch between number of features and extracted plane attributes in the shapefile.")
 
-        if not (len(planesZseed) == len(planesDip) == len(planesSlope) == SHPdata["nFeatures"]):
+        if not (len(planesZseed) == len(planesDipDir) == len(planesDipAngle) == SHPdata["nFeatures"]):
             raise ValueError(
                 "Mismatch between number of shapefile features and plane parameters in the .ini file."
             )
@@ -100,8 +101,8 @@ def scarpAnalysisMain(cfg, baseDir):
             xSeed = SHPdata["x"][int(SHPdata["Start"][i])]
             ySeed = SHPdata["y"][int(SHPdata["Start"][i])]
             zSeed = planesZseed[i]
-            dip = planesDip[i]
-            slopeAngle = planesSlope[i]
+            dip = planesDipDir[i]
+            slopeAngle = planesDipAngle[i]
             planeFeatures.extend([xSeed, ySeed, zSeed, dip, slopeAngle])
 
         features = ",".join(map(str, planeFeatures))
@@ -112,14 +113,14 @@ def scarpAnalysisMain(cfg, baseDir):
             ellipsoidsMaxDepth = list(map(float, SHPdata['maxdepth']))
             ellipsoidsSemiMajor = list(map(float, SHPdata['semimajor']))
             ellipsoidsSemiMinor = list(map(float, SHPdata['semiminor']))
-            ellipsoidsTilt = list(map(float, SHPdata['tilt']))
-            ellipsoidsDir = list(map(float, SHPdata['direc']))
+            ellipsoidsDipAngle = list(map(float, SHPdata['dipAngle']))
+            ellipsoidsDipDir = list(map(float, SHPdata['dipdir']))
             ellipsoidsOffset = list(map(float, SHPdata['offset']))
-            ellipsoidDip = list(map(float, SHPdata['dip']))
+            ellipsoidsRotAngle = list(map(float, SHPdata['rotAngle']))
         except KeyError as e:
-            raise ValueError(f"Required attribute '{e.args[0]}' not found in shapefile. Ensure the fields 'maxdepth', 'semimajor', 'semiminor', 'tilt', 'dir', 'dip', and 'offset' exist.")
+            raise ValueError(f"Required attribute '{e.args[0]}' not found in shapefile. Ensure the fields 'maxdepth', 'semimajor', 'semiminor', 'rotangle', 'dipdir', 'dipangle', and 'offset' exist.")
 
-        if not all(len(lst) == SHPdata["nFeatures"] for lst in [ellipsoidsMaxDepth, ellipsoidsSemiMajor, ellipsoidsSemiMinor, ellipsoidsTilt, ellipsoidsDir, ellipsoidsOffset, ellipsoidDip]):
+        if not all(len(lst) == SHPdata["nFeatures"] for lst in [ellipsoidsMaxDepth, ellipsoidsSemiMajor, ellipsoidsSemiMinor, ellipsoidsDipAngle, ellipsoidsDipDir, ellipsoidsOffset, ellipsoidsRotAngle]):
             raise ValueError("Mismatch between number of shapefile features and ellipsoid parameters.")
 
         for i in range(SHPdata["nFeatures"]):
@@ -128,10 +129,10 @@ def scarpAnalysisMain(cfg, baseDir):
             maxDepth = ellipsoidsMaxDepth[i]
             semiMajor = ellipsoidsSemiMajor[i]
             semiMinor = ellipsoidsSemiMinor[i]
-            tilt = ellipsoidsTilt[i]
-            direction = ellipsoidsDir[i]
+            tilt = ellipsoidsDipAngle[i]
+            direction = ellipsoidsDipDir[i]
             offset = ellipsoidsOffset[i]
-            dip = ellipsoidDip[i]
+            dip = ellipsoidsRotAngle[i]
             ellipsoidFeatures.extend([xCenter, yCenter, maxDepth, semiMajor, semiMinor, tilt, direction, offset, dip])
 
         features = ",".join(map(str, ellipsoidFeatures))
@@ -150,6 +151,11 @@ def scarpAnalysisMain(cfg, baseDir):
         raise ValueError("Unsupported method. Choose 'plane' or 'ellipsoid'.")
 
     hRelData = dem["rasterData"] - scarpData
+    
+    #Compute and log excavated volume
+    cellArea = abs(dem["header"]["cellsize"] ** 2)
+    volume = np.sum(hRelData[periData > 0]) * cellArea
+    log.info(f"Excavated volume (within perimeter): {volume:.2f} m³")
 
     # create output directory and files
     outDir = pathlib.Path(baseDir)
@@ -236,8 +242,10 @@ def calculateScarpWithPlanes(elevData, periData, elevTransform, planes):
     dip = [planes[3]]
     slope = [planes[4]]
 
-    betaX = [math.tan(math.radians(slope[0])) * math.cos(math.radians(dip[0]))]
-    betaY = [math.tan(math.radians(slope[0])) * math.sin(math.radians(dip[0]))]
+    slopeRad = math.radians(slope[0])
+    dipRad   = math.radians(dip[0])
+    betaX = [ math.tan(slopeRad) * math.sin(dipRad) ]
+    betaY = [ math.tan(slopeRad) * math.cos(dipRad) ]
 
     for i in range(1, nPlanes):
         xSeed.append(planes[5 * i])
@@ -245,8 +253,11 @@ def calculateScarpWithPlanes(elevData, periData, elevTransform, planes):
         zSeed.append(planes[5 * i + 2])
         dip.append(planes[5 * i + 3])
         slope.append(planes[5 * i + 4])
-        betaX.append(math.tan(math.radians(slope[i])) * math.cos(math.radians(dip[i])))
-        betaY.append(math.tan(math.radians(slope[i])) * math.sin(math.radians(dip[i])))
+        
+        slopeRad = math.radians(slope[i])
+        dipRad   = math.radians(dip[i])
+        betaX.append( math.tan(slopeRad) * math.sin(dipRad) )
+        betaY.append( math.tan(slopeRad) * math.cos(dipRad) )
 
     for row in range(n):
         for col in range(m):
@@ -333,6 +344,8 @@ def calculateScarpWithEllipsoids(elevData, periData, elevTransform, ellipsoids):
                         dxOffset = -offset[k] * normal_dx * math.sin(slopeAngle)
                         dyOffset = -offset[k] * normal_dy * math.sin(slopeAngle)
                         dzOffset = -offset[k] * math.cos(slopeAngle)
+                        #clamp z-offset
+                        dzOffset = max(-maxDepth[k], min(dzOffset, maxDepth[k]))
                     else:
                         dxOffset = dyOffset = dzOffset = 0
                 else:
@@ -344,11 +357,9 @@ def calculateScarpWithEllipsoids(elevData, periData, elevTransform, ellipsoids):
 
                 dxPos = west - x0
                 dyPos = north - y0
-
-                # Rotate the position by dip angle
-                dxRot = dxPos * np.cos(dip[k]) + dyPos * np.sin(dip[k])
-                dyRot = -dxPos * np.sin(dip[k]) + dyPos * np.cos(dip[k])
-
+                
+                dxRot =  dxPos * np.sin(dip[k]) - dyPos * np.cos(dip[k])
+                dyRot =  dxPos * np.cos(dip[k]) + dyPos * np.sin(dip[k])
                 # Normalize to ellipsoid axes
                 xNorm = dxRot / semiMajor[k]
                 yNorm = dyRot / semiMinor[k]
