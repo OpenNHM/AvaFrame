@@ -620,14 +620,20 @@ def makeFieldPlot(ax, fig, pathDict, variable, xThalweg, yThalweg, averageThalwe
         Axis containg the plot
     """
     centerOf = pathDict["titleVariables"]["centerOf"]
-    xAverage = np.append(averageThalweg["dataStartAverageThalweg"]["x"], averageThalweg["dataEndAverageThalweg"]["x"])
-    yAverage = np.append(averageThalweg["dataStartAverageThalweg"]["y"], averageThalweg["dataEndAverageThalweg"]["y"])
+    if averageThalweg is not None:
+        xAverage = np.append(
+            averageThalweg["dataStartAverageThalweg"]["x"], averageThalweg["dataEndAverageThalweg"]["x"]
+        )
+        yAverage = np.append(
+            averageThalweg["dataStartAverageThalweg"]["y"], averageThalweg["dataEndAverageThalweg"]["y"]
+        )
     ax = plotField(ax, fig, pathDict, variable, thalwegPra=thalwegPra)
     # ax.scatter(xThalweg, yThalweg, c="r", s=0.3, zorder=5, label=f"thalweg {centerOf}")
     # ax.scatter(xThalweg[0], yThalweg[0], c="b", s=2.0, zorder=6, label="startcell")
     for i, (x, y) in enumerate(zip(xThalweg, yThalweg)):
         ax.plot(x, y, "-", c="k", lw=0.5, zorder=7, label=f"thalweg {centerOf}" if i == 0 else None)
-        ax.scatter(xAverage, yAverage, c="r", s=2, zorder=7)
+        if averageThalweg is not None:
+            ax.scatter(xAverage, yAverage, c="r", s=2, zorder=7)
 
     ax.legend()
     if thalwegPra:
@@ -681,13 +687,13 @@ def makeThalwegPlot(ax, dataThalweg, pathDict, centerOf=""):
 
     # get s, z and zDelta along thalweg (read from raster)
     z, _ = gT.projectOnGrid(
-            x,
-            y,
-            dem,
-            csz=header["cellsize"],
-            xllc=header["xllcenter"],
-            yllc=header["yllcenter"],
-        )
+        x,
+        y,
+        dem,
+        csz=header["cellsize"],
+        xllc=header["xllcenter"],
+        yllc=header["yllcenter"],
+    )
 
     zdelta, _ = gT.projectOnGrid(
         x,
@@ -702,7 +708,7 @@ def makeThalwegPlot(ax, dataThalweg, pathDict, centerOf=""):
     s = np.append(np.array([0]), np.cumsum(ds))
 
     # use centered values for s, zDelta and z
-    '''
+    """
     try:
         s = np.array(dataThalweg[f"travelLength"])
     except:
@@ -712,20 +718,23 @@ def makeThalwegPlot(ax, dataThalweg, pathDict, centerOf=""):
     except:
         z = np.array(dataThalweg[f"z"])
     zdelta = np.array(dataThalweg[f"zDelta"])
-    '''
+    """
 
     # get FlowPy input parameter
     alpha = dataThalweg["alpha"]
     exp = dataThalweg["exponent"]
     zDeltaMax = dataThalweg["zDeltaMax"]
 
+    """
     dataStartAverageThalweg = dataThalweg["startAverageData"]
     dataEndAverageThalweg = dataThalweg["endAverageData"]
 
-    sAverage = np.append(dataStartAverageThalweg["s"], dataEndAverageThalweg["s"]) + s[dataThalweg["indexStartAverageData"]]
+    sAverage = (
+        np.append(dataStartAverageThalweg["s"], dataEndAverageThalweg["s"])
+        + s[dataThalweg["indexStartAverageData"]]
+    )
     zAverage = np.append(dataStartAverageThalweg["z"], dataEndAverageThalweg["z"])
-
-
+    """
     s_max = s[zdelta == max(zdelta)]
     z_max = z[zdelta == max(zdelta)]
     zdelta_max = zdelta[zdelta == max(zdelta)]
@@ -906,9 +915,7 @@ def plotThalweg_wetAndDry(path, resName, startRow, startCol, size=None, centerOf
 
 
 def DFAThalwegPlot(ax1, avaProfileMass, pathDict, rasterVariable):
-    """
-
-    """
+    """ """
 
     file = getRasterFile(pathDict["pathToOutput"], variable=rasterVariable)
     rasterDict = rasterUtils.readRaster(file)
@@ -917,41 +924,63 @@ def DFAThalwegPlot(ax1, avaProfileMass, pathDict, rasterVariable):
 
     dem = gI.readDEM(pathDict["avalancheDir"])
     # TODO: Check if flipping DEM is needed!(gI.readDem flips the raster.)
-    #dem = np.flipud(demDict["rasterData"])
-    #header = demDict["header"]
+    # dem = np.flipud(demDict["rasterData"])
+    # header = demDict["header"]
 
     # compute simulation run out angle
-    indStart = avaProfileMass['indStartMassAverage']
-    indEnd = avaProfileMass['indEndMassAverage']
-    s0 = avaProfileMass['s'][indStart]
-    avaProfileMass['s'] = avaProfileMass['s'] - s0
-    z0 = avaProfileMass['z'][indStart]
+    indStart = avaProfileMass["indStartMassAverage"]
+    indEnd = avaProfileMass["indEndMassAverage"]
+    s0 = avaProfileMass["s"][indStart]
+    avaProfileMass["s"] = avaProfileMass["s"] - s0
+    z0 = avaProfileMass["z"][indStart]
     # get parabola
     # get angles of profiles
 
     # Create figures and plots
 
     # make the top-down view plot
-    rowsMin, rowsMax, colsMin, colsMax = pU.constrainPlotsToData(raster, 5, extentOption=True,
-                                                                 constrainedData=False, buffer='')
-    ax1, extent, cbar0, cs1 = outCom1DFA.addResult2Plot(ax1, dem['header'], raster, 'pta')
-    cbar0.ax.set_ylabel('peak travel angle')
+    rowsMin, rowsMax, colsMin, colsMax = pU.constrainPlotsToData(
+        raster, 5, extentOption=True, constrainedData=False, buffer=""
+    )
+    ax1, extent, cbar0, cs1 = outCom1DFA.addResult2Plot(ax1, dem["header"], raster, "pta")
+    cbar0.ax.set_ylabel("peak travel angle")
     # add DEM hillshade with contour lines
-    ax1 = outCom1DFA.addDem2Plot(ax1, dem, what='hillshade', extent=extent)
+    ax1 = outCom1DFA.addDem2Plot(ax1, dem, what="hillshade", extent=extent)
     # add path
-    ax1.plot(avaProfileMass['x'][:indStart + 1], avaProfileMass['y'][:indStart + 1], '-y.', zorder=20,
-             label='_top extension', lw=2, path_effects=[pe.Stroke(linewidth=3, foreground='b'), pe.Normal()])
-    ax1.plot(avaProfileMass['x'][indEnd:], avaProfileMass['y'][indEnd:], '-y.', zorder=20,
-             label='_bottom extension', lw=2, path_effects=[pe.Stroke(linewidth=3, foreground='g'), pe.Normal()])
-    ax1.plot(avaProfileMass['x'][indStart:indEnd + 1], avaProfileMass['y'][indStart:indEnd + 1], '-y.', zorder=20,
-             label='_Center of mass path', lw=2, path_effects=[pe.Stroke(linewidth=3, foreground='k'), pe.Normal()])
+    ax1.plot(
+        avaProfileMass["x"][: indStart + 1],
+        avaProfileMass["y"][: indStart + 1],
+        "-y.",
+        zorder=20,
+        label="_top extension",
+        lw=2,
+        path_effects=[pe.Stroke(linewidth=3, foreground="b"), pe.Normal()],
+    )
+    ax1.plot(
+        avaProfileMass["x"][indEnd:],
+        avaProfileMass["y"][indEnd:],
+        "-y.",
+        zorder=20,
+        label="_bottom extension",
+        lw=2,
+        path_effects=[pe.Stroke(linewidth=3, foreground="g"), pe.Normal()],
+    )
+    ax1.plot(
+        avaProfileMass["x"][indStart: indEnd + 1],
+        avaProfileMass["y"][indStart: indEnd + 1],
+        "-y.",
+        zorder=20,
+        label="_Center of mass path",
+        lw=2,
+        path_effects=[pe.Stroke(linewidth=3, foreground="k"), pe.Normal()],
+    )
 
-    ax1.set_xlabel('x [m]')
-    ax1.set_ylabel('y [m]')
-    ax1.axis('equal')
-    #ax1.set_ylim([rowsMin, rowsMax])
-    #ax1.set_xlim([colsMin, colsMax])
-    ax1.set_title('Avalanche thalweg')
+    ax1.set_xlabel("x [m]")
+    ax1.set_ylabel("y [m]")
+    ax1.axis("equal")
+    # ax1.set_ylim([rowsMin, rowsMax])
+    # ax1.set_xlim([colsMin, colsMax])
+    ax1.set_title("Avalanche thalweg")
     pU.putAvaNameOnPlot(ax1, pathDict["avalancheDir"])
 
     return ax1

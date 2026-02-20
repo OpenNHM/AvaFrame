@@ -2,6 +2,7 @@ import numpy as np
 import pathlib
 import matplotlib.pyplot as plt
 import logging
+import json
 
 import avaframe.ana5Utils.regionalThalwegTools as tools
 from avaframe.in3Utils import fileHandlerUtils as fU
@@ -32,6 +33,13 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
     relId = cfg["GENERAL"].get("relId")
 
     pathToOutput = avalanchedir / "Outputs" / module / "peakFiles" / f"res_{simhash}"
+
+    # open json file that contains com4FlowPy parameters
+    pathToCom4Json = avalanchedir / "Outputs" / module / simhash
+    with open(f"{pathToCom4Json}.json", "r") as file:
+        com4Cfg = json.load(file)
+    cfg["GENERAL"]["addThalwegExtension"] = com4Cfg["GENERAL"]["addThalwegExtension"]
+
     savePath = pathToOutput / "ThalwegPlots"
     fU.makeADir(savePath)
     pathDict = {"avalancheDir": avalanchedir, "pathToOutput": pathToOutput, "savePath": savePath}
@@ -142,29 +150,38 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
 
             y.append(newY)
             x.append(newX)
-
-            indStartAverageThalweg.append(data["indexStartAverageData"])
-            indEndAverageThalweg.append(data["indexEndAverageData"])
-            for key in data["startAverageData"].keys():
-                if key not in dataStartAverageThalweg.keys():
-                    dataStartAverageThalweg[key] = data["startAverageData"][key]
-                    dataEndAverageThalweg[key] = data["endAverageData"][key]
-                else:
-                    dataStartAverageThalweg[key] = np.append(dataStartAverageThalweg[key], data["startAverageData"][key])
-                    dataEndAverageThalweg[key] = np.append(dataEndAverageThalweg[key], data["endAverageData"][key])
+            if cfg["GENERAL"].getboolean("addThalwegExtension"):
+                indStartAverageThalweg.append(data["indexStartAverageData"])
+                indEndAverageThalweg.append(data["indexEndAverageData"])
+                for key in data["startAverageData"].keys():
+                    if key not in dataStartAverageThalweg.keys():
+                        dataStartAverageThalweg[key] = data["startAverageData"][key]
+                        dataEndAverageThalweg[key] = data["endAverageData"][key]
+                    else:
+                        dataStartAverageThalweg[key] = np.append(
+                            dataStartAverageThalweg[key], data["startAverageData"][key]
+                        )
+                        dataEndAverageThalweg[key] = np.append(
+                            dataEndAverageThalweg[key], data["endAverageData"][key]
+                        )
     else:
         y = np.array(dataThalweg[f"y"])
         x = np.array(dataThalweg[f"x"])
-        indStartAverageThalweg = dataThalweg["indexStartAverageData"]
-        indEndAverageThalweg = dataThalweg["indexEndAverageData"]
-        dataStartAverageThalweg = dataThalweg["startAverageData"]
-        dataEndAverageThalweg = dataThalweg["endAverageData"]
+        if cfg["GENERAL"].getboolean("addThalwegExtension"):
+            indStartAverageThalweg = dataThalweg["indexStartAverageData"]
+            indEndAverageThalweg = dataThalweg["indexEndAverageData"]
+            dataStartAverageThalweg = dataThalweg["startAverageData"]
+            dataEndAverageThalweg = dataThalweg["endAverageData"]
 
-    averageThalweg = {"indStartAverageThalweg": indStartAverageThalweg,
-                      "indEndAverageThalweg": indEndAverageThalweg,
-                      "dataStartAverageThalweg": dataStartAverageThalweg,
-                      "dataEndAverageThalweg": dataEndAverageThalweg
-                      }
+    if cfg["GENERAL"].getboolean("addThalwegExtension"):
+        averageThalweg = {
+            "indStartAverageThalweg": indStartAverageThalweg,
+            "indEndAverageThalweg": indEndAverageThalweg,
+            "dataStartAverageThalweg": dataStartAverageThalweg,
+            "dataEndAverageThalweg": dataEndAverageThalweg,
+        }
+    else:
+        averageThalweg = None
     # PLOT
     fig, axs = plt.subplots(2, 1)
 
@@ -172,7 +189,9 @@ def plotThalweg2D(pathDict, cfg, dataThalweg):
     fig.tight_layout(pad=3.0)
     fig.set_figwidth(8)
 
-    fig, axs[0] = tools.makeFieldPlot(axs[0], fig, pathDict, variable, x, y, averageThalweg,  thalwegPra=thalwegPra)
+    fig, axs[0] = tools.makeFieldPlot(
+        axs[0], fig, pathDict, variable, x, y, averageThalweg, thalwegPra=thalwegPra
+    )
     axs[1] = tools.makeThalwegPlot(axs[1], dataThalweg, pathDict, centerOf=centerOf)
 
     if size != "":
