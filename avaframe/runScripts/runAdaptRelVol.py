@@ -1,7 +1,10 @@
 """
 Run adaption of release volme by modifying the release thickness
 """
+#TODO: Code bereinigen
+
 from pathlib import Path
+import numpy as np
 import tempfile
 import shutil
 import logging
@@ -17,41 +20,40 @@ import avaframe.in2Trans.shpConversion as shpConv
 from avaframe.com1DFA import com1DFA
 import avaframe.com1DFA.com1DFATools as com1DFATools
 
-def runAdaptRelVol(avaDir, cfgDebris, relThVal):
+def getActRelVol(avaDir, cfgDebris, relThVal):
     '''
     '''
 
     # initialize logging
-    logUtils.initiateLogger(avaDir, "getReleaseVolume")
+    # logUtils.initiateLogger(avaDir, "getReleaseVolume")
     # logging.getLogger().setLevel(logging.CRITICAL)
-    logging.disable(logging.INFO)
+    logging.disable(logging.WARNING)
 
 
     # ------------------------------------------------------------------ #
     # cfgMain aufbauen (wird von com1DFAPreprocess benötigt)
     # ------------------------------------------------------------------ #
-    cfgMain = cfgUtils.getModuleConfig(com1DFA)
-    cfgMain["MAIN"] = {"avalancheDir": str(avaDir)}
+    cfgDebris["MAIN"] = {"avalancheDir": str(avaDir)}
 
     # Work-Verzeichnis bereinigen falls vorhanden (com1DFAPreprocess benötigt leeres Work-Dir)
     workDir = Path(avaDir) / "Work" / "com1DFA"
     if workDir.exists():
         shutil.rmtree(workDir)
-        print(f"Work-Verzeichnis bereinigt: {workDir}")
+        # print(f"Work-Verzeichnis bereinigt: {workDir}")
     
     # ------------------------------------------------------------------ #
     # Preprocessing: vollständig aufgelöste Konfiguration + Input-Dateien
     # ------------------------------------------------------------------ #
-    simDict, outDir, inputSimFiles, _ = com1DFA.com1DFAPreprocess(cfgMain, cfgInfo="")
+    simDict,_, inputSimFiles, _ = com1DFA.com1DFAPreprocess(cfgDebris, cfgInfo="")
 
     # Erste Simulation als Vorlage nehmen
     cuSimName = list(simDict.keys())[0]
     cfgSim = simDict[cuSimName]["cfgSim"]
     releaseFile = simDict[cuSimName]["relFile"]
 
-    print(f"Release-Datei:   {releaseFile}")
-    print(f"Simulations-Typ: {simDict[cuSimName]['simType']}")
-    print()
+    # print(f"Release-Datei:   {releaseFile}")
+    # print(f"Simulations-Typ: {simDict[cuSimName]['simType']}")
+    # print()
 
     # outDir für initializeSimulation (kein Schreiben gewünscht, temp-Verzeichnis)
     outDirTmp = Path(tempfile.mkdtemp())
@@ -60,9 +62,9 @@ def runAdaptRelVol(avaDir, cfgDebris, relThVal):
     # Volumen für verschiedene Release-Dicken berechnen
     # ------------------------------------------------------------------ #
     rho = cfgSim["GENERAL"].getfloat("rho")
-    print(f"Schneedichte rho = {rho} kg/m³\n")
-    print(f"{'relTh [m]':>12}  {'Volumen [m³]':>14}  {'Masse [kg]':>14}  {'Partikel':>10}")
-    print("-" * 56)
+    # print(f"Schneedichte rho = {rho} kg/m³\n")
+    # print(f"{'relTh [m]':>12}  {'Volumen [m³]':>14}  {'Masse [kg]':>14}  {'Partikel':>10}")
+    # print("-" * 56)
 
     volumes = {}
 
@@ -86,10 +88,16 @@ def runAdaptRelVol(avaDir, cfgDebris, relThVal):
             cfgSim, inputSimFilesSim["releaseScenario"], inputSimLines
         )
 
+        # Report-Ausgabe in temp-Verzeichnis umleiten
+        cfgSim["GENERAL"]["avalancheDir"] = str(outDirTmp)
+
         # Simulation initialisieren (t=0) → Partikel erzeugen
-        particles, fields, dem, reportAreaInfo = com1DFA.initializeSimulation(
+        particles, *_ = com1DFA.initializeSimulation(
             cfgSim, outDirTmp, demOri, inputSimLines, "getReleaseVolume"
         )
+
+        # avalancheDir wieder zurücksetzen für nächste Iteration
+        cfgSim["GENERAL"]["avalancheDir"] = str(avaDir)
 
         # tatsächliches Simulationsvolumen
         mTot = particles["mTot"]
@@ -97,85 +105,102 @@ def runAdaptRelVol(avaDir, cfgDebris, relThVal):
         nPart = particles["nPart"]
 
         volumes[relTh] = volume
-        print(f"{relTh:>12.2f}  {volume:>14.2f}  {mTot:>14.2f}  {nPart:>10d}")
+        # print(f"{relTh:>12.2f}  {volume:>14.2f}  {mTot:>14.2f}  {nPart:>10d}")
+    
+    return volumes
 
-    # ------------------------------------------------------------------ #
-    # Zusammenfassung
-    # ------------------------------------------------------------------ #
-    print("\n--- Zusammenfassung ---")
-    ref_th = relThVal[0]
-    ref_vol = volumes[ref_th]
-    print(f"Referenz: relTh = {ref_th} m → V = {ref_vol:.2f} m³\n")
-    for relTh, vol in volumes.items():
-        factor = vol / ref_vol
-        print(f"  relTh = {relTh:.2f} m → V = {vol:.2f} m³  (Faktor {factor:.2f}x)")
 
-    # # initialize logging
-    # logUtils.initiateLogger(avaDir, "getReleaseVolume")
+def getGeomRelVol(avaDir,cfgDebris,relThval):
 
-    # cfgGen = cfgDebris['GENERAL']
+    # initialize logging
+    # logUtils.initiateLogger(avaDir, "get geometric release volume")
+    logging.disable(logging.WARNING)
 
-    # # Sicherstellen, dass INPUT-Sektion existiert und relThFile leer ist
-    # # (leer = Dicke kommt aus cfg["GENERAL"]["relTh"], nicht aus einer Datei)
-    # if not cfgDebris.has_section("INPUT"):
-    #     cfgDebris.add_section("INPUT")
-    # cfgDebris["INPUT"]["relThFile"] = ""
-    # cfgDebris["INPUT"]["secondaryRelThFile"] = ""
-    # cfgGen["timeDependentRelease"] = "False"
-    # cfgGen["relThFromFile"] = "False"
-    # cfgGen["secRelArea"] = "False"
+    cfgGen = cfgDebris['GENERAL']
 
-    # # debris-flow density [kg/m³]
-    # rho = cfgGen.getfloat("rho")
+    # Sicherstellen, dass INPUT-Sektion existiert und relThFile leer ist
+    # (leer = Dicke kommt aus cfg["GENERAL"]["relTh"], nicht aus einer Datei)
+    if not cfgDebris.has_section("INPUT"):
+        cfgDebris.add_section("INPUT")
+    cfgDebris["INPUT"]["relThFile"] = ""
+    cfgDebris["INPUT"]["secondaryRelThFile"] = ""
+    cfgGen["timeDependentRelease"] = "False"
+    cfgGen["relThFromFile"] = "False"
+    cfgGen["secRelArea"] = "False"
+
+    # debris-flow density [kg/m³]
+    rho = cfgGen.getfloat("rho")
     # print(f"debris-flow density rho = {rho} kg/m³\n")
 
-    # # read input
-    # inputSimFiles = gI.getInputDataCom1DFA(avaDir)
-    # pathToDem = inputSimFiles["demFile"]
+    # read input
+    inputSimFiles = gI.getInputDataCom1DFA(avaDir)
+    pathToDem = inputSimFiles["demFile"]
 
-    # # Erstes Release-Szenario (Shapefile) verwenden
-    # releaseFile = inputSimFiles["relFiles"][0]
-    # secondaryReleaseFile = inputSimFiles["secondaryRelFile"]
+    # Erstes Release-Szenario (Shapefile) verwenden
+    releaseFile = inputSimFiles["relFiles"][0]
+    secondaryReleaseFile = inputSimFiles["secondaryRelFile"]
 
     # print(f"DEM:             {pathToDem}")
     # print(f"Release-Datei:   {releaseFile}")
-    # print()
 
-    # # ------------------------------------------------------------------ #
-    # # Volumen für verschiedene Release-Dicken berechnen
-    # # ------------------------------------------------------------------ #
-    # print(f"{'relTh [m]':>12}  {'Volumen [m³]':>14}")
-    # print("-" * 30)
+    # ------------------------------------------------------------------ #
+    # Volumen für verschiedene Release-Dicken berechnen
+    # ------------------------------------------------------------------ #
+    volumes = {}
 
-    # volumes = {}
+    for relTh in relThVal:
 
+        # relTh in der Konfiguration überschreiben
+        cfgDebris["GENERAL"]["relTh"] = str(relTh)
 
-    # # relTh in der Konfiguration überschreiben
-    # cfgDebris["GENERAL"]["relTh"] = str(relThVal[1])
+        # fetchRelVolume erwartet cfg als einfaches dict (konvertiert intern zurück zu ConfigParser)
+        cfgDict = {section: dict(cfgDebris[section]) for section in cfgDebris.sections()}
 
-    # # fetchRelVolume erwartet cfg als einfaches dict (konvertiert intern zurück zu ConfigParser)
-    # cfgDict = {section: dict(cfgDebris[section]) for section in cfgDebris.sections()}
+        volume = com1DFA.fetchRelVolume(
+            releaseFile,
+            cfgDict,
+            pathToDem,
+            secondaryReleaseFile,
+        )
 
-    # volume = com1DFA.fetchRelVolume(
-    #     releaseFile,
-    #     cfgDict,
-    #     pathToDem,
-    #     secondaryReleaseFile,
-    # )
+        volumes[relTh] = volume
+
+    return volumes
+
+def adaptRelVol(geomRelVol,actRelVol):
+    #TODO: optimierte Iteration
+
+    geomTh = list(geomRelVol.keys())
+    geomVol = list(geomRelVol.values())
+
+    actTh = geomTh
+    
+    for i in geomTh:
+        tol = True
+        dTh = 0.01
+        diff = 1
+        while tol and diff > 0:
+            actVol = getActRelVol(avaDir,cfgDebris,actTh)
+            j = list(actVol.keys())[0]
+            # relDiff = (abs(geomRelVol[i] - actVol[j])) / geomRelVol[i]
+            diff = geomRelVol[i] - actVol[j]
+            print(f'dV: {diff:.3f}')
+            tol = np.isclose(diff,10e-1)
+            if tol == False:
+                tol = True
+            else:
+                tol = False
+            print(tol)
+            actTh = [j + dTh]
+            print(actVol)
+
 
   
 
 if __name__ == "__main__":
-#     # +++++++++REQUIRED+++++++++++++
-#     # log file name; leave empty to use default runLog.log
-#     # logName = "runDepthToThickness"
-#     # comMod = "com1DFA"
-#     # resType = "pft"
-#     # profileAxis = "x"
-#     # profileIndex = None
-#     # ++++++++++++++++++++++++++++++
+    # +++++++++REQUIRED+++++++++++++
     # variation of release thickness
-    relThVal = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    relThVal = [1.0]
 
     # fetch input directory
     cfgMain = cfgUtils.getGeneralConfig()
@@ -183,4 +208,8 @@ if __name__ == "__main__":
     cfgDebris = cfgUtils.getModuleConfig(com1DFA)
 
     # call conversion
-    runAdaptRelVol(avaDir, cfgDebris,relThVal)
+    actVolumes = getActRelVol(avaDir, cfgDebris,relThVal)
+    print(f'actual volumes {actVolumes}')
+    geomVolumes = getGeomRelVol(avaDir,cfgDebris,relThVal)
+    print(f'geometric volumes {geomVolumes}')
+    adaptRelVol(geomVolumes,actVolumes)
