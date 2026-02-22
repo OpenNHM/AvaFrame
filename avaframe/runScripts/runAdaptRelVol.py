@@ -5,6 +5,7 @@ Run adaption of release volme by modifying the release thickness
 
 from pathlib import Path
 import numpy as np
+import matplotlib.pyplot as plt
 import tempfile
 import shutil
 import logging
@@ -173,26 +174,37 @@ def adaptRelVol(geomRelVol,actRelVol):
     geomTh = list(geomRelVol.keys())
     geomVol = list(geomRelVol.values())
 
-    actTh = geomTh
     
-    for i in geomTh:
-        tol = True
-        dTh = 0.01
-        diff = 1
-        while tol and diff > 0:
-            actVol = getActRelVol(avaDir,cfgDebris,actTh)
-            j = list(actVol.keys())[0]
-            # relDiff = (abs(geomRelVol[i] - actVol[j])) / geomRelVol[i]
-            diff = geomRelVol[i] - actVol[j]
-            print(f'dV: {diff:.3f}')
-            tol = np.isclose(diff,10e-1)
-            if tol == False:
-                tol = True
-            else:
-                tol = False
-            print(tol)
-            actTh = [j + dTh]
+    for Th in geomTh:
+        actTh = Th
+        reldV = 1
+        dV = 10
+        dTh = 0.001
+        diffTh = 1
+
+        while diffTh > 1e-3:
+        # while abs(dV) >= 5:# and dV > 0:
+
+            actVol = getActRelVol(avaDir,cfgDebris,[actTh])
+            actTh_0 = list(actVol.keys())[0]
+            dV = geomRelVol[Th] - actVol[actTh_0]
+            reldV = (abs(dV)) / geomRelVol[Th]
+            print(f'abs. error: {dV:.2f} m³')
+            print(f'rel. error: {reldV:.5f}')
             print(actVol)
+            # Newton method
+            actTh_i = actTh_0 + dTh
+            print(f'Th + dTh: {actTh_i} m')
+            dVdTh = getActRelVol(avaDir,cfgDebris,[actTh_i])
+            dVdTh = geomRelVol[Th] - dVdTh[actTh_i]
+            print(f'dV_new: {dVdTh}')
+            dVdTh = (dVdTh - dV) / dTh
+            print(f'dvdTh: {dVdTh}')
+            actTh = actTh - dV / dVdTh
+            # diff = geomRelVol[i] - actVol[j]
+            # actTh = [j * (1 + relDiff/2)]
+            diffTh = abs(actTh_0 - actTh)
+            print(f'diffTh: {diffTh:.4f}')
 
 
   
