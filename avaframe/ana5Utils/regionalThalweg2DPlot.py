@@ -8,7 +8,11 @@ import avaframe.ana5Utils.regionalThalwegTools as tools
 from avaframe.in3Utils import fileHandlerUtils as fU
 import avaframe.out3Plot.outAIMEC as outAIMEC
 from avaframe.in3Utils import cfgUtils
+from avaframe.in3Utils import cfgHandling
 from avaframe.ana3AIMEC import ana3AIMEC
+import avaframe.ana5Utils.preparePathGeneral as pathGen
+import avaframe.in1Data.getInput as gI
+from avaframe.ana5Utils import DFAPathGeneration
 
 log = logging.getLogger(__name__)
 
@@ -24,25 +28,27 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
     cfg: configparser Object
         contains configuration settings
     """
-    simhash = cfg["GENERAL"].get("simHash")
-    module = cfg["GENERAL"].get("modName")
     avalanchedir = pathlib.Path(avalanchedir)
 
+    simhash = cfg["GENERAL"].get("simHash")
+    module = cfg["GENERAL"].get("modName")
     startRow = cfg["GENERAL"].get("startRow")
     startCol = cfg["GENERAL"].get("startCol")
     relId = cfg["GENERAL"].get("relId")
 
     pathToOutput = avalanchedir / "Outputs" / module / "peakFiles" / f"res_{simhash}"
+    savePath = pathToOutput / "ThalwegPlots"
+    fU.makeADir(savePath)
+    pathDict = {"avalancheDir": avalanchedir, "pathToOutput": pathToOutput, "savePath": savePath}
 
     # open json file that contains com4FlowPy parameters
     pathToCom4Json = avalanchedir / "Outputs" / module / simhash
     with open(f"{pathToCom4Json}.json", "r") as file:
         com4Cfg = json.load(file)
-    cfg["GENERAL"]["addThalwegExtension"] = com4Cfg["GENERAL"]["addThalwegExtension"]
 
-    savePath = pathToOutput / "ThalwegPlots"
-    fU.makeADir(savePath)
-    pathDict = {"avalancheDir": avalanchedir, "pathToOutput": pathToOutput, "savePath": savePath}
+    demDict = gI.readDEM(avalanchedir)
+    # TODO: Check if flipping DEM is needed!(gI.readDem flips the raster.)
+    # demDict["rasterData"] = np.flipud(demDict["rasterData"])
 
     # check which thalweg is plotted
     if startRow != "" and startCol != "" and relId != "":
@@ -71,6 +77,15 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
         "centerOf": centerOf,
         "simHash": simhash,
     }
+    if com4Cfg["GENERAL"]["addThalwegExtension"] != "True":
+        cfgDFAPath = cfgUtils.getModuleConfig(
+            DFAPathGeneration,
+            onlyDefault=cfg["ana5Utils_DFAPathGeneration_override"].getboolean("defaultConfig"),
+        )
+        # and override with settings from config
+        cfgDFAPath, cfg = cfgHandling.applyCfgOverride(
+            cfgDFAPath, cfg, DFAPathGeneration, addModValues=False
+        )
 
     # FlowPy output: thalweg data
     if plotAllCenterOf:
@@ -87,6 +102,11 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
             raise FileNotFoundError(message)
     else:
         dataThalweg = tools.readThalwegData(pathToOutput / "thalwegData", pathDict["titleVariables"])
+        if com4Cfg["GENERAL"]["addThalwegExtension"] != "True":
+            _, dataThalwegExtended = pathGen.preparePathGeneralMain(dataThalweg, cfgDFAPath, demDict)
+            for variable in ["x", "y", "z", "s"]:
+                dataThalweg[variable] = dataThalwegExtended[variable]
+
         plotThalweg2D(pathDict, cfg, dataThalweg)
         plotThalwegAltitude(pathDict, dataThalweg)
         plotDFAGenerationLocation(pathDict, dataThalweg, rasterVariable="fpTravelAngleMax")
@@ -106,6 +126,12 @@ def regionalThalweg2DPlotMain(avalanchedir, cfg):
             # startRow = int(startRow)
             # startCol = int(startCol)
             dataThalweg = np.load(thalwegDataFile, allow_pickle="TRUE")
+            if com4Cfg["GENERAL"]["addThalwegExtension"] != "True":
+                _, dataThalwegExtended = pathGen.preparePathGeneralMain(dataThalweg, cfgDFAPath, demDict)
+                for variable in ["x", "y", "z", "s"]:
+                    dataThalweg[variable] = dataThalwegExtended[variable]
+            print(dataThalweg["z"])
+
             plotThalweg2D(pathDict, cfg, dataThalweg)
             plotThalwegAltitude(pathDict, dataThalweg)
             plotDFAGenerationLocation(pathDict, dataThalweg, rasterVariable="fpTravelAngleMax")

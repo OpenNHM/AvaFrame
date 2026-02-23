@@ -684,28 +684,17 @@ def makeThalwegPlot(ax, dataThalweg, pathDict, centerOf=""):
 
     x = np.array(dataThalweg["x"])
     y = np.array(dataThalweg["y"])
-
-    # get s, z and zDelta along thalweg (read from raster)
-    z, _ = gT.projectOnGrid(
-        x,
-        y,
-        dem,
-        csz=header["cellsize"],
-        xllc=header["xllcenter"],
-        yllc=header["yllcenter"],
-    )
+    z = np.array(dataThalweg["z"])
+    s = np.array(dataThalweg["s"])
 
     zdelta, _ = gT.projectOnGrid(
         x,
         y,
         zDeltaRaster,
         csz=header["cellsize"],
-        xllc=header["xllcenter"],
-        yllc=header["yllcenter"],
+        # xllc=header["xllcenter"],
+        # yllc=header["yllcenter"],
     )
-
-    ds = np.sqrt((x[1:] - x[:-1]) ** 2 + (y[1:] - y[:-1]) ** 2)
-    s = np.append(np.array([0]), np.cumsum(ds))
 
     # use centered values for s, zDelta and z
     """
