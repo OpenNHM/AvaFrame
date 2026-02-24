@@ -346,6 +346,7 @@ def initializeInputs(avalancheDir, cleanRemeshedRasters, module=com1DFA):
     simDFExisting, simNameExisting = cfgUtils.readConfigurationInfoFromDone(
         avalancheDir,
         specDir="",
+        modName=modName
     )
 
     # fetch input data - dem, release-, entrainment- and resistance areas (and secondary release areas)

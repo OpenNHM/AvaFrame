@@ -958,7 +958,7 @@ def setStrnanToNan(simDF, simDFTest, name):
     return simDF
 
 
-def readConfigurationInfoFromDone(avaDir, specDir="", latest=False):
+def readConfigurationInfoFromDone(avaDir, specDir="", latest=False, modName=''):
     """Check avaName/Outputs/com1DFA/configurationFilesDone and pass
     names of all files found in this directory and create corresponding simDF
     this is useful if e.g. no allConfigurations.csv has
@@ -976,6 +976,8 @@ def readConfigurationInfoFromDone(avaDir, specDir="", latest=False):
         path to a directory where simulation configuration files directory called configurationFiles can be found - optional
     latest: bool
         if True check for files found in avaName/Outputs/com1DFA/configurationFilesLatest
+    modName: str
+        name of the module to be used for task (optional)
 
     Returns
     --------
@@ -989,7 +991,10 @@ def readConfigurationInfoFromDone(avaDir, specDir="", latest=False):
     if specDir != "":
         inDir = pathlib.Path(specDir, "configurationFiles")
     else:
-        inDir = pathlib.Path(avaDir, "Outputs", "com1DFA", "configurationFiles")
+        if modName == 'com8MoTPSA':
+            inDir = pathlib.Path(avaDir, "Outputs", "com8MoTPSA", "configurationFiles")
+        else:
+            inDir = pathlib.Path(avaDir, "Outputs", "com1DFA", "configurationFiles")
 
     # search inDir/configurationFilesDone or inDir/configurationFilesLatest (depending on latest flag) for already existing sims
     if latest:
@@ -1007,13 +1012,23 @@ def readConfigurationInfoFromDone(avaDir, specDir="", latest=False):
         simDF = None
     else:
         # create simDF (dataFrame with one row per simulation of configuration files found in configDir)
-        simDF = createConfigurationInfo(
-            avaDir,
-            comModule="com1DFA",
-            standardCfg="",
-            writeCSV=False,
-            specDir=specDir,
-            simNameList=simNameExisting,
+        if modName == 'com8MoTPSA':
+            simDF = createConfigurationInfo(
+                avaDir,
+                comModule="com8MoTPSA",
+                standardCfg="",
+                writeCSV=False,
+                specDir=specDir,
+                simNameList=simNameExisting,
+            )
+        else:
+            simDF = createConfigurationInfo(
+                avaDir,
+                comModule="com1DFA",
+                standardCfg="",
+                writeCSV=False,
+                specDir=specDir,
+                simNameList=simNameExisting,
         )
 
     # check for allConfigurationsInfo to find computation info and add to info fetched from ini files
