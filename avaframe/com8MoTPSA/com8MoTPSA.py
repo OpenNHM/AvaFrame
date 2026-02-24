@@ -18,12 +18,13 @@ from avaframe.in1Data import getInput as gI
 import avaframe.in3Utils.fileHandlerUtils as fU
 from avaframe.out1Peak import outPlotAllPeak as oP
 import avaframe.in3Utils.MoTUtils as mT
+from avaframe.in3Utils.initializeProject import _checkForFolderAndDelete
 
 # create local logger
 log = logging.getLogger(__name__)
 
 
-def com8MoTPSAMain(cfgMain, cfgInfo=None):
+def com8MoTPSAMain(cfgMain, cfgInfo=None, returnSimName=None):
     """Run the full MoT-PSA workflow: generate configs, run simulations in parallel, postprocess.
 
     Parameters
@@ -32,6 +33,8 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None):
         main AvaFrame configuration (avalancheDir, nCPU, plot flags)
     cfgInfo : dict or None, optional
         override configuration info passed to MoTGenerateConfigs
+    returnSimName : any, optional
+        if not None, return the first simDict key after running
     """
     # Get all necessary information from the configuration files
     currentModule = sys.modules[__name__]
@@ -53,22 +56,56 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None):
 
     log.info("--- STARTING (potential) PARALLEL PART ----")
 
-    # Get number of CPU Cores wanted
-    nCPU = cfgUtils.getNumberOfProcesses(cfgMain, len(rcfFiles))
+    # Split into chunks to postprocess and clean up work dirs incrementally
+    chunkSize = 8
+    if len(rcfFiles) > chunkSize:
+        for i in range(0, len(rcfFiles), chunkSize):
+            rcfFilesChunk = rcfFiles[i:i + chunkSize]
+            simNamesChunk = [p.stem for p in rcfFilesChunk]
 
-    # Create parallel pool and run
-    # with multiprocessing.Pool(processes=nCPU) as pool:
-    with Pool(processes=nCPU) as pool:
-        results = pool.map(com8MoTPSATask, rcfFiles)
-        pool.close()
-        pool.join()
+            nCPU = cfgUtils.getNumberOfProcesses(cfgMain, len(rcfFilesChunk))
 
-    timeNeeded = "%.2f" % (time.time() - startTime)
-    log.info("Overall (parallel) com8MoTPSA computation took: %s s " % timeNeeded)
-    log.info("--- ENDING (potential) PARALLEL PART ----")
+            if bool(simNamesChunk):
+                with Pool(processes=nCPU) as pool:
+                    results = pool.map(com8MoTPSATask, rcfFilesChunk)
+                    pool.close()
+                    pool.join()
 
-    # Postprocess the simulations
-    com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles)
+                timeNeeded = "%.2f" % (time.time() - startTime)
+                log.info("Overall (parallel) com8MoTPSA computation took: %s s " % timeNeeded)
+                log.info("--- ENDING (potential) PARALLEL PART ----")
+
+                # Postprocess the simulations
+                com8MoTPSAPostprocess(simNamesChunk, cfgMain, inputSimFiles)
+
+                # Delete folder in Work directory after postprocessing to reduce memory costs
+                avaDir = cfgMain["MAIN"]["avalancheDir"]
+                for sim in simNamesChunk:
+                    folderName = "Work/com8MoTPSA/" + sim
+                    _checkForFolderAndDelete(avaDir, folderName)
+            else:
+                log.warning("There is no simulation to be performed for releaseScenario")
+    else:
+        nCPU = cfgUtils.getNumberOfProcesses(cfgMain, len(rcfFiles))
+
+        simNames = [p.stem for p in rcfFiles]
+        if bool(simNames):
+            with Pool(processes=nCPU) as pool:
+                results = pool.map(com8MoTPSATask, rcfFiles)
+                pool.close()
+                pool.join()
+
+            timeNeeded = "%.2f" % (time.time() - startTime)
+            log.info("Overall (parallel) com8MoTPSA computation took: %s s " % timeNeeded)
+            log.info("--- ENDING (potential) PARALLEL PART ----")
+
+            # Postprocess the simulations
+            com8MoTPSAPostprocess(simNames, cfgMain, inputSimFiles)
+        else:
+            log.warning("There is no simulation to be performed for releaseScenario")
+
+    if returnSimName is not None and simDict:
+        return next(iter(simDict))
 
 
 def copyRawToLayerPeakFiles(workDir, outputDirPeakFile):
@@ -106,7 +143,7 @@ def copyRawToLayerPeakFiles(workDir, outputDirPeakFile):
             shutil.copy2(source, target)
 
 
-def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
+def com8MoTPSAPostprocess(simNames, cfgMain, inputSimFiles):
     """Postprocess MoT-PSA results: rename outputs to L1/L2 peak files, generate plots and reports.
 
     For each simulation, copies DataTime.txt and renames raw MoT-PSA output files
@@ -114,8 +151,8 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
 
     Parameters
     ----------
-    simDict : dict
-        simulation dictionary
+    simNames : list
+        list of simulation name strings
     cfgMain : configparser.ConfigParser
         main AvaFrame configuration (avalancheDir, plot flags)
     inputSimFiles : dict
@@ -128,7 +165,7 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
     outputDirPeakFile = pathlib.Path(avalancheDir) / "Outputs" / "com8MoTPSA" / "peakFiles"
     fU.makeADir(outputDirPeakFile)
 
-    for key in simDict:
+    for key in simNames:
         workDir = pathlib.Path(avalancheDir) / "Work" / "com8MoTPSA" / str(key)
 
         # Copy DataTime.txt
@@ -136,6 +173,13 @@ def com8MoTPSAPostprocess(simDict, cfgMain, inputSimFiles):
         shutil.copy2(dataTimeFile, outputDir / (str(key) + "_DataTime.txt"))
 
         copyRawToLayerPeakFiles(workDir, outputDirPeakFile)
+
+        # Write config indicator files to track completed simulations
+        configFileName = "%s.ini" % key
+        for saveDir in ["configurationFilesDone", "configurationFilesLatest"]:
+            configDir = pathlib.Path(avalancheDir, "Outputs", "com8MoTPSA", "configurationFiles", saveDir)
+            with open((configDir / configFileName), "w") as fi:
+                fi.write("see directory configurationFiles for info on config")
 
     # create plots and report
     modName = __name__.split(".")[-1]
