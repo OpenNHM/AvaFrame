@@ -14,6 +14,7 @@ from multiprocessing import Pool
 import avaframe.com1DFA.com1DFA as com1DFA
 from avaframe.in3Utils import cfgUtils
 from avaframe.in2Trans import rasterUtils as rU
+from avaframe.ana4Stats import probAna
 from avaframe.in1Data import getInput as gI
 import avaframe.in3Utils.fileHandlerUtils as fU
 from avaframe.out1Peak import outPlotAllPeak as oP
@@ -51,61 +52,53 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None, returnSimName=None):
     # Preprocess the simulations, mainly creating the rcf files
     rcfFiles = com8MoTPSAPreprocess(simDict, inputSimFiles, cfgMain)
 
+    # Check if there is simulation to be run
+    if not rcfFiles:
+        log.warning("There is no simulation to be performed for releaseScenario")
+        return None
+
     # And now we run the simulations
     startTime = time.time()
 
     log.info("--- STARTING (potential) PARALLEL PART ----")
 
-    # Split into chunks to postprocess and clean up work dirs incrementally
-    chunkSize = 8
-    if len(rcfFiles) > chunkSize:
-        for i in range(0, len(rcfFiles), chunkSize):
-            rcfFilesChunk = rcfFiles[i:i + chunkSize]
-            simNamesChunk = [p.stem for p in rcfFilesChunk]
-
-            nCPU = cfgUtils.getNumberOfProcesses(cfgMain, len(rcfFilesChunk))
-
-            if bool(simNamesChunk):
-                with Pool(processes=nCPU) as pool:
-                    results = pool.map(com8MoTPSATask, rcfFilesChunk)
-                    pool.close()
-                    pool.join()
-
-                timeNeeded = "%.2f" % (time.time() - startTime)
-                log.info("Overall (parallel) com8MoTPSA computation took: %s s " % timeNeeded)
-                log.info("--- ENDING (potential) PARALLEL PART ----")
-
-                # Postprocess the simulations
-                com8MoTPSAPostprocess(simNamesChunk, cfgMain, inputSimFiles)
-
-                # Delete folder in Work directory after postprocessing to reduce memory costs
-                avaDir = cfgMain["MAIN"]["avalancheDir"]
-                for sim in simNamesChunk:
-                    folderName = "Work/com8MoTPSA/" + sim
-                    _checkForFolderAndDelete(avaDir, folderName)
-            else:
-                log.warning("There is no simulation to be performed for releaseScenario")
+    # Split into chunks to postprocess and clean up working directory incrementally
+    # Get chunkSize from probAnaCfg.ini, if it is empty use 10 as default
+    cfgProbAna = cfgUtils.getModuleConfig(probAna)
+    chunkSize = cfgProbAna.get('GENERAL', 'chunkSize', fallback='')
+    if chunkSize == '':
+        chunkSize = 10
     else:
-        nCPU = cfgUtils.getNumberOfProcesses(cfgMain, len(rcfFiles))
+        chunkSize = int(chunkSize)
 
-        simNames = [p.stem for p in rcfFiles]
-        if bool(simNames):
-            with Pool(processes=nCPU) as pool:
-                results = pool.map(com8MoTPSATask, rcfFiles)
-                pool.close()
-                pool.join()
+    rcfChunks = [rcfFiles[i:i + chunkSize] for i in range(0, len(rcfFiles), chunkSize)]
 
-            timeNeeded = "%.2f" % (time.time() - startTime)
-            log.info("Overall (parallel) com8MoTPSA computation took: %s s " % timeNeeded)
-            log.info("--- ENDING (potential) PARALLEL PART ----")
+    for rcfFilesChunk in rcfChunks:
+        simNamesChunk = [p.stem for p in rcfFilesChunk]
 
-            # Postprocess the simulations
-            com8MoTPSAPostprocess(simNames, cfgMain, inputSimFiles)
-        else:
-            log.warning("There is no simulation to be performed for releaseScenario")
+        nCPU = cfgUtils.getNumberOfProcesses(cfgMain, len(rcfFilesChunk))
+
+        with Pool(processes=nCPU) as pool:
+            results = pool.map(com8MoTPSATask, rcfFilesChunk)
+            pool.close()
+            pool.join()
+
+        timeNeeded = "%.2f" % (time.time() - startTime)
+        log.info("Overall (parallel) com8MoTPSA computation took: %s s ", timeNeeded)
+        log.info("--- ENDING (potential) PARALLEL PART ----")
+
+        # Postprocess the simulations
+        com8MoTPSAPostprocess(simNamesChunk, cfgMain, inputSimFiles)
+
+        # Delete folder in Work directory after postprocessing to reduce memory costs
+        avaDir = cfgMain["MAIN"]["avalancheDir"]
+        for sim in simNamesChunk:
+            folderName = "Work/com8MoTPSA/" + sim
+            _checkForFolderAndDelete(avaDir, folderName)
 
     if returnSimName is not None and simDict:
         return next(iter(simDict))
+    return None
 
 
 def copyRawToLayerPeakFiles(workDir, outputDirPeakFile):

@@ -1,10 +1,10 @@
 import numpy as np
 import pathlib
 import pickle
+import logging
 import pandas as pd
 import configparser
 import os
-import time
 from scipy.stats import norm, qmc
 from datetime import datetime
 import re
@@ -15,16 +15,22 @@ from sklearn.pipeline import Pipeline
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 
-from avaframe.in3Utils import cfgUtils, initializeProject, logUtils
+from avaframe.in3Utils import cfgUtils
+from avaframe.in3Utils import fileHandlerUtils as fU
 from avaframe.com8MoTPSA import com8MoTPSA
+from avaframe.ana3AIMEC import ana3AIMEC
 from avaframe.ana4Stats import probAna
 from avaframe.runScripts.runPlotAreaRefDiffs import runPlotAreaRefDiffs
 import avaframe.out3Plot.outAna6Plots as saveResults
 
+# create local logger
+log = logging.getLogger("avaframe")
 
-def calcArealIndicatorsAndAimec(cfgOpt, avalancheDir, ana3AIMEC):
+
+def calcArealIndicatorsAndAimec(cfgOpt, avalancheDir):
     """
-    Calculate areal indicators between reference polygon and simulation and AIMEC analysis and save data in ana3AIMEC and out1Peak.
+    Calculate areal indicators between reference polygon and simulation and AIMEC analysis and save data in ana3AIMEC
+    and out1Peak.
 
     Parameters
     ----------
@@ -35,15 +41,13 @@ def calcArealIndicatorsAndAimec(cfgOpt, avalancheDir, ana3AIMEC):
             - thresholdValueSimulation
             - modName
     avalancheDir : str
-        Directory containing the directory of the reference avalanche
-    ana3AIMEC : module
-        AIMEC analysis module providing `fullAimecAnalysis()`.
+        Path to the avalanche directory.
 
     """
     # ToDo: to reduce comp. cost: run AIMEC and calcArealIndicators only for new simulations
     # Areal indicators
     resType = cfgOpt["GENERAL"]["resType"]
-    thresholdValueSimulation = float(cfgOpt["GENERAL"]["thresholdValueSimulation"])
+    thresholdValueSimulation = cfgOpt.getfloat("GENERAL", "thresholdValueSimulation")
     modName = cfgOpt["GENERAL"]["modName"]
     runPlotAreaRefDiffs(resType, thresholdValueSimulation, modName)
 
@@ -84,17 +88,17 @@ def readParamSetDF(inDir, varParList):
             config = configparser.ConfigParser()
             config.read(filepath)
 
+            # Set defaults per file
+            index = np.nan
+            sampleMethod = np.nan
+
             if 'VISUALISATION' in config.sections():
                 # config is inifile
                 index = config['VISUALISATION']['scenario']
-
-                if 'VISUALISATION' in config.sections():
-                    # config is inifile
-                    index = config['VISUALISATION']['scenario']
-                    if 'sampleMethod' in config['VISUALISATION']:
-                        sampleMethod = config['VISUALISATION']['sampleMethod']
-                    else:
-                        sampleMethod = np.nan
+                if 'sampleMethod' in config['VISUALISATION']:
+                    sampleMethod = config['VISUALISATION']['sampleMethod']
+                else:
+                    sampleMethod = np.nan
 
             row = []  # row contains 1 row
             for param in varParList:
@@ -139,7 +143,7 @@ def readArealIndicators(inDir):
     return indicatorsDF
 
 
-def addLossMetrics(df, referenceDF, cfgOpt):
+def addLossMetrics(df, referenceDF, cfg):
     """
     Compute evaluation metrics (recall, precision, F1, Tversky score) and a combined weighted Loss (or optimisation)
     variable from a given DataFrame.
@@ -154,8 +158,8 @@ def addLossMetrics(df, referenceDF, cfgOpt):
         ``TP_SimRef_area``, ``FP_SimRef_area``, ``FN_SimRef_area``.
     referenceDF: pandas.Dataframe
         Dataframe with information of the reference in AIMEC e.g. reference_sRunout of the polygon
-    cfgOpt: configparser.ConfigParser
-        Config parser of the runOptimisationCfg.ini file
+    cfg: configparser.ConfigParser
+        Config parser that contains values of the loss function, either runOptimisationCfg.ini or runMorrisSA.ini file
 
     Returns
     -------
@@ -184,34 +188,39 @@ def addLossMetrics(df, referenceDF, cfgOpt):
     df["f1_score"] = np.where(denomF1 != 0, 2.0 * df['precision'] * df['recall'] / denomF1, 0.0)
 
     # Tversky score = TP / (TP + alpha * FP + beta * FN), gives penalty to overshoot --> alpha
-    alpha = float(cfgOpt['LOSS_PARAMETERS']['tverskyAlpha'])
-    beta = float(cfgOpt['LOSS_PARAMETERS']['tverskyBeta'])
+    alpha = cfg.getfloat('LOSS_PARAMETERS', 'tverskyAlpha')
+    beta = cfg.getfloat('LOSS_PARAMETERS', 'tverskyBeta')
 
     denomTversky = TP + alpha * FP + beta * FN
     df["tversky_score"] = np.where(denomTversky != 0, TP / denomTversky, 0.0)
     # Subtract 1 to ensure that 0 are good values and 1 bad
-    tverskyModified = 1 - df["tversky_score"]
+    df['1-tversky'] = 1 - df["tversky_score"]
 
     # Runout
     # RMSE divided with Runout length of Reference
     sRunoutRef = referenceDF['reference_sRunout'].values
     runoutRMSE = df['runoutLineDiff_poly_RMSE']
-    runoutRMSENormalised = runoutRMSE / sRunoutRef  # 0 is good, 1 is bad
+    df['runoutRMSENormalised'] = runoutRMSE / sRunoutRef  # 0 is good, 1 is bad
 
     # Weights
-    wTversky = float(cfgOpt['LOSS_PARAMETERS']['weightTversky'])
-    wRunout = float(cfgOpt['LOSS_PARAMETERS']['weightRunout'])
+    wTversky = cfg.getfloat('LOSS_PARAMETERS', 'weightTversky')
+    wRunout = cfg.getfloat('LOSS_PARAMETERS', 'weightRunout')
 
-    df['optimisationVariable'] = (wRunout * runoutRMSENormalised.fillna(1) + wTversky * tverskyModified.fillna(1))
+    df['optimisationVariable'] = (
+            wRunout * df['runoutRMSENormalised'].fillna(1) + wTversky * df['1-tversky'].fillna(1))
     return df
 
 
-def buildFinalDF(avalancheDir, varParList, cfgOpt):
+def buildFinalDF(avalancheDir, varParList, cfg):
     """
     Build the final merged DataFrame for a given avalanche.
 
     Combines parameter sets, AIMEC results, and areal indicators into one DataFrame,
-    then computes evaluation metrics 'via addLossMetrics'.
+    then computes evaluation metrics 'via addLossMetrics'. The resulting DataFrame contains one row per simulation.
+    If simulations are available for two layers (e.g. L1 and L2), only the layer specified in the configuration files
+    is considered. Simulations from the selected layer are kept, while simulations from the other layer are excluded
+    from the final DataFrame. The analysis layer must be defined in the corresponding .ini configuration files. Further
+    details are provided in README_ana6.md.
 
     Parameters
     ----------
@@ -219,16 +228,18 @@ def buildFinalDF(avalancheDir, varParList, cfgOpt):
         Path of avalanche directory
     varParList: list of str
         List of parameter names that are varied
-    cfgOpt: configparser.ConfigParser
-        Config parser of the runOptimisationCfg.ini file
+    cfg: configparser.ConfigParser
+        Config parser that contains values of the loss function, either runOptimisationCfg.ini or runMorrisSA.ini file
 
     Returns
     -------
     finalDF : pandas.DataFrame
         Final DataFrame containing:
-        - ``simName``
-        - ``parameterSet``
-        - ``order``
+        - `simName`
+        - `parameterSet`
+        - `order`:  used later for visualisation. Morris, Latin hypercube and sequential samples are assigned an order
+                    index. For each sampling method, the index starts at 0 and increases in increments of 1 up to the
+                    total number of samples of that method.
         - Areal indicator columns
         - Evaluation metrics (recall, precision, f1_score, tversky_score, optimisationVariable)
     """
@@ -240,9 +251,16 @@ def buildFinalDF(avalancheDir, varParList, cfgOpt):
     # Read parameterSetDF
     paramSetDF = readParamSetDF(inDir, varParList)
 
-    # Dataframe from AIMEC
-    df_aimec = pd.read_csv(
-        avalancheDir + '/Outputs/ana3AIMEC/com8MoTPSA/Results_' + avaName + '_ppr_lim_1_w_600resAnalysisDF.csv')
+    # Get Dataframe from AIMEC analysis
+    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC)
+    runoutResTypes = cfgAIMEC['AIMECSETUP']['resTypes']
+    thresholdValue = cfgAIMEC['AIMECSETUP']['thresholdValue']
+    domainWidth = cfgAIMEC['AIMECSETUP']['domainWidth']
+
+    AIMECPath = avalancheDir + '/Outputs/ana3AIMEC/com8MoTPSA/'
+    AIMECFileName = f"Results_{avaName}_{runoutResTypes}_lim_{thresholdValue}_w_{domainWidth}resAnalysisDF.csv"
+
+    df_aimec = pd.read_csv(AIMECPath + AIMECFileName)
     # Get data of the reference in AIMEC
     referenceDF = pd.read_csv(f"{avalancheDir}/Outputs/ana3AIMEC/com8MoTPSA/referenceDF.csv")
 
@@ -250,25 +268,33 @@ def buildFinalDF(avalancheDir, varParList, cfgOpt):
     arealIndicatorDir = pathlib.Path(avalancheDir, 'Outputs', 'out1Peak', 'arealIndicators.pkl')
     indicatorsDF = readArealIndicators(arealIndicatorDir)
 
+    # Remove layer suffix _L1 or _L2 from simName for merging, the layer is provided by cfg['GENERAL']['layer'].
+    layer = cfg['GENERAL']['layer']
+    indicatorsDF["simName"] = indicatorsDF["simName"].str.replace(fr"_{layer}$", "", regex=True)
+
     # Merge df's
     df_merged = pd.merge(paramSetDF, df_aimec, on='simName', how='inner')
     df_merged = df_merged.merge(indicatorsDF, on="simName", how="left")
 
     # Add optimisation variables
-    finalDF = addLossMetrics(df_merged, referenceDF, cfgOpt)
+    finalDF = addLossMetrics(df_merged, referenceDF, cfg)
     return finalDF
 
 
 def createDFParameterLoss(df, paramSelected):
     """
     Create DataFrames linking selected parameters with the loss function.
+    The meaning of selected depends on the chosen scenario. If Morris sensitivity analysis is not run beforehand, all
+    varied input parameters from probAnaCfg.ini are included. If Morris sensitivity analysis is run beforehand, only the topN
+    highest-ranked parameters are selected based on the Morris results.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        DataFrame that contains the selected parameters and their values as well as the loss function.
+        DataFrame that contains the finalDF including the input parameters and their values as well as the loss function.
     paramSelected : list of str
-        Subset of parameters to include in the output DataFrames.
+        List of parameters to include in the output DataFrames. This determines which parameters will be used for
+        optimisation and depends on the scenario.
 
     Returns
     -------
@@ -317,7 +343,7 @@ def fitSurrogate(df, cfgOpt):
     n_features = X.shape[1]
 
     # GP kernel with Matern-Covariance
-    matern_nu = float(cfgOpt['OPTIMISATION']['matern_nu'])
+    matern_nu = cfgOpt.getfloat('OPTIMISATION', 'matern_nu')
     kernel = (
             ConstantKernel(1.0, (1e-3, 1e3))  # Output variance tells how strong Y varies
             * Matern(length_scale=np.ones(n_features),
@@ -338,7 +364,7 @@ def fitSurrogate(df, cfgOpt):
     return X, y, gp_pipe
 
 
-def KFoldCV(X, y, pipe, cfgOpt, outDir, avaName, pipeName):
+def KFoldCrossValidation(X, y, pipe, cfgOpt, outDir, avaName, pipeName):
     """
     Perform k-fold cross-validation for a regression pipeline.
 
@@ -371,7 +397,7 @@ def KFoldCV(X, y, pipe, cfgOpt, outDir, avaName, pipeName):
     rmse_scorer = "neg_root_mean_squared_error"
     mae_scorer = "neg_mean_absolute_error"
     r2_scorer = "r2"
-    k = int(cfgOpt['OPTIMISATION']['k'])
+    k = cfgOpt.getint('OPTIMISATION', 'k')
     cv = KFold(n_splits=k, shuffle=True, random_state=0)
 
     scores = cross_validate(
@@ -386,7 +412,7 @@ def KFoldCV(X, y, pipe, cfgOpt, outDir, avaName, pipeName):
     for c in neg_cols:
         scores[c] = -scores[c]
     # get smoothness parameter nu
-    matern_nu = float(cfgOpt['OPTIMISATION']['matern_nu'])
+    matern_nu = cfgOpt.getfloat('OPTIMISATION', 'matern_nu')
     row = {
         "experiment_name": pipeName,
         "n_samples": X.shape[0],
@@ -400,12 +426,13 @@ def KFoldCV(X, y, pipe, cfgOpt, outDir, avaName, pipeName):
             row[f"{split} {m} mean"] = arr.mean()
             row[f"{split} {m} std"] = arr.std()
 
-    print(f"\n{pipeName}, {k}-fold CV:")
+    # Log results of cross validation
+    log.info(f"\n{pipeName}, {k}-fold CV:")
     for split in ("test", "train"):
-        print(f"  {split.capitalize()} metrics:")
+        log.info(f"  {split.capitalize()} metrics:")
         for m in ("rmse", "mae", "r2"):
             arr = scores[f"{split}_{m}"]
-            print(f"    {m.upper():<4}: {arr.mean():.4g} ± {arr.std():.4g}")
+            log.info(f"    {m.upper():<4}: {arr.mean():.4g} ± {arr.std():.4g}")
 
     df = pd.DataFrame([row])
     # Include date, format: YYYYMMDD
@@ -445,8 +472,8 @@ def optimiseNonSeq(pipe, cfgOpt, paramBounds):
     d = bounds.shape[0]
 
     # Create LH samples
-    seed = int(cfgOpt['OPTIMISATION']['seed'])
-    n_lhs = int(cfgOpt['OPTIMISATION']['n_lhs'])
+    seed = cfgOpt.getint('OPTIMISATION', 'seed')
+    n_lhs = cfgOpt.getint('OPTIMISATION', 'n_lhs')
     sampler = qmc.LatinHypercube(d=d, seed=seed)
     sample = sampler.random(n=n_lhs)
     X0 = qmc.scale(sample, bounds[:, 0], bounds[:, 1])
@@ -455,12 +482,12 @@ def optimiseNonSeq(pipe, cfgOpt, paramBounds):
     mu, sigma = pipe.predict(X0, return_std=True)
     # Convert X0 to pandas df for analyze function
     df_candidates = pd.DataFrame(X0, columns=paramSelected)
-    n_top_samples = int(cfgOpt['OPTIMISATION']['n_surrogate_top'])
+    n_top_samples = cfgOpt.getint('OPTIMISATION', 'n_surrogate_top')
     topNStat, _ = analyzeTopCandidates(df_candidates, mu, sigma, paramSelected, N=n_top_samples)
     return topNStat
 
 
-def analyzeTopCandidates(df_candidates, mu, sigma, param_cols, N=5):
+def analyzeTopCandidates(df_candidates, mu, sigma, param_cols, N):
     """
     Analyze the top N surrogate candidates.
 
@@ -474,7 +501,7 @@ def analyzeTopCandidates(df_candidates, mu, sigma, param_cols, N=5):
         Predicted uncertainty values.
     param_cols : list of str
         Parameter column names.
-    N : int, optional
+    N : int
         Number of best candidates to analyze.
 
     Returns
@@ -498,15 +525,18 @@ def analyzeTopCandidates(df_candidates, mu, sigma, param_cols, N=5):
     mean_sigma = topNData["sigma"].mean()
     std_sigma = topNData["sigma"].std()
 
-    print(f"\n🔍 Mittelwerte ± Std (Top {N}):")
+    log.info(f"Surrogate Top {N} candidates: mean ± std")
+
     for p in param_cols:
         m, s = mean_params[p], std_params[p]
         perc = (s / m * 100) if m != 0 else np.nan
-        print(f"  {p:30s}: {m:.6f} ± {s:.6f} ({perc:.1f}%)")
+        log.info(f"  {p:30s}: {m:.6f} ± {s:.6f} ({perc:.1f}%%)")
+
     perc_mu = (std_mu / mean_mu * 100) if mean_mu != 0 else np.nan
     perc_sigma = (std_sigma / mean_sigma * 100) if mean_sigma != 0 else np.nan
-    print(f"📉 mu:    {mean_mu:.4f} ± {std_mu:.4f} ({perc_mu:.1f}%)")
-    print(f"📊 sigma: {mean_sigma:.4f} ± {std_sigma:.4f} ({perc_sigma:.1f}%)")
+
+    log.info(f"mu:    {mean_mu:.4f} ± {std_mu:.4f} ({perc_mu:.1f}%%)")
+    log.info(f"sigma: {mean_sigma:.4f} ± {std_sigma:.4f} ({perc_sigma:.1f}%%)")
 
     # Best single point
     idx_best = np.argmin(mu)
@@ -514,14 +544,16 @@ def analyzeTopCandidates(df_candidates, mu, sigma, param_cols, N=5):
     best_loss = mu[idx_best]
     best_sigma = sigma[idx_best]
 
-    print("\n🔍 Best single Parameter combination:")
+    log.info("Best single parameter combination from Surrogate:")
+
     for p in param_cols:
-        print(f"  {p:30s}: {best_params[p]:.4f}")
-    print(f"📉 mu:    {best_loss:.4f}")
-    print(f"📊 sigma: {best_sigma:.4f}")
+        log.info(f"  {p:30s}: {best_params[p]:.4f}")
+
+    log.info(f"mu:    {best_loss:.4f}")
+    log.info(f"sigma: {best_sigma:.4f}")
 
     return {
-        f"TopNBest": {
+        "TopNBest": {
             "mean_params": mean_params,
             "std_params": std_params,
             "mean_mu": mean_mu,
@@ -537,7 +569,7 @@ def analyzeTopCandidates(df_candidates, mu, sigma, param_cols, N=5):
     }, topNData
 
 
-def expectedImprovement(mu, sigma, f_best, xi=0):
+def expectedImprovement(mu, sigma, f_best, xi):
     """
     Compute the Expected Improvement (EI) acquisition function
     for minimization problems.
@@ -552,7 +584,7 @@ def expectedImprovement(mu, sigma, f_best, xi=0):
         Predicted standard deviations of the surrogate model.
     f_best : float
         Best observed objective value so far.
-    xi : float, optional
+    xi : float
         Exploration parameter controlling exploitation–exploration
         trade-off.
 
@@ -632,8 +664,8 @@ def EINextPoint(pipe, y, paramBounds, cfgOpt):
     f_best = np.nanmin(y)
 
     # Create LH samples
-    seed = int(cfgOpt['OPTIMISATION']['seed'])
-    n_lhs = int(cfgOpt['OPTIMISATION']['n_lhs'])
+    seed = cfgOpt.getint('OPTIMISATION', 'seed')
+    n_lhs = cfgOpt.getint('OPTIMISATION', 'n_lhs')
     sampler = qmc.LatinHypercube(d=d, seed=seed)
     sample = sampler.random(n=n_lhs)
     X0 = qmc.scale(sample, bounds[:, 0], bounds[:, 1])
@@ -641,10 +673,13 @@ def EINextPoint(pipe, y, paramBounds, cfgOpt):
     # Predict with pipe
     mu, sigma = pipe.predict(X0, return_std=True)
 
-    print(mu.mean(), mu.max(), sigma.mean(), sigma.max())
+    log.info("Prediction statistics:")
+    log.info("  mu    mean=%.6f  max=%.6f", mu.mean(), mu.max())
+    log.info("  sigma mean=%.6f  max=%.6f", sigma.mean(), sigma.max())
 
     # EI or LCB for minimization
-    ei = expectedImprovement(mu, sigma, f_best)
+    xi = cfgOpt.getfloat('OPTIMISATION', 'xi')
+    ei = expectedImprovement(mu, sigma, f_best, xi)
     lcb = lowerConfidenceBound(mu, sigma)
 
     xBest = X0[np.argmax(ei)].copy()
@@ -654,68 +689,73 @@ def EINextPoint(pipe, y, paramBounds, cfgOpt):
     return xBest, xBestDict, np.max(ei), np.max(lcb)
 
 
-def runCom8MoTPSA(avalancheDir, xBestDict, cfgMain, i=0, optimisationType=None):
+def writeCfgFiles(avalancheDir, paramSets, optimisationType, comModuleName, counter=None):
     """
-    Based on the default runCom8MoTPSA function in com8MoTPSA/runCom8MoTPSA.py file, but overrides parameter values in
-    the module configuration using the values provided in ``xBestDict``. It also assigns a unique visualisation scenario
-    identifier and records the sampling method for traceability.
+    Generate and write configuration files for a given computation module
+    based on optimisation results.
+
+    Two configuration files are created:
+    1. Using the mean parameter values of the top-N surrogate evaluations.
+    2. Using the single best surrogate parameter set.
 
     Parameters
     ----------
-    avalancheDir: str
-        Path to avalanche directory.
-    xBestDict : dict
-        Mapping of parameter name to selected value for ``xBest``.
-    cfgMain : configparser.ConfigParser
-        General configuration for avaframe.
-    i : int, optional
-        Counter for identifying the number of iterations.
-    optimisationType: str, optional
-        Name of the optimisation type, sequential or non-sequential.
+    avalancheDir : str or pathlib.Path
+        Path to the avalanche directory.
+    paramSets : dict or list of dict
+        Parameter set(s) to write to config files
+    optimisationType : str
+        Optimisation mode ('nonseq' or 'seq'), stored in the config file
+        for traceability.
+    comModuleName : str
+        Name of the computation module (e.g. "com8MoTPSA").
+        Used for naming the configuration directory and files.
+    counter : int or None, optional
+        If provided, use this value as starting index for scenario/file naming.
+        Useful when calling this function inside an outer optimisation loop.
 
     Returns
-    ---------
-    simName: str
-        Name of the simulation.
-    """
-    # Time the whole routine
-    startTime = time.time()
+    -------
+    cfgFiles : list of pathlib.Path
+        Paths to the written configuration files.
+    cfgPath : pathlib.Path
+        Directory where configuration files were stored.
+        """
+    # Allow single dict as input
+    if isinstance(paramSets, dict):
+        paramSets = [paramSets]
 
-    # log file name; leave empty to use default runLog.log
-    logName = 'runCom8MoTPSA'
+    cfgFiles = []
+    avaDir = pathlib.Path(avalancheDir)
+    # Directory where generated configuration files will be saved
+    cfgPath = avaDir / "Work" / f"{comModuleName}ConfigFiles"
+    fU.makeADir(cfgPath)
 
-    # Start logging
-    log = logUtils.initiateLogger(avalancheDir, logName)
-    log.info('MAIN SCRIPT')
-    log.info('Current avalanche: %s', avalancheDir)
-    # ----------------
-    # Clean input directory(ies) of old work and output files
-    # If you just created the ``avalancheDir`` this one should be clean but if you
-    # already did some calculations you might want to clean it::
-    initializeProject.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
-    # Get module config
-    cfgCom8MoTPSA = cfgUtils.getModuleConfig(com8MoTPSA, toPrint=False)
+    # If counter is given, start indexing from there; otherwise start at 0
+    start = int(counter) if counter is not None else 0
 
-    # overwrite com8MoTPSACfg with xBest values
-    for param, val in xBestDict.items():
-        # print(param, val)
-        section = probAna.fetchParameterSection(cfgCom8MoTPSA, param)
-        cfgCom8MoTPSA[section][param] = str(val)
-    # give visualisation unique scenario for identifying later
-    cfgCom8MoTPSA['VISUALISATION']['scenario'] = str(i)
-    if optimisationType == 'nonSeq':
-        cfgCom8MoTPSA["VISUALISATION"]["sampleMethod"] = 'nonSeq'
-    else:
-        cfgCom8MoTPSA["VISUALISATION"]["sampleMethod"] = 'EI/LCB'
+    for i, xBestDict in enumerate(paramSets):
+        idx = start + i  # index used for scenario + filename
 
-    # ----------------
-    # Run psa
-    simName = com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgCom8MoTPSA, returnSimName=True)
-    # Print time needed
-    endTime = time.time()
-    log.info('Took %6.1f seconds to calculate.' % (endTime - startTime))
+        # Load a fresh module configuration template
+        cfgCom8MoTPSA = cfgUtils.getModuleConfig(com8MoTPSA, toPrint=False)
+        # Overwrite parameters in their corresponding sections
+        for param, val in xBestDict.items():
+            section = probAna.fetchParameterSection(cfgCom8MoTPSA, param)
+            cfgCom8MoTPSA[section][param] = str(val)
 
-    return simName
+        # Assign unique scenario ID and optimisation type for later identification
+        cfgCom8MoTPSA['VISUALISATION']['scenario'] = str(idx)
+        cfgCom8MoTPSA["VISUALISATION"]["sampleMethod"] = optimisationType
+
+        # Write configuration file to disk
+        cfgF = cfgPath / f"{idx}_{comModuleName}Cfg.ini"
+        with open(cfgF, "w") as configfile:
+            cfgCom8MoTPSA.write(configfile)
+
+        cfgFiles.append(cfgF)
+
+    return cfgFiles, cfgPath
 
 
 def findSimName(finalDF, paramValue, atol=1e-6):
@@ -746,32 +786,40 @@ def findSimName(finalDF, paramValue, atol=1e-6):
     return matches.iloc[0]
 
 
-def loadVariationData(cfgOpt, outDir, avaDir):
+def loadVariationData(cfgOpt, avaDir, outDir=None):
     """
-    Load parameter bounds and selected parameters for optimisation. Two execution modes are supported, controlled via
-    cfgOpt['PARAM_BOUNDS']['scenario']:
+    Load parameter bounds and selected parameters for optimisation.
 
-    Scenario 1 (Morris pre-run):
+    The used parameters and their bounds are not defined directly in this
+    function. Instead, they are obtained from results of previous simulation runs.
+
+    Two execution modes are supported and controlled via cfgOpt['PARAM_BOUNDS']['scenario']:
+
+    Scenario 1 (Manual definition):
+        - No prior Morris screening.
+        - Parameter names and corresponding bounds are loaded from a previously saved pickle file 'paramValuesD.pickle'
+          generated by ``runAna4ProbAnaCom8MoTPSA.py``. The parameter variation is therefore not defined within this
+          function, but is determined by the configuration specified in ``probAnaCfg.ini``. The ``probAnaCfg.ini`` file
+          contains the settings used to generate the initial sample set, including parameter ranges and variation rules.
+
+    This is the standard scenario, as Latin Hypercube Sampling provides good coverage of the parameter space, which is
+    important for training the surrogate model.
+
+    Scenario 2 (Morris pre-run):
         - A Morris sensitivity analysis has already been executed.
-        - Ranked parameters and their bounds are loaded from
-          'sa_parameters_bounds.pkl'.
+        - Ranked parameters and their bounds are loaded from 'sa_parameters_bounds.pkl' and morris samples are directly
+          used for optimisation.
         - The top-N most influential parameters are selected for optimisation.
 
-    Scenario 2 (Manual definition):
-        - No prior Morris screening.
-        - Parameter names and corresponding bounds are loaded from a previously saved pickle file generated by
-         ``runAna4ProbAnaCom8MoTPSA.py``. The parameter variation is therefore not defined within this function, but is
-          determined by the configuration specified in ``probAnaCfg.ini``. The ``probAnaCfg.ini`` file contains the
-          settings used to generate the initial sample set, including parameter ranges and variation rules.
-
+    This option is mainly intended for experimental use. Morris samples are designed for sensitivity analysis and
+    parameter ranking, but they do not provide an optimal coverage of the parameter space for surrogate-based optimisation.
 
     Parameters
     ----------
     cfgOpt: configparser.ConfigParser
         Configuration object containing the section 'PARAM_BOUNDS'.
     outDir: pathlib.Path
-        Directory containing the Morris output file
-        ('sa_parameters_bounds.pkl').
+        Directory containing the Morris output file ('sa_parameters_bounds.pkl').
     avaDir: str
         Directory of the avalanche.
 
@@ -783,20 +831,12 @@ def loadVariationData(cfgOpt, outDir, avaDir):
         List of selected parameter names used for optimisation.
     """
     # Read scenario flag
-    scenario = int(cfgOpt['PARAM_BOUNDS']['scenario'])
+    scenario = cfgOpt.getint('PARAM_BOUNDS', 'scenario')
 
     avaName = avaDir.split('/')[-1]
 
-    # Scenario 1: Morris run prior
+    # Scenario 1: Morris is not run prior
     if scenario == 1:
-        # Load SA data and define how much parameters should be optimized (variation bounds included)
-        SiDFSort = pd.read_pickle(outDir / f"{avaName}_sortedSAResultsWithBounds.pkl")
-        topN = int(cfgOpt['PARAM_BOUNDS']['topN'])
-        paramSelected = list(SiDFSort['Parameter'][:topN])
-        paramBounds = dict(zip(paramSelected, SiDFSort['bounds']))
-
-    # Scenario 2: Morris is not run prior
-    else:
         # Load variation data with bounds from pickle file
         inDir2 = pathlib.Path(avaDir, 'Outputs', "ana4Stats")
         paramValuesD = pd.read_pickle(inDir2 / "paramValuesD.pickle")
@@ -805,6 +845,28 @@ def loadVariationData(cfgOpt, outDir, avaDir):
             name: (float(bounds[0]), float(bounds[1]))
             for name, bounds in zip(paramValuesD["names"], paramValuesD["bounds"])
         }
+
+    # Scenario 2: Morris run prior
+    elif scenario == 2:
+        # Load SA data and define how much parameters should be optimized (variation bounds included)
+        SiDFSort = pd.read_pickle(outDir / f"{avaName}_sortedSAResultsWithBounds.pkl")
+        topN = cfgOpt.getint('PARAM_BOUNDS', 'topN')
+        n_available = len(SiDFSort['Parameter'])
+        # Check if enough input parameters are available
+        if topN > n_available:
+            message = (
+                f"Invalid number of parameters topN={topN}. Only {n_available} parameters available from Morris sensitivity"
+                f" analysis."
+            )
+            raise ValueError(message)
+        paramSelected = list(SiDFSort['Parameter'][:topN])
+        paramBounds = dict(zip(paramSelected, SiDFSort['bounds']))
+
+    else:
+        message = f"Unknown scenario '{scenario}' for variation data. Expected 1 or 2."
+        log.error(message)
+        raise ValueError(message)
+
     return paramBounds, paramSelected
 
 
