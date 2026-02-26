@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import pathlib
 import matplotlib.pyplot as plt
-from adjustText import adjust_text
 from datetime import datetime
 
 
@@ -50,7 +49,7 @@ def barplotSA(SiDF, avaName, outDir):
     # 4) Plot
     x = np.arange(len(df))
     fig, ax = plt.subplots(figsize=(12, 6))
-    bars = ax.bar(
+    ax.bar(
         x, mu_pct, width=bar_widths, edgecolor="black",
         capsize=3 if mu_pct_conf is not None else 0
     )
@@ -63,7 +62,7 @@ def barplotSA(SiDF, avaName, outDir):
     for xi, yi in zip(x, mu_pct):
         ax.text(xi, yi, f"{yi:.1f}%", ha="center", va="bottom", fontsize=9)
 
-    # 7) Save figure
+    # 5) Save figure
     # Include date, format: YYYYMMDD
     date = datetime.now().strftime("%Y%m%d")
     figName = f"{outDir}/{avaName}_paramRanking_{date}.png"
@@ -95,10 +94,10 @@ def scatterplotSA(SiDF, avaName, outDir):
     for i, txt in enumerate(SiDF['Parameter']):
         plt.annotate(txt, (SiDF['mu_star'][i], SiDF['sigma'][i]), fontsize=9, xytext=(5, 5), textcoords='offset points')
 
-    # Label and title
-    plt.xlabel('mu_star (Einflussstärke)', fontsize=12)
-    plt.ylabel('sigma (Nichtlinearität / Interaktionen)', fontsize=12)
-    plt.title('Morris Sensitivitätsanalyse: mu_star vs sigma', fontsize=14)
+    # Labels and title
+    plt.xlabel("mu_star (Influence)", fontsize=12)
+    plt.ylabel("sigma (Nonlinearity / interactions)", fontsize=12)
+    plt.title("Morris sensitivity analysis: mu_star vs sigma", fontsize=14)
     plt.grid(True)
 
     # Save figure
@@ -134,14 +133,24 @@ def scatterplotUncertaintySA(SiDF, avaName, outDir):
         fmt='o', color='blue', ecolor='gray', elinewidth=1.5, capsize=4
     )
 
-    # Annotations with adjustText
-    texts = [plt.text(SiDF['mu_star'][i], SiDF['sigma'][i], SiDF['Parameter'][i], fontsize=9) for i in range(len(SiDF))]
-    adjust_text(texts, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
+    x_range = SiDF['mu_star'].max() - SiDF['mu_star'].min()
+    y_range = SiDF['sigma'].max() - SiDF['sigma'].min()
 
-    # Axes and layout
-    plt.xlabel('mu_star (Einflussstärke)', fontsize=12)
-    plt.ylabel('sigma (Nichtlinearität / Interaktionen)', fontsize=12)
-    plt.title('Morris Sensitivitätsanalyse: mu_star vs sigma (mit Unsicherheit)', fontsize=14)
+    x_offset = 0.01 * x_range
+    y_offset = 0.01 * y_range
+
+    for i in range(len(SiDF)):
+        plt.text(
+            SiDF['mu_star'][i] + x_offset,
+            SiDF['sigma'][i] + y_offset,
+            SiDF['Parameter'][i],
+            fontsize=9
+        )
+
+    # Labels and title
+    plt.xlabel("mu_star (Influence strength)", fontsize=12)
+    plt.ylabel("sigma (Nonlinearity / interactions)", fontsize=12)
+    plt.title("Morris sensitivity analysis: mu_star vs sigma", fontsize=14)
 
     # Save figure
     # Include date, format: YYYYMMDD
@@ -150,14 +159,12 @@ def scatterplotUncertaintySA(SiDF, avaName, outDir):
     plt.savefig(figName, dpi=300, bbox_inches="tight")
 
 
-def BOConvergencePlot(finalDF, avaName, outDir):
+def BOConvergencePlot(finalDF, avaName, outDir, cfgOpt, method_name="BO"):
     """
-    This function visualises the evolution of the optimisation variable
-    (loss) across different sampling phases:
-
-        1. Latin hypercube sampling
-        2. Bayesian optimisation (EI/LCB)
-        3. Optional non-sequential surrogate-based sampling
+    Visualises the evolution of the optimisation variable (loss) across sampling phases:
+        1. Latin hypercube (scenario 1) OR Morris (scenario 2)
+        2. Bayesian optimisation (EI/LCB)  -> sampleMethods == "seq"
+        3. Non-sequential surrogate-based sampling -> sampleMethods == "nonseq"
 
     Parameters
     ----------
@@ -170,57 +177,86 @@ def BOConvergencePlot(finalDF, avaName, outDir):
     outDir : pathlib.Path
         Directory where the convergence plot will be saved.
 
-    """
-    # Color palette
-    c_best = '#4e79a7'
-    c_bo = '#59a14f'
-    c_lhs = '#76b7b2'
-    c_nonseq = '#e15759'
+    cfgOpt: configparser.ConfigParser
+        Configuration object containing the section 'PARAM_BOUNDS'.
 
-    df = finalDF.dropna(
-        subset=["sampleMethods", "order", "optimisationVariable"]
-    ).copy()
+     method_name : str
+        Defines the name of the method in the title and the header of the plot.
+    """
+    # Read scenario flag
+    scenario = cfgOpt.getint("PARAM_BOUNDS", "scenario")
+
+    # Color palette
+    c_best = "#4e79a7"  # Blue
+    c_bo = "#59a14f"  # Green
+    c_lhs = "#76b7b2"  # Turquoise
+    c_nonseq = "#e15759"  # Red
+    c_morris = "#edc948"  # Yellow
+
+    df = finalDF.dropna(subset=["sampleMethods", "order", "optimisationVariable"]).copy()
+
+    # Decide which method represents the initial sampling phase
+    if scenario == 1:
+        initial_method = "latin"
+        initial_label = "LatinHypercube"
+        initial_color = c_lhs
+    elif scenario == 2:
+        initial_method = "morris"
+        initial_label = "Morris"
+        initial_color = c_morris
+    else:
+        message = (
+            f"Unknown scenario '{scenario}' in cfgOpt['PARAM_BOUNDS']['scenario']. "
+            "Expected 1 (Morris) or 2 (Latin hypercube)."
+        )
+        raise ValueError(message)
 
     # Split by sampling method
-    latin = df[df["sampleMethods"] == "latin"].sort_values("order")
-    bo = df[df["sampleMethods"] == "EI/LCB"].sort_values("order")
-    nonseq = df[df["sampleMethods"] == "nonSeq"].sort_values("order")
+    initial = df[df["sampleMethods"] == initial_method].sort_values("order")
+    bo = df[df["sampleMethods"] == "seq"].sort_values("order")
+    nonseq = df[df["sampleMethods"] == "nonseq"].sort_values("order")
 
-    # Iteration axis
+    # Iteration axis: make phases contiguous on x-axis
     current_offset = 0
 
-    if not latin.empty:
-        latin["iter"] = latin["order"]
-        current_offset = latin["iter"].max() + 1
+    if not initial.empty:
+        initial = initial.copy()
+        initial["iter"] = initial["order"]
+        current_offset = int(initial["iter"].max()) + 1
 
     if not bo.empty:
+        bo = bo.copy()
         bo["iter"] = bo["order"] + current_offset
-        current_offset = bo["iter"].max() + 1
+        current_offset = int(bo["iter"].max()) + 1
 
     if not nonseq.empty:
         nonseq = nonseq.sort_index().copy()
         nonseq["iter"] = np.arange(current_offset, current_offset + len(nonseq))
-        current_offset = nonseq["iter"].max() + 1
+        current_offset = int(nonseq["iter"].max()) + 1
 
-    # Combine for best-so-far
-    all_parts = [latin, bo]
+    # Combine for best-so-far curve
+    parts = [initial, bo]
     if not nonseq.empty:
-        all_parts.append(nonseq)
+        parts.append(nonseq)
 
-    all_df = pd.concat(all_parts).sort_values("iter")
+    if not any(not p.empty for p in parts):
+        message = "No data available to plot (all sampling phases are empty after filtering)."
+        raise ValueError(message)
+
+    all_df = pd.concat([p for p in parts if not p.empty], ignore_index=True).sort_values("iter")
     all_df["best_so_far"] = all_df["optimisationVariable"].cummin()
 
     # Plot
     fig, ax = plt.subplots(figsize=(9, 5))
 
-    if not latin.empty:
+    if not initial.empty:
         ax.scatter(
-            latin["iter"],
-            latin["optimisationVariable"],
+            initial["iter"],
+            initial["optimisationVariable"],
             s=35,
-            alpha=0.7,
-            color=c_lhs,
-            label="Latin hypercube"
+            alpha=0.75,
+            color=initial_color,
+            label=initial_label,
         )
 
     if not bo.empty:
@@ -230,7 +266,7 @@ def BOConvergencePlot(finalDF, avaName, outDir):
             s=40,
             alpha=0.85,
             color=c_bo,
-            label="Bayesian optimisation (EI/LCB)"
+            label="Bayesian optimisation (EI/LCB)",
         )
 
     if not nonseq.empty:
@@ -240,7 +276,7 @@ def BOConvergencePlot(finalDF, avaName, outDir):
             s=40,
             alpha=0.85,
             color=c_nonseq,
-            label="Non-sequential sampling"
+            label="Non-sequential sampling",
         )
 
     ax.plot(
@@ -248,36 +284,37 @@ def BOConvergencePlot(finalDF, avaName, outDir):
         all_df["best_so_far"],
         linewidth=1.5,
         color=c_best,
-        label="Best-so-far"
+        label="Best-so-far",
     )
 
-    # Add separator lines between sampling phases (if applicable)
-    if not latin.empty:
-        ax.axvline(latin["iter"].max() + 0.5, linestyle="--", linewidth=1, color="black")
-    if not bo.empty:
-        ax.axvline(bo["iter"].max() + 0.5, linestyle="--", linewidth=1, color="black")
+    # Separator lines (initial is assumed to exist)
+    if (not bo.empty) or (not nonseq.empty):
+        ax.axvline(initial["iter"].max() + 0.5, linestyle="--", linewidth=0.7, color="black")
+
+    if (not bo.empty) and (not nonseq.empty):
+        ax.axvline(bo["iter"].max() + 0.5, linestyle="--", linewidth=0.7, color="black")
 
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Optimisation variable (loss)")
-    ax.set_title("Convergence: Latin hypercube → Bayesian optimisation")
-    ax.legend(frameon=False, loc='best')
+    ax.set_title(f"Convergence: {initial_label} → Bayesian optimisation")
+    ax.legend(frameon=False, loc="best")
 
     fig.tight_layout()
 
     # Save figure
     date = datetime.now().strftime("%Y%m%d")
-    figName = f"{outDir}/{avaName}_BOConvergence_{date}.png"
+    figName = f"{outDir}/{avaName}_{method_name}_Convergence_{initial_label}_{date}.png"
     fig.savefig(figName, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
-def BOBoxplot(paramLossDF, avaName, outDir, N=10):
+def BOBoxplot(paramLossDF, avaName, outDir, N=10, paramBounds=None, yScaled=False, normalised=False):
     """
     Create boxplots of the top-N parameter sets based on loss.
 
-    This function selects the N best-performing simulations (lowest loss)
-    and visualises the distribution of their parameter values using boxplots.
-    Each parameter is plotted in a separate subplot.
+    Options:
+    - yScaled: set y-limits to parameter bounds
+    - normalised: min–max normalize parameters to [0, 1]
 
     Parameters
     ----------
@@ -292,81 +329,239 @@ def BOBoxplot(paramLossDF, avaName, outDir, N=10):
 
     N : int, optional
         Number of best-performing simulations (lowest loss) to include.
-        Default is 10.
+
+    paramBounds : dict, optional
+        Required if yScaled=True or normalised=True.
+
+    yScaled : bool, optional
+        If True, y-axis limits are set to parameter bounds.
+
+    normalised : bool, optional
+        If True, parameters are min–max normalised using paramBounds.
     """
     df_best = paramLossDF.nsmallest(N, "Loss")
-    param_cols = paramLossDF.columns.drop('Loss')
+    param_cols = paramLossDF.columns.drop("Loss")
 
     fig, axes = plt.subplots(2, 4, figsize=(10, 6))
     axes = axes.flatten()
+
     for ax, col in zip(axes, param_cols):
-        ax.boxplot(df_best[col])
+
+        if normalised:
+            if paramBounds is None or col not in paramBounds:
+                raise ValueError(f"paramBounds required for normalization ({col})")
+
+            lower, upper = paramBounds[col]
+            data = (df_best[col] - lower) / (upper - lower)
+            ax.boxplot(data)
+            ax.set_ylim(0, 1)
+
+        else:
+            ax.boxplot(df_best[col])
+
+            if yScaled:
+                if paramBounds is None or col not in paramBounds:
+                    print(f"Warning: {col} not found in paramBounds")
+                else:
+                    lower, upper = paramBounds[col]
+                    ax.set_ylim(lower, upper)
+
         ax.set_xticklabels([col])
 
-    # If less than 8 parameters, remove empty axes
     for ax in axes[len(param_cols):]:
         ax.axis("off")
+
+    # Dynamical title
+    title = f"Parameter distributions (best {N})"
+    if normalised:
+        title += " — normalized (min–max)"
+    elif yScaled:
+        title += " — y-axis scaled to parameter bounds"
+
+    fig.suptitle(title, fontsize=12)
     plt.tight_layout()
 
-    # Save figure
-    # Include date, format: YYYYMMDD
+    # Dynamical name
+    suffix = "BOBoxplot"
+    if normalised:
+        suffix += "Normalised"
+    elif yScaled:
+        suffix += "YScaled"
+
     date = datetime.now().strftime("%Y%m%d")
-    figName = f"{outDir}/{avaName}_BOBoxplot_{date}.png"
-    plt.savefig(figName, dpi=300, bbox_inches="tight")
+    plt.savefig(f"{outDir}/{avaName}_{suffix}_{date}.png", dpi=300, bbox_inches="tight")
+    plt.close()
 
 
-def BOBoxplotNormalised(paramLossDF, paramBounds, avaName, outDir, N=10):
+def BoxplotNoPSC(paramLossDF, paramBounds, avaName, outDir):
     """
-    Create normalized boxplots of parameters for the top-N simulations.
+    Create boxplots of parameter distributions for simulations without PSC.
 
-    This function selects the N best-performing simulations (lowest loss)
-    and visualises the distribution of their parameter values after
-    min–max normalization based on predefined parameter bounds.
+    This function filters simulations with Loss == 1 (interpreted as
+    simulations without a powder snow cloud, PSC) and visualises the
+    distribution of their parameter values using boxplots.
+
+    Each parameter is shown in a separate subplot, and the y-axis limits
+    are set according to predefined parameter bounds.
 
     Parameters
     ----------
     paramLossDF : pandas.DataFrame
-        DataFrame containing model parameters and corresponding loss values.
+        DataFrame containing model parameters and a 'Loss' column.
 
     paramBounds : dict
         Dictionary mapping parameter names to their (min, max) bounds:
             {parameter_name: (lower_bound, upper_bound)}
 
-        Bounds are used for min–max normalization.
-
     avaName : str
         Name of the avalanche. Used for naming the output figure.
 
-    outDir : pathlib.Path
-        Directory where the normalized boxplot figure will be saved.
+    outDir : pathlib.Path or str
+        Directory where the boxplot figure will be saved.
 
-    N : int, optional
-        Number of best-performing simulations (lowest loss) to include.
-        Default is 10.
+    Notes
+    -----
+    - The output file is saved with the current date (YYYYMMDD).
     """
-    df_best = paramLossDF.nsmallest(N, "Loss")
-    param_cols = paramLossDF.columns.drop('Loss')
+    df_worst = paramLossDF[paramLossDF['Loss'] == 1]
+    param_cols = df_worst.columns.drop('Loss')
 
-    # normalize using parameter bounds
-    data = [
-        (df_best[c] - paramBounds[c][0]) / (paramBounds[c][1] - paramBounds[c][0])
-        for c in param_cols
+    fig, axes = plt.subplots(2, 4, figsize=(10, 6))
+    axes = axes.flatten()
+
+    for ax, col in zip(axes, param_cols):
+        ax.boxplot(df_worst[col])
+        ax.set_xticklabels([col])
+
+        if col in paramBounds:
+            lower, upper = paramBounds[col]
+            ax.set_ylim(lower, upper)
+
+    for ax in axes[len(param_cols):]:
+        ax.axis("off")
+
+    fig.suptitle('Parameter Distributions (Loss = 1, no PSC) — y-axis scaled to parameter bounds', fontsize=12)
+    plt.tight_layout()
+
+    date = datetime.now().strftime("%Y%m%d")
+    plt.savefig(f"{outDir}/{avaName}_BoxplotNoPSC_{date}.png", dpi=300)
+    plt.close()
+
+
+def plotComparisonBoxplots(outDir, avaName1, avaName2, N=10, paramBounds=None, yScaled=False, normalised=False):
+    """
+    Plot parameter boxplots comparing Top N and No-PSC samples between two avalanche datasets.
+
+    Parameters
+    ----------
+    outDir : str or pathlib.Path
+        Output directory where the comparison figure is saved.
+    avaName1 : str
+        Name of the first avalanche dataset.
+    avaName2 : str
+        Name of the second avalanche dataset.
+    N : int, optional
+        Number of best samples with the lowest optimisationVariable values.
+    paramBounds : dict
+        Dictionary containing parameter bounds as {parameter_name: (lower, upper)}.
+    yScaled : bool, optional
+        If True, scale each y-axis according to paramBounds.
+    normalised : bool, optional
+        If True, normalise all parameter values to the range [0, 1] using paramBounds.
+    """
+
+    mainDir = pathlib.Path("../data")
+    outDir = pathlib.Path(outDir)
+    subDir = pathlib.Path("Outputs") / "ana6Optimisation" / "com8MoTPSA"
+
+    # Load result DataFrames
+    finalDF1 = pd.read_pickle(mainDir / avaName1 / subDir / f"{avaName1}_finalDF.pickle")
+    finalDF2 = pd.read_pickle(mainDir / avaName2 / subDir / f"{avaName2}_finalDF.pickle")
+
+    # Select parameter and loss columns
+    parameter_cols = list(paramBounds.keys())
+    selected_cols = parameter_cols + ["optimisationVariable"]
+
+    # Get parameters and optimization/loss values
+    paramLossDF1 = finalDF1[selected_cols].copy()
+    paramLossDF2 = finalDF2[selected_cols].copy()
+
+    # Select Top N and No-PSC samples
+    df1_good = paramLossDF1.nsmallest(N, "optimisationVariable")
+    df2_good = paramLossDF2.nsmallest(N, "optimisationVariable")
+    df1_bad = paramLossDF1[np.isclose(paramLossDF1["optimisationVariable"], 1)]
+    df2_bad = paramLossDF2[np.isclose(paramLossDF2["optimisationVariable"], 1)]
+
+    # Create subplot grid
+    ncols = 3
+    nrows = (len(parameter_cols) + ncols - 1) // ncols
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5.2 * ncols, 4.2 * nrows))
+    axes = np.atleast_1d(axes).flatten()
+
+    # Box colors: avaName1 Top N, avaName2 Top N, avaName1 No PSC, avaName2 No PSC
+    box_colors = ["#3E6FB0", "#4F8F7C", "#AFC6E9", "#B9D9CF"]
+    tick_labels = [
+        f"{avaName1}\nTop {N}",
+        f"{avaName2}\nTop {N}",
+        f"{avaName1}\nNo PSC",
+        f"{avaName2}\nNo PSC",
     ]
 
-    fig, ax = plt.subplots(figsize=(15, 7))
-    ax.boxplot(data)
-    ax.set_xticks(range(1, len(param_cols) + 1))
-    ax.set_xticklabels(param_cols, rotation=45, ha="right", fontsize=14)
-    ax.set_ylabel("Normalized value (min–max)", fontsize=14)
-    ax.set_title(f"Normalized parameter distributions (best {N})", fontsize=16)
-    ax.tick_params(axis="y", labelsize=12)
-    fig.tight_layout()
+    for ax, col in zip(axes, parameter_cols):
 
-    # Save figure
-    # Include date, format: YYYYMMDD
+        if normalised:
+            lower, upper = paramBounds[col]
+
+            data = [
+                (df1_good[col] - lower) / (upper - lower),
+                (df2_good[col] - lower) / (upper - lower),
+                (df1_bad[col] - lower) / (upper - lower),
+                (df2_bad[col] - lower) / (upper - lower),
+            ]
+
+            ax.set_ylim(0, 1)
+
+        else:
+            data = [
+                df1_good[col],
+                df2_good[col],
+                df1_bad[col],
+                df2_bad[col],
+            ]
+
+            if yScaled:
+                lower, upper = paramBounds[col]
+                ax.set_ylim(lower, upper)
+
+        bp = ax.boxplot(data, tick_labels=tick_labels, patch_artist=True)
+
+        # Apply box colors
+        for patch, color in zip(bp["boxes"], box_colors):
+            patch.set_facecolor(color)
+
+        # Style axis
+        ax.set_ylabel(col, fontsize=14, color="black")
+        ax.tick_params(axis="both", colors="black", labelcolor="black")
+        ax.tick_params(axis="x", labelsize=10)
+
+    # Hide unused axes
+    for ax in axes[len(parameter_cols):]:
+        ax.axis("off")
+
+    plt.tight_layout()
+
+    suffix = 'BoxplotComparisonAcrossAvalanches_'
+    if normalised:
+        suffix += "Normalised"
+    elif yScaled:
+        suffix += "YScaled"
+
     date = datetime.now().strftime("%Y%m%d")
-    figName = f"{outDir}/{avaName}_BOBoxplotNormalised_{date}.png"
-    plt.savefig(figName, dpi=300, bbox_inches="tight")
+    outFile = outDir / f"{avaName1}_{avaName2}_{suffix}_{date}.png"
+    fig.savefig(outFile, dpi=300, bbox_inches="tight")
+
+    plt.close(fig)
 
 
 def saveKFoldCVPrintImage(scores, pipeName, k, out_path):
@@ -413,7 +608,7 @@ def saveKFoldCVPrintImage(scores, pipeName, k, out_path):
     plt.close(fig)
 
 
-def saveBestorCurrentModelrun(finalDF, paramSelected, ei=None, lcb=None, simName=None, csv_path='dummy.csv'):
+def saveBestOrSpecificSimulation(finalDF, paramSelected, ei=None, lcb=None, simName=None, csv_path='dummy.csv'):
     """
     Save either the best model run (based on optimisationVariable) or a
     specified simulation (simName) to a CSV file.
@@ -444,8 +639,8 @@ def saveBestorCurrentModelrun(finalDF, paramSelected, ei=None, lcb=None, simName
     # Subset df, save only important entries
     cols_keep = ['simName', 'sampleMethods', 'order', 'Simulation time (s)', 'Minimum time step (s)',
                  'Initial CFL number (-)', 'TP_SimRef_cells', 'TP_SimRef_area', 'FP_SimRef_cells', 'FP_SimRef_area',
-                 'FN_SimRef_cells', 'FN_SimRef_area', 'recall', 'precision', 'f1_score', 'tversky_score',
-                 'optimisationVariable']
+                 'FN_SimRef_cells', 'FN_SimRef_area', 'recall', 'precision', 'f1_score', 'tversky_score', '1-tversky',
+                 'runoutRMSENormalised', 'optimisationVariable']
     columns_keep = cols_keep[:6] + [p for p in paramSelected if p not in cols_keep] + cols_keep[6:]
     df = finalDF[columns_keep]
 
@@ -593,7 +788,7 @@ def saveTopCandidates(finalDF, paramSelected, cfgOpt, results_dict=None, out_pat
             if simNameBest is not None:
                 df_top.loc["optimisationVariable", "best"] = _get_optvar_for_sim(simNameBest, "simNameBest")
 
-        n_surrogate_top = int(cfgOpt["OPTIMISATION"]["n_surrogate_top"])
+        n_surrogate_top = cfgOpt.getint("OPTIMISATION", "n_surrogate_top")
         mean_tag = f" ({simNameMean})" if simNameMean else ""
         best_tag = f" ({simNameBest})" if simNameBest else ""
 
@@ -611,7 +806,16 @@ def saveTopCandidates(finalDF, paramSelected, cfgOpt, results_dict=None, out_pat
 
     best_idx = finalDF["optimisationVariable"].idxmin()
 
-    n_model_top = int(cfgOpt["OPTIMISATION"]["n_model_top"])
+    # Raise error if topN is bigger than available model runs
+    n_model_top = cfgOpt.getint("OPTIMISATION", "n_model_top")
+    nAvailable = len(finalDF.index)
+    if n_model_top > nAvailable:
+        message = (
+            f"Invalid configuration: Requested top {n_model_top} simulations, but only {nAvailable} simulations are "
+            "available."
+        )
+        raise ValueError(message)
+
     topN = finalDF.nsmallest(n_model_top, "optimisationVariable")
 
     df_topN = summary_table(topN, paramSelected, best_row=finalDF.loc[best_idx])

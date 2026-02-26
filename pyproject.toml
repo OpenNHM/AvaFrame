@@ -44,6 +44,7 @@ dependencies = [
     "contextily",
     "geopandas",
     "fiona",
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]

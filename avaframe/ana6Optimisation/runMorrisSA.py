@@ -1,6 +1,3 @@
-"""
-Run script for the Morris sensitivity analysis. For usage read README_ana6.md.
-"""
 import sys
 import numpy as np
 import pandas as pd
@@ -10,88 +7,112 @@ from SALib.analyze import morris as morris_analyze
 
 from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import fileHandlerUtils as fU
-from avaframe.ana3AIMEC import ana3AIMEC
 import avaframe.out3Plot.outAna6Plots as saveResults
 import optimisationUtils
 
-# Get module config
-module = sys.modules[__name__]
-cfgMorrisSA = cfgUtils.getModuleConfig(module, toPrint=False)
 
-# Load avalanche directory from general configuration file
-cfgMain = cfgUtils.getGeneralConfig()
-avalancheDir = cfgMain['MAIN']['avalancheDir']
-avaName = pathlib.Path(avalancheDir).name
+def runMorrisSA():
+    """
+    Run script for the Morris sensitivity analysis. For usage read README_ana6.md.
+    """
+    # Get module config
+    module = sys.modules[__name__]
+    cfgMorrisSA = cfgUtils.getModuleConfig(module, toPrint=False)
 
-# Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
-optimisationUtils.calcArealIndicatorsAndAimec(cfgMorrisSA, avalancheDir, ana3AIMEC)
+    # Load avalanche directory from general configuration file
+    cfgMain = cfgUtils.getGeneralConfig()
+    avalancheDir = cfgMain['MAIN']['avalancheDir']
+    avaName = pathlib.Path(avalancheDir).name
 
-# Load variation data with bounds from pickle file
-inDir = pathlib.Path(avalancheDir, 'Outputs', "ana4Stats")
-paramValuesD = pd.read_pickle(inDir / "paramValuesD.pickle")
-varParList = paramValuesD['names']
-#
-# Read and merge results from parameter sets (simulation data), areal indicators and AIMEC
-finalDF = optimisationUtils.buildFinalDF(avalancheDir, varParList, cfgMorrisSA)
+    # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
+    optimisationUtils.calcArealIndicatorsAndAimec(cfgMorrisSA, avalancheDir)
 
-# Use only morris samples
-morrisDF = finalDF[finalDF['sampleMethods'] == 'morris'].copy(deep=True)
-# Set order as index
-morrisDF.set_index('order', inplace=True)
-# Order df based on order (which is the index)
-morrisDF.sort_index(inplace=True)
+    # Load variation data with bounds from pickle file
+    inDir = pathlib.Path(avalancheDir, 'Outputs', "ana4Stats")
+    paramValuesD = pd.read_pickle(inDir / "paramValuesD.pickle")
+    varParList = paramValuesD['names']
 
-# Define input for SA
-problem = {
-    'num_vars': len(varParList),
-    'names': varParList,
-    'bounds': paramValuesD['bounds']
-}
-samples = np.vstack(morrisDF['parameterSet'].values).astype(float)
-Y = morrisDF['optimisationVariable'].values
+    # Read and merge results from parameter sets (simulation data), areal indicators and AIMEC
+    finalDF = optimisationUtils.buildFinalDF(avalancheDir, varParList, cfgMorrisSA)
 
-# Perform SA
-Si = morris_analyze.analyze(
-    problem,
-    samples,
-    Y,
-    conf_level=float(cfgMorrisSA['MORRIS SA']['conf_level']),
-    num_levels=int(cfgMorrisSA['MORRIS SA']['num_levels'])
-)
+    # Check if there is simulation in finalDF
+    nAvailable = len(finalDF)
+    if nAvailable == 0:
+        message = "No simulations found in finalDF."
+        raise RuntimeError(message)
 
-# Rank Parameters
-SiData = {
-    "Parameter": Si['names'],
-    "mu_star": Si['mu_star'],
-    "sigma": Si['sigma'],
-    "mu_star_conf": Si['mu_star_conf']}
+    # Use only morris samples
+    morrisDF = finalDF[finalDF['sampleMethods'] == 'morris'].copy(deep=True)
+    # Set order as index
+    morrisDF.set_index('order', inplace=True)
+    # Order df based on order (which is the index)
+    morrisDF.sort_index(inplace=True)
 
-# Convert to dataframe
-SiDF = pd.DataFrame(SiData)
+    # Define input for SA
+    problem = {
+        'num_vars': len(varParList),
+        'names': varParList,
+        'bounds': paramValuesD['bounds']
+    }
+    samples = np.vstack(morrisDF['parameterSet'].values).astype(float)
+    Y = morrisDF['optimisationVariable'].values
 
-# Create folder for saving the results of the analysis, if not already existing
-resultDir = cfgMorrisSA['GENERAL']['resultDir']
-comModuleName = cfgMorrisSA['GENERAL']['modName']
-outDir = pathlib.Path(avalancheDir, resultDir, comModuleName)
-fU.makeADir(outDir)
+    # Perform SA
+    Si = morris_analyze.analyze(
+        problem,
+        samples,
+        Y,
+        conf_level=cfgMorrisSA.getfloat('MORRIS SA', 'conf_level'),
+        num_levels=cfgMorrisSA.getint('MORRIS SA', 'num_levels')
+    )
 
-saveResults.barplotSA(SiDF, avaName, outDir)
-saveResults.scatterplotSA(SiDF, avaName, outDir)
-saveResults.scatterplotUncertaintySA(SiDF, avaName, outDir)
+    # Creating dict from Si
+    SiData = {
+        "Parameter": Si['names'],
+        "mu_star": Si['mu_star'],
+        "sigma": Si['sigma'],
+        "mu_star_conf": Si['mu_star_conf']}
 
-# Sort SA results
-SiDFSort = SiDF.sort_values("mu_star", ascending=False).reset_index(drop=True)
-# Append bounds to SiDFSort
-paramBounds = dict(zip(problem["names"], problem["bounds"]))
-SiDFSort["bounds"] = SiDFSort["Parameter"].map(paramBounds)
-# Save as Pickle for Optimization
-SiDFSort.to_pickle(outDir / f"{avaName}_sortedSAResultsWithBounds.pkl")
+    # Convert to dataframe
+    SiDF = pd.DataFrame(SiData)
 
-# Create df with parameters and the loss function for summary statistics
-paramLossDF, paramLossScaledDF = optimisationUtils.createDFParameterLoss(morrisDF, SiDFSort['Parameter'])
-N = int(cfgMorrisSA['MORRIS SA']['N'])
-paramLossSubsetDF = paramLossDF.sort_values(by='Loss', ascending=True)[:N]
-# Save mean values of best input parameters as csv
-date = datetime.now().strftime("%Y%m%d")
-csvPath = f"{outDir}/{avaName}_MorrisBEST{N}Simulations_{date}.csv"
-paramLossSubsetDF.describe().to_csv(csvPath)
+    # Create folder for saving the results of the analysis, if not already existing
+    resultDir = cfgMorrisSA['GENERAL']['resultDir']
+    comModuleName = cfgMorrisSA['GENERAL']['modName']
+    outDir = pathlib.Path(avalancheDir, resultDir, comModuleName)
+    fU.makeADir(outDir)
+
+    saveResults.barplotSA(SiDF, avaName, outDir)
+    saveResults.scatterplotSA(SiDF, avaName, outDir)
+    saveResults.scatterplotUncertaintySA(SiDF, avaName, outDir)
+
+    # Sort SA results
+    SiDFSort = SiDF.sort_values("mu_star", ascending=False).reset_index(drop=True)
+    # Append bounds to SiDFSort
+    paramBounds = dict(zip(problem["names"], problem["bounds"]))
+    SiDFSort["bounds"] = SiDFSort["Parameter"].map(paramBounds)
+    # Save as Pickle for Optimization
+    SiDFSort.to_pickle(outDir / f"{avaName}_sortedSAResultsWithBounds.pkl")
+
+    # Create df with parameters and the loss function for summary statistics
+    paramLossDF, paramLossScaledDF = optimisationUtils.createDFParameterLoss(morrisDF, SiDFSort['Parameter'])
+
+    # topN is the number of best morris samples to use for statistics
+    # Raise error if topN is bigger than available model runs
+    topN = cfgMorrisSA.getint('MORRIS SA', 'topN')
+    if topN > nAvailable:
+        message = (
+            f"Invalid configuration: Requested top {topN} simulations, but only {nAvailable} Morris simulations are "
+            "available."
+        )
+        raise ValueError(message)
+
+    paramLossSubsetDF = paramLossDF.sort_values(by='Loss', ascending=True)[:topN]
+    # Save mean values of best input parameters as csv
+    date = datetime.now().strftime("%Y%m%d")
+    csvPath = f"{outDir}/{avaName}_MorrisBEST{topN}Simulations_{date}.csv"
+    paramLossSubsetDF.describe().to_csv(csvPath)
+
+
+if __name__ == '__main__':
+    runMorrisSA()

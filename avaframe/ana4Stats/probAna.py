@@ -24,7 +24,6 @@ from avaframe.in3Utils import geoTrans as gT
 from avaframe.out3Plot import statsPlots as sP
 from avaframe.in1Data import getInput as gI
 
-
 # create local logger
 # change log level in calling module to DEBUG to see log messages
 log = logging.getLogger(__name__)
@@ -203,17 +202,17 @@ def updateCfgRange(cfg, cfgProb, varName, varDict):
             if valVariation == "":
                 valVariation = "-"
             parValue = (
-                variationType
-                + "$"
-                + valSteps
-                + "$"
-                + valVariation
-                + "$"
-                + cfgDist["GENERAL"]["minMaxInterval"]
-                + "$"
-                + cfgDist["GENERAL"]["buildType"]
-                + "$"
-                + cfgDist["GENERAL"]["support"]
+                    variationType
+                    + "$"
+                    + valSteps
+                    + "$"
+                    + valVariation
+                    + "$"
+                    + cfgDist["GENERAL"]["minMaxInterval"]
+                    + "$"
+                    + cfgDist["GENERAL"]["buildType"]
+                    + "$"
+                    + cfgDist["GENERAL"]["support"]
             )
         # if variation using percent
         elif variationType.lower() == "percent":
@@ -225,9 +224,9 @@ def updateCfgRange(cfg, cfgProb, varName, varDict):
             parValue = valVariation + "$" + valSteps
             if "ci" in valVariation:
                 message = (
-                    "Variation Type: range - variationValue is %s not a valid option - only \
-                 scalar value allowed or consider variationType rangefromci"
-                    % valVariation
+                        "Variation Type: range - variationValue is %s not a valid option - only \
+                     scalar value allowed or consider variationType rangefromci"
+                        % valVariation
                 )
                 log.error(message)
                 raise AssertionError(message)
@@ -236,9 +235,9 @@ def updateCfgRange(cfg, cfgProb, varName, varDict):
             parValue = valVariation + "$" + valSteps
         else:
             message = (
-                "Variation Type: %s - not a valid option, options are: percent, range, \
-                normaldistribution, rangefromci"
-                % variationType
+                    "Variation Type: %s - not a valid option, options are: percent, range, \
+                    normaldistribution, rangefromci"
+                    % variationType
             )
             log.error(message)
             raise AssertionError(message)
@@ -272,9 +271,9 @@ def updateCfgRange(cfg, cfgProb, varName, varDict):
             valValues = np.linspace(float(valStart), float(valStop), int(valSteps))
         else:
             message = (
-                "Variation Type: %s - not a valid option, options are: percent, range, \
-                normaldistribution, rangefromci"
-                % variationType
+                    "Variation Type: %s - not a valid option, options are: percent, range, \
+                    normaldistribution, rangefromci"
+                    % variationType
             )
             log.error(message)
             raise AssertionError(message)
@@ -616,8 +615,8 @@ def makeDictFromVars(cfg):
 
     if (len(varParList) == len(varValues) == len(cfg[lengthsPar].split("|")) == len(varTypes)) is False:
         message = (
-            "For every parameter in varParList a variationValue, %s and variationType needs to be provided"
-            % lengthsPar
+                "For every parameter in varParList a variationValue, %s and variationType needs to be provided"
+                % lengthsPar
         )
         log.error(message)
         raise AssertionError(message)
@@ -801,13 +800,14 @@ def createSampleWithVariationStandardParameters(cfgProb, cfgStart, varParList, v
         "values": sampleWBounds,
         "typeList": cfgProb["PROBRUN"]["varParType"].split("|"),
         "thFromIni": "",
+        "bounds": np.column_stack((lowerBounds, upperBounds)).tolist()
     }
 
     return paramValuesD
 
 
 def createSampleWithVariationForThParameters(
-    avaDir, cfgProb, cfgStart, varParList, valVariationValue, varType, thReadFromShp
+        avaDir, cfgProb, cfgStart, varParList, valVariationValue, varType, thReadFromShp
 ):
     """Create a sample of parameters for a desired parameter variation,
     and fetch thickness values from shp file and perform variation for each feature within
@@ -907,23 +907,23 @@ def createSampleWithVariationForThParameters(
         # set lower and upper bounds depending on varType (percent, range, rangefromci)
         lowerBounds[fullVarType == "percent"] = varValList[fullVarType == "percent"] - varValList[
             fullVarType == "percent"
-        ] * (fullValVar[fullVarType == "percent"] / 100.0)
+            ] * (fullValVar[fullVarType == "percent"] / 100.0)
         upperBounds[fullVarType == "percent"] = varValList[fullVarType == "percent"] + varValList[
             fullVarType == "percent"
-        ] * (fullValVar[fullVarType == "percent"] / 100.0)
+            ] * (fullValVar[fullVarType == "percent"] / 100.0)
 
         lowerBounds[fullVarType == "range"] = (
-            varValList[fullVarType == "range"] - fullValVar[fullVarType == "range"]
+                varValList[fullVarType == "range"] - fullValVar[fullVarType == "range"]
         )
         upperBounds[fullVarType == "range"] = (
-            varValList[fullVarType == "range"] + fullValVar[fullVarType == "range"]
+                varValList[fullVarType == "range"] + fullValVar[fullVarType == "range"]
         )
 
         lowerBounds[fullVarType == "rangefromci"] = (
-            varValList[fullVarType == "rangefromci"] - ciValues[fullVarType == "rangefromci"]
+                varValList[fullVarType == "rangefromci"] - ciValues[fullVarType == "rangefromci"]
         )
         upperBounds[fullVarType == "rangefromci"] = (
-            varValList[fullVarType == "rangefromci"] + ciValues[fullVarType == "rangefromci"]
+                varValList[fullVarType == "rangefromci"] + ciValues[fullVarType == "rangefromci"]
         )
 
         # create a sample of parameter values using scipy latin hypercube or morris sampling
@@ -1102,9 +1102,18 @@ def createCfgFiles(paramValuesDList, comMod, cfg, cfgPath=""):
                     cfgStart[section][par] = str(pVal[index])
                 else:
                     cfgStart["GENERAL"][par] = str(pVal[index])
-            if modName.lower() in ["com1dfa", "com5snowslide", "com6rockavalanche"]:
+            if modName.lower() in ["com1dfa", "com5snowslide", "com6rockavalanche", 'com8motpsa']:
+                # Check if visualisation exists in cfgStart, if not add the section
+                if not cfgStart.has_section("VISUALISATION"):
+                    cfgStart.add_section("VISUALISATION")
+
                 cfgStart["VISUALISATION"]["scenario"] = str(count1)
                 cfgStart["INPUT"]["thFromIni"] = paramValuesD["thFromIni"]
+
+                # Safe read with fallback (no KeyError if PROBRUN or sampleMethod is missing)
+                sample_method = cfg.get("PROBRUN", "sampleMethod", fallback="")
+                cfgStart["VISUALISATION"]["sampleMethod"] = sample_method
+
                 if "releaseScenario" in paramValuesD.keys():
                     cfgStart["INPUT"]["releaseScenario"] = paramValuesD["releaseScenario"]
             cfgF = pathlib.Path(cfgPath, ("%d_%sCfg.ini" % (countS, modName)))

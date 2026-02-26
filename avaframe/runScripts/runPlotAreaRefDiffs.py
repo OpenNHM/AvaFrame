@@ -61,7 +61,7 @@ def runPlotAreaRefDiffs(resType, thresholdValueSimulation, modName):
         cropLine = shpConv.readLine(cropFile, "cropFile", dem)
         cropLine = gT.prepareArea(cropLine, dem, np.sqrt(2), combine=True, checkOverlap=False)
 
-    if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche", "com8MoTPSA", "com9MoTVoellmy"]:
+    if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
         # load dataFrame for all configurations of simulations in avalancheDir
         simDF = cfgUtils.createConfigurationInfo(avalancheDir)
         # create data frame that lists all available simulations and path to their result type result files
@@ -110,10 +110,6 @@ def runPlotAreaRefDiffs(resType, thresholdValueSimulation, modName):
         for pF in peakFilesList:
             simData = IOf.readRaster(pF)
             simName = pF.stem
-
-            # Only process PSA simulations
-            if "psa" not in simName.lower():
-                continue
 
             # compute referenceMask and simulationMask and true positive, false positive and false neg. arrays
             refMask, compMask, indicatorDict = oPD.computeAreaDiff(

@@ -9,7 +9,6 @@ import pathlib
 import argparse
 
 # Local imports
-from avaframe.com1DFA import com1DFA
 import avaframe.com8MoTPSA.com8MoTPSA as com8MoTPSA
 from avaframe.out3Plot import statsPlots as sP
 from avaframe.ana4Stats import probAna
@@ -18,7 +17,6 @@ from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import logUtils
 import avaframe.in3Utils.fileHandlerUtils as fU
 from avaframe.out3Plot import outQuickPlot as oP
-import configparser
 
 
 def runProbAna(avalancheDir=''):
@@ -36,9 +34,6 @@ def runProbAna(avalancheDir=''):
 
     # log file name; leave empty to use default runLog.log
     logName = 'runAna4ProbAna'
-
-    # Load general configuration filee
-    cfgMain = cfgUtils.getGeneralConfig()
 
     # Load avalanche directory from general configuration file,
     # if not provided as input argument
@@ -97,7 +92,6 @@ def runProbAna(avalancheDir=''):
         if anaPerformed is False:
             log.warning('No files found for configuration: %s' % probConf)
 
-
         # make a plot of the contours
         inputDir = pathlib.Path(avalancheDir, 'Outputs', 'ana4Stats')
         outName = '%s_prob_%s_%s_lim%s' % (str(avalancheDir.stem),
@@ -116,16 +110,15 @@ def runProbAna(avalancheDir=''):
     # plot probability maps
     sP.plotProbMap(avalancheDir, inputDir, cfgProb, demPlot=True)
 
-        # # copy outputs to folder called like probability configurations
-        # outputFiles = avalancheDir / 'Outputs' / 'ana4Stats'
-        # saveFiles = avalancheDir / 'Outputs' / ('ana4Stats_' + probConf)
-        # shutil.move(outputFiles, saveFiles)
+    # # copy outputs to folder called like probability configurations
+    # outputFiles = avalancheDir / 'Outputs' / 'ana4Stats'
+    # saveFiles = avalancheDir / 'Outputs' / ('ana4Stats_' + probConf)
+    # shutil.move(outputFiles, saveFiles)
 
     return
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='Run ana4ProbAna workflow')
     parser.add_argument('avadir', metavar='a', type=str, nargs='?', default='',
                         help='the avalanche directory')
