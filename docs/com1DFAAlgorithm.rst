@@ -45,6 +45,9 @@ Check consistency of rasters according to the following rules:
     main release. If they do, the overlapping part is removed. Order of priority is: main
     release, secondary release, entrainment area.
 
+  - if the release is time dependent, timesteps and respective release thickness and initial velocity
+    are read and checked for plausibility in :py:func:`com1DFA.debrisFunctions.checkTimeDepRelease`.
+
 Go back to :ref:`com1DFAAlgorithm:Algorithm graph`
 
 Initialize Dam
