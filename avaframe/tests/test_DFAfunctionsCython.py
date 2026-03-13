@@ -839,10 +839,9 @@ def test_computeForceC():
         "mucoulomb": "0.155",
         "mucoulombminshear": "0.155",
         "tau0coulombminshear": "70",
-        "alpha1EtaHerschelAndBulkley": "0.650",
-        "beta1EtaHerschelAndBulkley": "16.81",
         "alpha2TauyHerschelAndBulkley": "0.00886",
         "beta2TauyHerschelAndBulkley": "13.11",
+        "kHerschelAndBulkley": "50",
         "nHerschelAndBulkley": "1.5",
         "alpha1EtaBingham": "0.650",
         "beta1EtaBingham": "16.81",
@@ -985,19 +984,15 @@ def test_computeForceC():
 
     ## Herschel and Bulkley
     # read input parameters
-    test_alpha1EtaHerschelAndBulkley = float(cfg["GENERAL"]["alpha1EtaHerschelAndBulkley"])
-    test_beta1EtaHerschelAndBulkley = float(cfg["GENERAL"]["beta1EtaHerschelAndBulkley"])
     test_alpha2TauyHerschelAndBulkley = float(cfg["GENERAL"]["alpha2TauyHerschelAndBulkley"])
     test_beta2TauyHerschelAndBulkley = float(cfg["GENERAL"]["beta2TauyHerschelAndBulkley"])
+    test_kHerschelAndBulkley = float(cfg["GENERAL"]["kHerschelAndBulkley"])
     test_nHerschelAndBulkley = float(cfg["GENERAL"]["nHerschelAndBulkley"])
     # compute tau
-    test_etaHerschelandBulkley = test_alpha1EtaHerschelAndBulkley * math.exp(
-        test_beta1EtaHerschelAndBulkley * test_cvSediment
-    )
     test_tauyHerschelandBulkley = test_alpha2TauyHerschelAndBulkley * math.exp(
         test_beta2TauyHerschelAndBulkley * test_cvSediment
     )
-    test_tauHerschelAndBulkley = test_tauyHerschelandBulkley + test_etaHerschelandBulkley * math.pow(
+    test_tauHerschelAndBulkley = test_tauyHerschelandBulkley + test_kHerschelAndBulkley * math.pow(
         test_shearRate[0], test_nHerschelAndBulkley
     )
     test_tauArray[1] = test_tauHerschelAndBulkley
