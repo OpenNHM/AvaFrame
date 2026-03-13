@@ -480,10 +480,11 @@ With
    &\mathbf{x} \qquad &\text{position vector}\end{aligned}
 
 For solid-fluid mixtures like debris flows, where the properties of the fluid phase are dominating the flow process,
-the shear stress tensor is, among other things, a function of dynamic viscosity :math:`\eta_m` and shear rate :math:`\dot\gamma` (:ref:`theoryCom1DFA:Rheological models`).
+the shear stress tensor is, among other things, a function of dynamic viscosity :math:`\eta_m` (resp. consistency factor :math:`K` for :ref:`herschelandbulkley`)
+and shear rate :math:`\dot\gamma` (:ref:`theoryCom1DFA:Rheological models`).
 
 .. math::
-    \tau^{(b)}_i = f(\eta_m,\dot\gamma,\overline{h},\rho_m,t,\mathbf{x})
+    \tau^{(b)}_i = f(\eta_m,(K),\dot\gamma,\overline{h},\rho_m,t,\mathbf{x})
     :label: rheological model
 
 With
@@ -491,6 +492,7 @@ With
 .. math::
    \begin{aligned}
    &\eta_m \qquad &\text{dynamic viscosity of the solid-fluid mixture}\\
+   &K \qquad &\text{consistency factor of the solid-fluid mixture}\\
    &\dot\gamma \qquad &\text{shear rate}\\
    &\overline{h} \qquad &\text{average flow thickness}\\
    &\rho_m \qquad &\text{density of the solid-fluid mixture}\\
@@ -662,12 +664,13 @@ and non-Newtonian fluids, in which a yield shear stress has to be exceeded or sh
 The rheological models are incorporated into a single, general form, which can be expressed as follows:
 
 .. math::
-    \tau^{(b)} = \tau_y + \eta_m \cdot \dot\gamma^n + C \cdot \dot\gamma^2
+    \tau^{(b)} = \tau_y + K \cdot \dot\gamma^n + C \cdot \dot\gamma^2
     :label: rheology-general
 
 The yield shear stress :math:`\tau_y` :math:`[Pa]` defines a lower limit below which no flow takes place (see :math:`\tau_0` at :ref:`samosatfrict`). 
-The dynamic viscosity :math:`\eta_m` :math:`[Pa \cdot s]` quantifies the internal frictional force between two neighbouring layers of the mixture in relative motion. 
-:math:`\dot\gamma` is the flow velocity gradient, or shear rate, :math:`\frac{du}{dz}` :math:`[s^{-1}]` along the axis normal to the slope (flow thickness).
+:math:`K` is a consistency factor :math:`[Pa \cdot s^{n}]`. For the :ref:`bingham` and the :ref:`obrienandjulien` rheologies the consistency factor corresponds to the dynamic viscosity :math:`\eta_m` :math:`[Pa \cdot s]`
+which quantifies the internal frictional force between two neighbouring layers of the mixture in relative motion. :math:`\dot\gamma` is the flow velocity gradient,
+or shear rate, :math:`\frac{du}{dz}` :math:`[s^{-1}]` along the axis normal to the slope (flow thickness).
 The flow index :math:`n` describes the rheological behaviour of the mixture as :cite:`KaZhHaHe2025`:
 
 - :math:`n = 0` a rate-independent solid-like behaviour,
@@ -731,6 +734,8 @@ in following substitution :cite:`Iv1997, DeIv2001, GiFlSaHe2020`:
 
 where :math:`\overline{u}` is the depth-averaged flow velocity and :math:`\overline{h}` is the flow thickness.
 
+.. _obrienandjulien:
+
 O´Brien and Julien
 +++++++++++++++++++
 The quadratic rheological model proposed by O´Brien and Julien :cite:`ObJu1985` accounts for various shear stress components, including
@@ -761,17 +766,21 @@ of sediment :math:`[kg \cdot m^{-3}]`, :math:`d_s` is the sediment size :math:`[
 The quadratic rheological model is particularly suitable for simulating debris flows with high sediment concentrations, in which energy dissipation and
 resistance due to turbulence and particle collisions are significant.
 
+.. _herschelandbulkley:
+
 Herschel and Bulkley
 +++++++++++++++++++++++++
 The model by Herschel and Bulkley :cite:`HeBu1926` is expressed by an empirical power-law equation:
 
 .. math::
-    \tau^{(b)} = \tau_y + \eta_m \cdot \dot{\gamma}^n
+    \tau^{(b)} = \tau_y + K \cdot \dot{\gamma}^n
     :label: herschelAndBulkley
 
 where the flow index :math:`n` describes the rheological behaviour of the mixture (see above). The factor in front of the shear rate
-was originally introduced as a consistency factor :math:`K`. In :py:mod:`com1DFA` :math:`K` equals to the bulk dynamic viscosity :math:`\eta_m`.
-This rheology applies to fine-grained soil-water mixtures that exhibit shear-thinning or shear-thickening behavior, respectively, with increasing shear rates.
+was originally introduced as a consistency factor :math:`K`.This rheology applies to fine-grained soil-water mixtures that
+exhibit shear-thinning or shear-thickening behavior, respectively, with increasing shear rates.
+
+.. _bingham:
 
 Bingham
 ++++++++++++++++
