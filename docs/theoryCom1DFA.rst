@@ -684,24 +684,11 @@ Depending on how you select the parameters, you can choose from three models tha
 the consistency factor corresponds to the bulk dynamic viscosity :math:`\eta_m` :math:`[Pa \cdot s]` of the which quantifies the internal frictional force
 between two neighbouring layers of the solid-fluid mixture in relative motion.
 :numref:`Overview-rheological-models-table` gives an overview about the relation between the implemented rheological models and the used parameters:
-Depending on how you select the parameters, you can choose from three models that vary in complexity. For the :ref:`bingham` and the :ref:`obrienandjulien` rheologies (:math:`n = 1`)
-the consistency factor corresponds to the bulk dynamic viscosity :math:`\eta_m` :math:`[Pa \cdot s]` of the which quantifies the internal frictional force
-between two neighbouring layers of the solid-fluid mixture in relative motion.
-:numref:`Overview-rheological-models-table` gives an overview about the relation between the implemented rheological models and the used parameters:
 
 .. _Overview-rheological-models-table:
 
 .. table:: Overview of the implemented rheological models and their parameters according to :eq:`rheology-general`
 
-    +-------------------------------------+-----------------------------+------------------------+------------------------+------------------------+
-    | :math:`\boldsymbol{Model}`          | :math:`\boldsymbol{\tau_y}` | :math:`\boldsymbol{K}` | :math:`\boldsymbol{n}` | :math:`\boldsymbol{C}` |
-    +=====================================+=============================+========================+========================+========================+
-    | *O´Brien and Julien*                | :math:`> 0`                 | :math:`\eta_m`         | :math:`= 1`            | :math:`> 0`            |
-    +-------------------------------------+-----------------------------+------------------------+------------------------+------------------------+
-    | *Herschel and Bulkley*              | :math:`> 0`                 | :math:`K`              | :math:`\neq 1`         | :math:`= 0`            |
-    +-------------------------------------+-----------------------------+------------------------+------------------------+------------------------+
-    | *Bingham*                           | :math:`> 0`                 | :math:`\eta_m`         | :math:`= 1`            | :math:`= 0`            |
-    +-------------------------------------+-----------------------------+------------------------+------------------------+------------------------+
     +-------------------------------------+-----------------------------+------------------------+------------------------+------------------------+
     | :math:`\boldsymbol{Model}`          | :math:`\boldsymbol{\tau_y}` | :math:`\boldsymbol{K}` | :math:`\boldsymbol{n}` | :math:`\boldsymbol{C}` |
     +=====================================+=============================+========================+========================+========================+
