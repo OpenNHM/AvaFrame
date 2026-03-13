@@ -95,10 +95,9 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double alpha2TauyObrienAndJulien = cfg.getfloat('alpha2TauyObrienAndJulien')
   cdef double beta2TauyObrienAndJulien = cfg.getfloat('beta2TauyObrienAndJulien')
   cdef double alphaObrienAndJulien = cfg.getfloat('alphaObrienAndJulien')
-  cdef double alpha1EtaHerschelAndBulkley = cfg.getfloat('alpha1EtaHerschelAndBulkley')
-  cdef double beta1EtaHerschelAndBulkley = cfg.getfloat('beta1EtaHerschelAndBulkley')
   cdef double alpha2TauyHerschelAndBulkley = cfg.getfloat('alpha2TauyHerschelAndBulkley')
   cdef double beta2TauyHerschelAndBulkley = cfg.getfloat('beta2TauyHerschelAndBulkley')
+  cdef double kHerschelAndBulkley = cfg.getfloat('kHerschelAndBulkley')
   cdef double nHerschelAndBulkley = cfg.getfloat('nHerschelAndBulkley')
   cdef double alpha1EtaBingham = cfg.getfloat('alpha1EtaBingham')
   cdef double beta1EtaBingham = cfg.getfloat('beta1EtaBingham')
@@ -170,7 +169,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double gravAccNorm, accNormCurv, effAccNorm, gravAccTangX, gravAccTangY, gravAccTangZ, forceBotTang, sigmaB, tau
   cdef double muVoellmyRaster, xsiVoellmyRaster
   cdef double shearRate, etaObrienAndJulien, tauyObrienAndJulien, lmObrienAndJulien
-  cdef double lambdaBagnold, cObrienAndJulien, etaHerschelAndBulkley, tauyHerschelAndBulkley, etaBingham, tauyBingham                                                                          
+  cdef double lambdaBagnold, cObrienAndJulien, tauyHerschelAndBulkley, etaBingham, tauyBingham                                                                          
   # variables for interpolation
   cdef int Lx0, Ly0, LxEnd0, LyEnd0, iCell, iCellEnd
   cdef double w[4]
@@ -340,12 +339,10 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
             tau = tauyObrienAndJulien + etaObrienAndJulien * shearRate + cObrienAndJulien * (shearRate * shearRate)
           elif frictType == 11:
             ## Herschel and Bulkley
-            # viscosity
-            etaHerschelAndBulkley = alpha1EtaHerschelAndBulkley * math.exp(beta1EtaHerschelAndBulkley * cvSediment)
             # yield shear stress
             tauyHerschelAndBulkley = alpha2TauyHerschelAndBulkley * math.exp(beta2TauyHerschelAndBulkley * cvSediment)
             # shear stress
-            tau = tauyHerschelAndBulkley + etaHerschelAndBulkley * math.pow(shearRate, nHerschelAndBulkley)
+            tau = tauyHerschelAndBulkley + kHerschelAndBulkley * math.pow(shearRate, nHerschelAndBulkley)
           elif frictType == 12:
             ## Bingham
             # viscosity
