@@ -1,7 +1,7 @@
 [build-system]
 # Cython dependency is optional, see setup.py for details.
 # For the package (run-time) dependencies, see setup.cfg.
-requires = ["setuptools", "numpy<2.0", "Cython>=3.0.10", "setuptools-scm"]
+requires = ["setuptools", "numpy", "Cython>=3.0.10", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -64,7 +64,7 @@ version_file = "avaframe/RELEASE-VERSION.txt"
 #build = ["cp312-*"]
 skip = ["*musllinux*","*-win32"]
 build-verbosity = 1
-before-build = "pip install 'cython>=3.0.10' 'numpy<2.0'"
+# before-build = "uv pip install --system 'cython>=3.0.10' 'numpy<2.0'"
 
 
 [tool.cibuildwheel.linux]
