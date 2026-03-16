@@ -922,8 +922,10 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
             "alpha": cfgGen["alphaObrienAndJulien"],
             "Cmax": cfgGen["cvMaxSediment"],
             "Cv": cfgGen["cvSediment"],
+            "eta": cfgGen["etaObrienAndJulien"],
             "alpha1": cfgGen["alpha1EtaObrienAndJulien"],
             "beta1": cfgGen["beta1EtaObrienAndJulien"],
+            "tauy": cfgGen["tauyObrienAndJulien"],
             "alpha2": cfgGen["alpha2TauyObrienAndJulien"],
             "beta2": cfgGen["beta2TauyObrienAndJulien"],
         }
@@ -933,6 +935,7 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
             "model": "Herschel and Bulkley",
             "n": cfgGen["nHerschelAndBulkley"],
             "K": cfgGen["kHerschelAndBulkley"],
+            "tauy": cfgGen["tauyHerschelAndBulkley"],
             "alpha2": cfgGen["alpha2TauyHerschelAndBulkley"],
             "beta2": cfgGen["beta2TauyHerschelAndBulkley"],
         }
@@ -940,8 +943,11 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
         reportST["Friction model"] = {
             "type": "columns",
             "model": "Bingham",
+            "Cv": cfgGen["cvSediment"],
+            "eta": cfgGen["etaBingham"],
             "alpha1": cfgGen["alpha1EtaBingham"],
             "beta1": cfgGen["beta1EtaBingham"],
+            "tauy": cfgGen["tauyBingham"],
             "alpha2": cfgGen["alpha2TauyBingham"],
             "beta2": cfgGen["beta2TauyBingham"],
         }
@@ -3634,7 +3640,12 @@ def fetchRelVolume(releaseFile, cfg, pathToDem, secondaryReleaseFile, radius=0.0
 
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
         relVolume = initializeRelVol(
-            cfg, demVol, releaseFile, radius, releaseType="timeDepRel", timeDepRelFile=timeDepRelFile
+            cfg,
+            demVol,
+            releaseFile,
+            radius,
+            releaseType="timeDepRel",
+            timeDepRelFile=timeDepRelFile,
         )
     else:
         # compute volume of release area

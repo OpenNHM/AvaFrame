@@ -681,7 +681,7 @@ The flow index :math:`n` describes the rheological behaviour of the mixture as :
 which considers the inertial impact between the mixture particles as well :cite:`ObJu1985`.
 
 Three models that vary in complexity use different parameter combinations. For the :ref:`bingham` and the :ref:`obrienandjulien` rheologies (:math:`n = 1`)
-the consistency factor corresponds to the bulk dynamic viscosity :math:`\eta_m` :math:`[Pa \cdot s]` of the which quantifies the internal frictional force
+the consistency factor corresponds to the bulk dynamic viscosity :math:`\eta_m` :math:`[Pa \cdot s]` which quantifies the internal frictional force
 between two neighbouring layers of the solid-fluid mixture in relative motion.
 :numref:`Overview-rheological-models-table` gives an overview about the relation between the implemented rheological models and the used parameters:
 
@@ -721,8 +721,10 @@ volumetric sediment concentration :math:`C_v`. The dependencies are expressed by
     \tau_y = \alpha_2 \cdot e^{\beta_2 \cdot C_v}
     :label: tauy-cv
 
-where :math:`\alpha_1` and :math:`\beta_1`, :math:`\alpha_2` and :math:`\beta_2`, respectively, are empirical coefficients which
-are determined in lab experiments.
+where :math:`\alpha_1` and :math:`\beta_1`, :math:`\alpha_2` and :math:`\beta_2`, respectively, are empirical coefficients which are determined in lab experiments.
+In the :py:mod:`com1DFA` module, it is optional whether the parameters :math:`\eta_m` and :math:`\tau_y` are defined directly in the configuration file or
+calculated using equations :numref:`eta-cv` and :numref:`tauy-cv`, for which the parameters :math:`\alpha_{1,2}`,
+:math:`\beta_{1,2}` and :math:`C_v` have to be set.
 
 Since the governing equations to be solved are depth-averaged, the shear rate :math:`\dot\gamma = \frac{du}{dz}`
 cannot be computed directly. Assuming a parabolic vertical flow velocity distribution the integration over the flow thickness results 

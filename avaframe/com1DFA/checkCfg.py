@@ -99,7 +99,7 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
     Returns
     --------
     cfg: dict
-        upated configuration settings
+        updated configuration settings
     """
 
     frictParameters = [
@@ -130,17 +130,22 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
         "tau0coulombminshear",
         "muvoellmyminshear",
         "xsivoellmyminshear",
+        "etaObrienAndJulien",
         "alpha1EtaObrienAndJulien",
         "beta1EtaObrienAndJulien",
+        "tauyObrienAndJulien",
         "alpha2TauyObrienAndJulien",
         "beta2TauyObrienAndJulien",
         "alphaObrienAndJulien",
+        "tauyHerschelAndBulkley",
         "alpha2TauyHerschelAndBulkley",
         "beta2TauyHerschelAndBulkley",
         "kHerschelAndBulkley",
         "nHerschelAndBulkley",
+        "etaBingham",
         "alpha1EtaBingham",
         "beta1EtaBingham",
+        "tauyBingham",
         "alpha2TauyBingham",
         "beta2TauyBingham",
     ]
@@ -182,20 +187,51 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
                 for frictP in frictParameters
             ]
         elif frictModel.lower() == "obrienandjulien":
-            frictParameterIn = [
-                frictModel.lower() in frictP.lower()
-                for frictP in frictParameters
-            ]
+            if cfg["GENERAL"]["etaObrienAndJulien"] == "0":
+                frictParameters.remove("etaObrienAndJulien")
+            else:
+                frictParameters.remove("alpha1EtaObrienAndJulien")
+                frictParameters.remove("beta1EtaObrienAndJulien")
+                cfg["GENERAL"]["alpha1EtaObrienAndJulien"] = "0"
+                cfg["GENERAL"]["beta1EtaObrienAndJulien"] = "0"
+
+            if cfg["GENERAL"]["tauyObrienAndJulien"] == "0":
+                frictParameters.remove("tauyObrienAndJulien")
+            else:
+                frictParameters.remove("alpha2TauyObrienAndJulien")
+                frictParameters.remove("beta2TauyObrienAndJulien")
+                cfg["GENERAL"]["alpha2TauyObrienAndJulien"] = "0"
+                cfg["GENERAL"]["beta2TauyObrienAndJulien"] = "0"
+
+            frictParameterIn = [frictModel.lower() in frictP.lower() for frictP in frictParameters]
         elif frictModel.lower() == "herschelandbulkley":
-            frictParameterIn = [
-                frictModel.lower() in frictP.lower()
-                for frictP in frictParameters
-            ]
+            if cfg["GENERAL"]["tauyHerschelAndBulkley"] == "0":
+                frictParameters.remove("tauyHerschelAndBulkley")
+            else:
+                frictParameters.remove("alpha2TauyHerschelAndBulkley")
+                frictParameters.remove("beta2TauyHerschelAndBulkley")
+                cfg["GENERAL"]["alpha2TauyHerschelAndBulkley"] = "0"
+                cfg["GENERAL"]["beta2TauyHerschelAndBulkley"] = "0"
+
+            frictParameterIn = [frictModel.lower() in frictP.lower() for frictP in frictParameters]
         elif frictModel.lower() == "bingham":
-            frictParameterIn = [
-                frictModel.lower() in frictP.lower()
-                for frictP in frictParameters
-            ]
+            if cfg["GENERAL"]["etaBingham"] == "0":
+                frictParameters.remove("etaBingham")
+            else:
+                frictParameters.remove("alpha1EtaBingham")
+                frictParameters.remove("beta1EtaBingham")
+                cfg["GENERAL"]["alpha1EtaBingham"] = "0"
+                cfg["GENERAL"]["beta1EtaBingham"] = "0"
+
+            if cfg["GENERAL"]["tauyBingham"] == "0":
+                frictParameters.remove("tauyBingham")
+            else:
+                frictParameters.remove("alpha2TauyBingham")
+                frictParameters.remove("beta2TauyBingham")
+                cfg["GENERAL"]["alpha2TauyBingham"] = "0"
+                cfg["GENERAL"]["beta2TauyBingham"] = "0"
+
+            frictParameterIn = [frictModel.lower() in frictP.lower() for frictP in frictParameters]
         else:
             frictParameterIn = [frictModel.lower() in frictP for frictP in frictParameters]
 
@@ -248,8 +284,8 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
     # O´Brien and Julien friction model
     # fetch parameters and check if cvSediment < cvMaxSediment
     if frictModel.lower() == "obrienandjulien":
-        cvSediment = cfg['GENERAL']['cvSediment']
-        cvMaxSediment = cfg['GENERAL']['cvMaxSediment']
+        cvSediment = cfg["GENERAL"]["cvSediment"]
+        cvMaxSediment = cfg["GENERAL"]["cvMaxSediment"]
         if cvSediment >= cvMaxSediment:
             message = "cvSediment must be smaller than cvMaxSediment"
             log.error(message)

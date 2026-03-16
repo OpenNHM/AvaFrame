@@ -24,10 +24,28 @@ def test_getNeighborsC(capfd):
     dem["headerNeighbourGrid"] = header
     particles = {}
     particles["nPart"] = 18
-    particles["x"] = np.array([1.6, 0.4, 1, 2, 1, 2, 0, 1, 0, 2, 0, 2, 1, 2, 3, 3, 4, 0])
-    particles["y"] = np.array([2.6, 1.4, 0, 1, 3, 3, 2, 1, 0, 0, 3, 2, 2, 1, 1, 4, 5, 5])
+    particles["x"] = np.array([1.6, 0.4, 1, 2, 1, 2, 0, 1, 0, 2, 0, 2, 1, 2, 3, 3, 4, 0], dtype=np.float64)
+    particles["y"] = np.array([2.6, 1.4, 0, 1, 3, 3, 2, 1, 0, 0, 3, 2, 2, 1, 1, 4, 5, 5], dtype=np.float64)
     particles["z"] = np.array(
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ],
+        dtype=np.float64,
     )
     particles["m"] = particles["z"]
     atol = 1e-10
@@ -64,9 +82,10 @@ def test_getNeighborsC(capfd):
             17,
             17,  # nothing happens
             18,
-        ]
+        ],
+        dtype=np.float64,
     )  # found 1 particle
-    pInC = np.array([8, 2, 9, 1, 7, 13, 3, 14, 6, 12, 11, 10, 4, 5, 0, 15, 17, 16])
+    pInC = np.array([8, 2, 9, 1, 7, 13, 3, 14, 6, 12, 11, 10, 4, 5, 0, 15, 17, 16], dtype=np.int64)
 
     particles = DFAfunC.getNeighborsC(particles, dem)
     #    print(particles['inCellDEM'])
@@ -219,18 +238,18 @@ def test_updatePositionC():
 
     particles = {
         "dt": 1.0,
-        "m": np.asarray([10.0, 10.0, 10.0]),
-        "idFixed": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0]),
-        "x": np.asarray([0.0, 1.0, 2.0]),
-        "y": np.asarray([2.0, 3.0, 4.0]),
-        "z": np.asarray([1.0, 1.0, 1.0]),
-        "ux": np.asarray([1.0, 1.0, 1.0]),
-        "uy": np.asarray([1.0, 1.0, 1.0]),
-        "uz": np.asarray([0.0, 0.0, 0.0]),
-        "uAcc": np.asarray([0.0, 0.0, 0.0]),
+        "m": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "idFixed": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "x": np.asarray([0.0, 1.0, 2.0], dtype=np.float64),
+        "y": np.asarray([2.0, 3.0, 4.0], dtype=np.float64),
+        "z": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ux": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uy": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uz": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "uAcc": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
         "kineticEne": 0.0,
         "peakKinEne": 0.0,
         "peakForceSPH": 0.0,
@@ -238,11 +257,13 @@ def test_updatePositionC():
         "nPart": 3,
         "peakMassFlowing": 0.0,
         "iterate": True,
-        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0]),
-        "velocityMag": np.asarray([1.0, 1.0, 1.0]),
-        "h": np.asarray([1.0, 1.0, 1.0]),
-        "ID": np.array([0, 1, 2]),
+        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "velocityMag": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "h": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ID": np.array([0, 1, 2], dtype=np.int64),
         "stoppedParticles": {},
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
     }
     particles["potentialEne"] = np.sum(9.81 * particles["z"] * particles["m"])
 
@@ -254,29 +275,29 @@ def test_updatePositionC():
     demHeader["nrows"] = 10
     demHeader["ncols"] = 10
     dem = {"header": demHeader}
-    dem["rasterData"] = np.ones((demHeader["nrows"], demHeader["ncols"]))
-    dem["outOfDEM"] = np.zeros((demHeader["nrows"], demHeader["ncols"])).flatten()
-    dem["Nx"] = np.zeros((demHeader["nrows"], demHeader["ncols"]))
-    dem["Ny"] = np.zeros((demHeader["nrows"], demHeader["ncols"]))
-    dem["Nz"] = np.ones((demHeader["nrows"], demHeader["ncols"]))
+    dem["rasterData"] = np.ones((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["outOfDEM"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64).flatten()
+    dem["Nx"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["Ny"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["Nz"] = np.ones((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
 
     force = {
-        "forceZ": np.asarray([0.0, 0.0, 0.0]),
-        "forceFrict": np.asarray([10.0, 10.0, 10.0]),
-        "dM": np.asarray([0.0, 0.0, 0.0]),
-        "dMDet": np.asarray([0.0, 0.0, 0.0]),
-        "forceX": np.asarray([50.0, 50.0, 50.0]),
-        "forceY": np.asarray([50.0, 50.0, 50.0]),
-        "forceSPHX": np.asarray([50.0, 50.0, 50.0]),
-        "forceSPHY": np.asarray([50.0, 50.0, 50.0]),
-        "forceSPHZ": np.asarray([0.0, 0.0, 0.0]),
+        "forceZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceFrict": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "dM": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "dMDet": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceX": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceY": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHX": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHY": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
     }
     fields = {"FT": np.zeros((2, 2))}
     # crete a dummy dict (needed so that cython runs)
     wallLineDict = {
         "dam": 0,
         "nIterDam": 1,
-        "cellsCrossed": np.zeros((dem["header"]["ncols"] * dem["header"]["nrows"])).astype(int),
+        "cellsCrossed": np.zeros((dem["header"]["ncols"] * dem["header"]["nrows"]), dtype=np.int64),
     }
     for key in [
         "x",
@@ -330,30 +351,32 @@ def test_updatePositionC():
 
     particles = {
         "dt": 1.0,
-        "m": np.asarray([10.0, 10.0, 10.0]),
-        "idFixed": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0]),
-        "x": np.asarray([0.0, 1.0, 2.0]),
-        "y": np.asarray([2.0, 3.0, 4.0]),
-        "z": np.asarray([1.0, 1.0, 1.0]),
-        "ux": np.asarray([1.0, 1.0, 1.0]),
-        "uy": np.asarray([1.0, 1.0, 1.0]),
-        "uz": np.asarray([0.0, 0.0, 0.0]),
-        "uAcc": np.asarray([0.0, 0.0, 0.0]),
+        "m": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "idFixed": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "x": np.asarray([0.0, 1.0, 2.0], dtype=np.float64),
+        "y": np.asarray([2.0, 3.0, 4.0], dtype=np.float64),
+        "z": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ux": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uy": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uz": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "uAcc": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
         "kineticEne": 0.0,
         "peakKinEne": 100000.0,
         "peakForceSPH": 0.0,
         "forceSPHIni": 0.0,
         "nPart": 3,
-        "velocityMag": np.asarray([1.0, 1.0, 1.0]),
+        "velocityMag": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
         "peakMassFlowing": 0.0,
         "iterate": True,
-        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0]),
-        "h": np.asarray([1.0, 1.0, 1.0]),
-        "ID": np.array([0, 1, 2]),
+        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "h": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ID": np.array([0, 1, 2], dtype=np.int64),
         "stoppedParticles": {},
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
     }
     particles["potentialEne"] = np.sum(9.81 * particles["z"] * particles["m"])
 
@@ -376,30 +399,32 @@ def test_updatePositionC():
 
     particles = {
         "dt": 1.0,
-        "m": np.asarray([10.0, 10.0, 10.0]),
-        "idFixed": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0]),
-        "x": np.asarray([0.0, 1.0, 2.0]),
-        "y": np.asarray([2.0, 3.0, 4.0]),
-        "z": np.asarray([1.0, 1.0, 1.0]),
-        "ux": np.asarray([1.0, 1.0, 1.0]),
-        "uy": np.asarray([1.0, 1.0, 1.0]),
-        "uz": np.asarray([0.0, 0.0, 0.0]),
-        "uAcc": np.asarray([0.0, 0.0, 0.0]),
+        "m": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "idFixed": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "x": np.asarray([0.0, 1.0, 2.0], dtype=np.float64),
+        "y": np.asarray([2.0, 3.0, 4.0], dtype=np.float64),
+        "z": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ux": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uy": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uz": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "uAcc": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
         "kineticEne": 0.0,
         "peakKinEne": 10000.0,
         "peakForceSPH": 100000.0,
         "forceSPHIni": 1.0e5,
         "nPart": 3,
-        "velocityMag": np.asarray([1.0, 1.0, 1.0]),
+        "velocityMag": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
         "peakMassFlowing": 0.0,
         "iterate": True,
-        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0]),
-        "h": np.asarray([1.0, 1.0, 1.0]),
-        "ID": np.array([0, 1, 2]),
+        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "h": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ID": np.array([0, 1, 2], dtype=np.int64),
         "stoppedParticles": {},
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
     }
     particles["potentialEne"] = np.sum(9.81 * particles["z"] * particles["m"])
     typeStop = 1
@@ -442,30 +467,32 @@ def test_updatePositionC():
 
     particles = {
         "dt": 1.0,
-        "m": np.asarray([10.0, 10.0, 10.0]),
-        "idFixed": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0]),
-        "x": np.asarray([0.0, 1.0, 2.0]),
-        "y": np.asarray([2.0, 3.0, 4.0]),
-        "z": np.asarray([1.0, 1.0, 1.0]),
-        "ux": np.asarray([1.0, 1.0, 1.0]),
-        "uy": np.asarray([1.0, 1.0, 1.0]),
-        "uz": np.asarray([0.0, 0.0, 0.0]),
-        "uAcc": np.asarray([0.0, 0.0, 0.0]),
+        "m": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "idFixed": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "x": np.asarray([0.0, 1.0, 2.0], dtype=np.float64),
+        "y": np.asarray([2.0, 3.0, 4.0], dtype=np.float64),
+        "z": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ux": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uy": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uz": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "uAcc": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
         "kineticEne": 0.0,
         "peakKinEne": 10000.0,
         "peakForceSPH": 1000.0,
         "forceSPHIni": 1.0e5,
         "nPart": 3,
-        "velocityMag": np.asarray([1.0, 1.0, 1.0]),
+        "velocityMag": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
         "peakMassFlowing": 0.0,
         "iterate": True,
-        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0]),
-        "h": np.asarray([1.0, 1.0, 1.0]),
-        "ID": np.array([0, 1, 2]),
+        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "h": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ID": np.array([0, 1, 2], dtype=np.int64),
         "stoppedParticles": {},
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
     }
     particles["potentialEne"] = np.sum(9.81 * particles["z"] * particles["m"])
     typeStop = 1
@@ -498,18 +525,18 @@ def test_updatePositionC():
 
     particles = {
         "dt": 1.0,
-        "m": np.asarray([10.0, 10.0, 10.0]),
-        "idFixed": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0]),
-        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0]),
-        "x": np.asarray([0.0, 1.0, 2.0]),
-        "y": np.asarray([2.0, 3.0, 4.0]),
-        "z": np.asarray([1.0, 1.0, 1.0]),
-        "ux": np.asarray([0.0, 1.0, 1.0]),
-        "uy": np.asarray([0.0, 1.0, 1.0]),
-        "uz": np.asarray([0.0, 0.0, 0.0]),
-        "uAcc": np.asarray([0.0, 0.0, 0.0]),
+        "m": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "idFixed": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "x": np.asarray([0.0, 1.0, 2.0], dtype=np.float64),
+        "y": np.asarray([2.0, 3.0, 4.0], dtype=np.float64),
+        "z": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ux": np.asarray([0.0, 1.0, 1.0], dtype=np.float64),
+        "uy": np.asarray([0.0, 1.0, 1.0], dtype=np.float64),
+        "uz": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "uAcc": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
         "kineticEne": 0.0,
         "peakKinEne": 0.0,
         "peakForceSPH": 0.0,
@@ -517,24 +544,26 @@ def test_updatePositionC():
         "nPart": 3,
         "peakMassFlowing": 0.0,
         "iterate": True,
-        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0]),
-        "velocityMag": np.asarray([0.0, 1.0, 1.0]),
-        "h": np.asarray([1.0, 1.0, 1.0]),
-        "ID": np.array([0, 1, 2]),
+        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "velocityMag": np.asarray([0.0, 1.0, 1.0], dtype=np.float64),
+        "h": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ID": np.array([0, 1, 2], dtype=np.int64),
         "stoppedParticles": {},
+        "indXDEM": np.array([0, 0, 0], dtype=np.int32),
+        "indYDEM": np.array([0, 0, 0], dtype=np.int32),
     }
     particles["potentialEne"] = np.sum(9.81 * particles["z"] * particles["m"])
 
     force = {
-        "forceZ": np.asarray([0.0, 0.0, 0.0]),
-        "forceFrict": np.asarray([10.0, 10.0, 10.0]),
-        "dM": np.asarray([0.0, 0.0, 0.0]),
-        "dMDet": np.asarray([0.0, 0.0, 0.0]),
-        "forceX": np.asarray([0.0, 50.0, 50.0]),
-        "forceY": np.asarray([0.0, 50.0, 50.0]),
-        "forceSPHX": np.asarray([0.0, 50.0, 50.0]),
-        "forceSPHY": np.asarray([0.0, 50.0, 50.0]),
-        "forceSPHZ": np.asarray([0.0, 0.0, 0.0]),
+        "forceZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceFrict": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "dM": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "dMDet": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceX": np.asarray([0.0, 50.0, 50.0], dtype=np.float64),
+        "forceY": np.asarray([0.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHX": np.asarray([0.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHY": np.asarray([0.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
     }
 
     cfg["GENERAL"]["adaptSfcStopped"] = "1"
@@ -556,12 +585,12 @@ def test_updatePositionC():
 def test_computeTrajectoryAngle():
     # first compute travel angle for each particle
     # get parent Id in order to  get the first z position
-    parentID = np.array([0, 1, 2, 0])
+    parentID = np.array([0, 1, 2, 0], dtype=np.int64)
     nPart = 4
     # get z0
-    zPartArray0 = np.array([10.0, 9.0, 8.0])
-    s = np.array([10.0, 10.0, 0.0, 10.0])
-    z = np.array([0.0, 0.0, 0.0, 1.0])
+    zPartArray0 = np.array([10.0, 9.0, 8.0], dtype=np.float64)
+    s = np.array([10.0, 10.0, 0.0, 10.0], dtype=np.float64)
+    z = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float64)
     particles = {"nPart": nPart, "parentID": parentID, "trajectoryLengthXY": s, "z": z}
     particles = DFAfunC.computeTrajectoryAngleC(particles, zPartArray0)
     #    print(particles['trajectoryAngle'])
@@ -610,9 +639,9 @@ def test_initializeBondsC():
 
 def test_removeBondsC():
     nPart = 3
-    x = np.array([0.0, 1.0, 0.0])
-    y = np.array([0.0, 0.0, 1.0])
-    z = np.array([0.0, 0.0, 0.0])
+    x = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+    y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+    z = np.array([0.0, 0.0, 0.0], dtype=np.float64)
     # original triangulation
     triangles = tri.Triangulation(x, y)
     particles = {"nPart": nPart, "x": x, "y": y, "z": z}
@@ -622,7 +651,7 @@ def test_removeBondsC():
     #    print(particles['bondPart'])
 
     # now remove one particle (here particle 1):
-    keepParticle = np.array([1.0, 0.0, 1.0])
+    keepParticle = np.array([1.0, 0.0, 1.0], dtype=np.float64)
     nRemove = 1
     nBondRemove = DFAfunC.countRemovedBonds(particles, keepParticle, nRemove)
     #    print(nBondRemove)
@@ -661,18 +690,18 @@ def test_computeCohesionForceC():
         "minDistCohesion": "1.0e-3",
     }
     nPart = 3
-    x = np.array([0.0, 1.0, 0.0])
-    y = np.array([0.0, 0.0, 1.0])
-    z = np.array([0.0, 0.0, 0.0])
-    ux = np.array([0.0, 0.0, 0.0])
-    uy = np.array([0.0, 0.0, 0.0])
-    uz = np.array([0.0, 0.0, 0.0])
-    m = np.array([1.0, 1.0, 1.0])
-    h = np.array([1.0, 1.0, 1.0])
+    x = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+    y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+    z = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+    ux = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+    uy = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+    uz = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+    m = np.array([1.0, 1.0, 1.0], dtype=np.float64)
+    h = np.array([1.0, 1.0, 1.0], dtype=np.float64)
     force = {}
-    force["forceSPHX"] = np.zeros(np.shape(x))
-    force["forceSPHY"] = np.zeros(np.shape(x))
-    force["forceSPHZ"] = np.zeros(np.shape(x))
+    force["forceSPHX"] = np.zeros(np.shape(x), dtype=np.float64)
+    force["forceSPHY"] = np.zeros(np.shape(x), dtype=np.float64)
+    force["forceSPHZ"] = np.zeros(np.shape(x), dtype=np.float64)
     # original triangulation
     triangles = tri.Triangulation(x, y)
     particles = {
@@ -788,8 +817,10 @@ def test_computeCohesionForceC():
 def test_computeForceC():
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
+        "etaObrienAndJulien": "20",
         "alpha1EtaObrienAndJulien": "0.650",
         "beta1EtaObrienAndJulien": "16.81",
+        "tauyObrienAndJulien": "200",
         "alpha2TauyObrienAndJulien": "0.00886",
         "beta2TauyObrienAndJulien": "13.11",
         "alphaObrienAndJulien": "0.01",
@@ -839,12 +870,15 @@ def test_computeForceC():
         "mucoulomb": "0.155",
         "mucoulombminshear": "0.155",
         "tau0coulombminshear": "70",
+        "tauyHerschelAndBulkley": "200",
         "alpha2TauyHerschelAndBulkley": "0.00886",
         "beta2TauyHerschelAndBulkley": "13.11",
         "kHerschelAndBulkley": "50",
         "nHerschelAndBulkley": "1.5",
+        "etaBingham": "20",
         "alpha1EtaBingham": "0.650",
         "beta1EtaBingham": "16.81",
+        "tauyBingham": "200",
         "alpha2TauyBingham": "0.00886",
         "beta2TauyBingham": "13.11",
         "curvAccInFriction": "1",
@@ -858,16 +892,16 @@ def test_computeForceC():
     # Minimal particles setup
     particles = {
         "nPart": 1,
-        "x": np.array([0.0]),
-        "y": np.array([0.0]),
-        "z": np.array([0.0]),
-        "ux": np.array([1.0]),
-        "uy": np.array([0.0]),
-        "uz": np.array([0.0]),
-        "m": np.array([1.0]),
-        "h": np.array([1.0]),
+        "x": np.array([0.0], dtype=np.float64),
+        "y": np.array([0.0], dtype=np.float64),
+        "z": np.array([0.0], dtype=np.float64),
+        "ux": np.array([1.0], dtype=np.float64),
+        "uy": np.array([0.0], dtype=np.float64),
+        "uz": np.array([0.0], dtype=np.float64),
+        "m": np.array([1.0], dtype=np.float64),
+        "h": np.array([1.0], dtype=np.float64),
         "dt": 0.1,
-        "ID": np.array([1]),
+        "ID": np.array([1], dtype=np.int64),
         "totalEnthalpy": np.array([0.0]),
         "indXDEM": np.array([0], dtype=np.int32),
         "indYDEM": np.array([0], dtype=np.int32),
@@ -897,27 +931,29 @@ def test_computeForceC():
     ncols = dem["header"]["ncols"]
 
     fields = {
-        "Vx": np.zeros((nrows, ncols)),
-        "Vy": np.zeros((nrows, ncols)),
-        "Vz": np.zeros((nrows, ncols)),
-        "entrMassRaster": np.zeros((nrows, ncols)),
-        "entrEnthRaster": np.zeros((nrows, ncols)),
-        "muField": np.zeros((nrows, ncols)),
-        "xiField": np.zeros((nrows, ncols)),
-        "detRaster": np.zeros((nrows, ncols)),
-        "cResRaster": np.zeros((nrows, ncols)),
+        "Vx": np.zeros((nrows, ncols), dtype=np.float64),
+        "Vy": np.zeros((nrows, ncols), dtype=np.float64),
+        "Vz": np.zeros((nrows, ncols), dtype=np.float64),
+        "entrMassRaster": np.zeros((nrows, ncols), dtype=np.float64),
+        "entrEnthRaster": np.zeros((nrows, ncols), dtype=np.float64),
+        "muField": np.zeros((nrows, ncols), dtype=np.float64),
+        "xiField": np.zeros((nrows, ncols), dtype=np.float64),
+        "detRaster": np.zeros((nrows, ncols), dtype=np.float64),
+        "cResRaster": np.zeros((nrows, ncols), dtype=np.float64),
     }
 
     # initialize test array friction force
-    test_tauArray = np.zeros(3)  # saving tau of the three models
-    test_forceFrict = np.zeros(particles["nPart"])
+    test_tauArray = np.zeros(6, dtype=np.float64)  # saving tau of the three models with initial settings
+    # and additional cases where etaCfg = tauyCfg = 0
+    test_forceFrict = np.zeros(particles["nPart"], dtype=np.float64)
 
     # resistanceType
     resistanceType = 1  # default; since cResRaster = 0 there is no resistance
 
     # apply function
-    # looping over models
-    forceFrictArray = np.zeros(3)
+    # initialize array function fricition force
+    forceFrictArray = np.zeros_like(test_tauArray, dtype=np.float64)
+    # looping over ObrienAndJulien, HerschelAndBulkley and Bingham with initial config settings (see above)
     # i = index of result in array, j = frictType
     for i, j in enumerate(range(10, 13)):
         particles, force, *_ = DFAfunC.computeForceC(
@@ -947,8 +983,10 @@ def test_computeForceC():
 
     ## O'Brien & Julien
     # read input parameters
+    test_etaObrienAndJulienCfg = float(cfg["GENERAL"]["etaObrienAndJulien"])
     test_alpha1EtaObrienAndJulien = float(cfg["GENERAL"]["alpha1EtaObrienAndJulien"])
     test_beta1EtaObrienAndJulien = float(cfg["GENERAL"]["beta1EtaObrienAndJulien"])
+    test_tauyObrienAndJulienCfg = float(cfg["GENERAL"]["tauyObrienAndJulien"])
     test_alpha2TauyObrienAndJulien = float(cfg["GENERAL"]["alpha2TauyObrienAndJulien"])
     test_beta2TauyObrienAndJulien = float(cfg["GENERAL"]["beta2TauyObrienAndJulien"])
     test_cvSediment = float(cfg["GENERAL"]["cvSediment"])
@@ -957,57 +995,101 @@ def test_computeForceC():
     test_alphaObrienAndJulien = float(cfg["GENERAL"]["alphaObrienAndJulien"])
     test_rhoSediment = float(cfg["GENERAL"]["rhoSediment"])
     test_sizeSediment = float(cfg["GENERAL"]["sizeSediment"])
+    # calculate C
+    test_lmObrienAndJulien = 0.4 * particles["h"]
+    test_lambdaBagnold = 1.0 / (math.pow(test_cvMaxSediment / test_cvSediment, 1.0 / 3.0) - 1.0)
+    test_cObrienAndJulien = (
+        test_rho * test_lmObrienAndJulien * test_lmObrienAndJulien
+        + test_alphaObrienAndJulien
+        * test_rhoSediment
+        * test_lambdaBagnold
+        * test_lambdaBagnold
+        * test_sizeSediment
+        * test_sizeSediment
+    )
     # compute tau
+    test_tauObrienAndJulienCfg = (
+        test_tauyObrienAndJulienCfg
+        + test_etaObrienAndJulienCfg * test_shearRate
+        + test_cObrienAndJulien * (test_shearRate * test_shearRate)
+    )
+    test_tauArray[0] = test_tauObrienAndJulienCfg[0]
+
+    # test for etaCfg = tauyCfg = 0
+    cfg["GENERAL"]["etaObrienAndJulien"] = "0"
+    cfg["GENERAL"]["tauyObrienAndJulien"] = "0"
+
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 10, resistanceType)
+    forceFrictArray[3] = force["forceFrict"][0]
+    # compute tauy and eta via alpha, beta and cv
     test_etaObrienAndJulien = test_alpha1EtaObrienAndJulien * math.exp(
         test_beta1EtaObrienAndJulien * test_cvSediment
     )
     test_tauyObrienAndJulien = test_alpha2TauyObrienAndJulien * math.exp(
         test_beta2TauyObrienAndJulien * test_cvSediment
     )
-    test_lmObrienAndJulien = 0.4 * particles["h"]
-    test_lambdaBagnold = 1.0 / (math.pow(test_cvMaxSediment / test_cvSediment, 1.0 / 3.0) - 1.0)
-    test_cObrienAndJulien = (
-            test_rho * test_lmObrienAndJulien * test_lmObrienAndJulien
-            + test_alphaObrienAndJulien
-            * test_rhoSediment
-            * test_lambdaBagnold
-            * test_lambdaBagnold
-            * test_sizeSediment
-            * test_sizeSediment
-    )
+    # compute tau
     test_tauObrienAndJulien = (
-            test_tauyObrienAndJulien
-            + test_etaObrienAndJulien * test_shearRate
-            + test_cObrienAndJulien * (test_shearRate * test_shearRate)
+        test_tauyObrienAndJulien
+        + test_etaObrienAndJulien * test_shearRate
+        + test_cObrienAndJulien * (test_shearRate * test_shearRate)
     )
-    test_tauArray[0] = test_tauObrienAndJulien[0]
+
+    test_tauArray[3] = test_tauObrienAndJulien[0]
 
     ## Herschel and Bulkley
     # read input parameters
+    test_tauyHerschelAndBulkleyCfg = float(cfg["GENERAL"]["tauyHerschelAndBulkley"])
     test_alpha2TauyHerschelAndBulkley = float(cfg["GENERAL"]["alpha2TauyHerschelAndBulkley"])
     test_beta2TauyHerschelAndBulkley = float(cfg["GENERAL"]["beta2TauyHerschelAndBulkley"])
     test_kHerschelAndBulkley = float(cfg["GENERAL"]["kHerschelAndBulkley"])
     test_nHerschelAndBulkley = float(cfg["GENERAL"]["nHerschelAndBulkley"])
+
     # compute tau
-    test_tauyHerschelandBulkley = test_alpha2TauyHerschelAndBulkley * math.exp(
-        test_beta2TauyHerschelAndBulkley * test_cvSediment
-    )
-    test_tauHerschelAndBulkley = test_tauyHerschelandBulkley + test_kHerschelAndBulkley * math.pow(
+    test_tauHerschelAndBulkley = test_tauyHerschelAndBulkleyCfg + test_kHerschelAndBulkley * math.pow(
         test_shearRate[0], test_nHerschelAndBulkley
     )
     test_tauArray[1] = test_tauHerschelAndBulkley
 
+    # set tauyCfg = 0
+    cfg["GENERAL"]["tauyHerschelAndBulkley"] = "0"
+
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 11, resistanceType)
+    forceFrictArray[4] = force["forceFrict"][0]
+    # compute tauy via alpha, beta and cv
+    test_tauyHerschelandBulkley = test_alpha2TauyHerschelAndBulkley * math.exp(
+        test_beta2TauyHerschelAndBulkley * test_cvSediment
+    )
+    # compute tau
+    test_tauHerschelAndBulkley = test_tauyHerschelandBulkley + test_kHerschelAndBulkley * math.pow(
+        test_shearRate[0], test_nHerschelAndBulkley
+    )
+    test_tauArray[4] = test_tauHerschelAndBulkley
+
     ## Bingham
     # read input parameters
+    test_etaBinghamCfg = float(cfg["GENERAL"]["etaBingham"])
     test_alpha1EtaBingham = float(cfg["GENERAL"]["alpha1EtaBingham"])
     test_beta1EtaBingham = float(cfg["GENERAL"]["beta1EtaBingham"])
+    test_tauyBinghamCfg = float(cfg["GENERAL"]["tauyBingham"])
     test_alpha2TauyBingham = float(cfg["GENERAL"]["alpha2TauyBingham"])
     test_beta2TauyBingham = float(cfg["GENERAL"]["beta2TauyBingham"])
     # compute tau
+    test_tauBinghamCfg = test_tauyBinghamCfg + test_etaBinghamCfg * test_shearRate
+    test_tauArray[2] = test_tauBinghamCfg[0]
+
+    # set etaCfg = tauyCfg = 0
+    cfg["GENERAL"]["etaBingham"] = "0"
+    cfg["GENERAL"]["tauyBingham"] = "0"
+
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 12, resistanceType)
+    forceFrictArray[5] = force["forceFrict"][0]
+    # compute tauy and eta via alpha, beta and cv
     test_etaBingham = test_alpha1EtaBingham * math.exp(test_beta1EtaBingham * test_cvSediment)
     test_tauyBingham = test_alpha2TauyBingham * math.exp(test_beta2TauyBingham * test_cvSediment)
+    # compute tau
     test_tauBingham = test_tauyBingham + test_etaBingham * test_shearRate
-    test_tauArray[2] = test_tauBingham[0]
+    test_tauArray[5] = test_tauBingham[0]
 
     ## compute friction force
     # deduce area - see 'com1DFA.DFAfunctionsCython.pyx.computeForceC()'
@@ -1027,13 +1109,13 @@ def test_computeForceC():
 
 def test_updateInitialVelocity():
     particles = {
-        "x": np.array([10.0]),
-        "y": np.array([10.0]),
-        "ux": np.array([0.0]),
-        "uy": np.array([0.0]),
-        "uz": np.array([0.0]),
+        "x": np.array([10.0], dtype=np.float64),
+        "y": np.array([10.0], dtype=np.float64),
+        "ux": np.array([0.0], dtype=np.float64),
+        "uy": np.array([0.0], dtype=np.float64),
+        "uz": np.array([0.0], dtype=np.float64),
         "nPart": 1,
-        "velocityMag": np.array([0.0]),
+        "velocityMag": np.array([0.0], dtype=np.float64),
     }
 
     # incline plane
@@ -1046,7 +1128,8 @@ def test_updateInitialVelocity():
                 [90, 90, 90, 90, 90],
                 [85, 85, 85, 85, 85],
                 [80, 80, 80, 80, 80],
-            ]
+            ],
+            dtype=np.float64,
         ),
     }
 
@@ -1074,7 +1157,7 @@ def test_updateInitialVelocity():
     )
 
     # flat plane
-    dem["rasterData"] = np.ones((dem["header"]["ncols"], dem["header"]["nrows"]))
+    dem["rasterData"] = np.ones((dem["header"]["ncols"], dem["header"]["nrows"]), dtype=np.float64)
     dem = geoTrans.getNormalMesh(dem, num=1)
     particlesTest = {
         "x": np.array([10.0]),
