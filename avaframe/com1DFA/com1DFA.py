@@ -932,8 +932,7 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
             "type": "columns",
             "model": "Herschel and Bulkley",
             "n": cfgGen["nHerschelAndBulkley"],
-            "alpha1": cfgGen["alpha1EtaHerschelAndBulkley"],
-            "beta1": cfgGen["beta1EtaHerschelAndBulkley"],
+            "K": cfgGen["kHerschelAndBulkley"],
             "alpha2": cfgGen["alpha2TauyHerschelAndBulkley"],
             "beta2": cfgGen["beta2TauyHerschelAndBulkley"],
         }
