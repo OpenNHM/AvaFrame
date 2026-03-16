@@ -90,17 +90,22 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double sizeSediment = cfg.getfloat('sizeSediment')
   cdef double cvMaxSediment = cfg.getfloat('cvMaxSediment')
   cdef double cvSediment = cfg.getfloat('cvSediment')
+  cdef double etaObrienAndJulienCfg = cfg.getfloat('etaObrienAndJulien')
   cdef double alpha1EtaObrienAndJulien = cfg.getfloat('alpha1EtaObrienAndJulien')
   cdef double beta1EtaObrienAndJulien = cfg.getfloat('beta1EtaObrienAndJulien')
+  cdef double tauyObrienAndJulienCfg = cfg.getfloat('tauyObrienAndJulien')
   cdef double alpha2TauyObrienAndJulien = cfg.getfloat('alpha2TauyObrienAndJulien')
   cdef double beta2TauyObrienAndJulien = cfg.getfloat('beta2TauyObrienAndJulien')
   cdef double alphaObrienAndJulien = cfg.getfloat('alphaObrienAndJulien')
+  cdef double tauyHerschelAndBulkleyCfg = cfg.getfloat('tauyHerschelAndBulkley')
   cdef double alpha2TauyHerschelAndBulkley = cfg.getfloat('alpha2TauyHerschelAndBulkley')
   cdef double beta2TauyHerschelAndBulkley = cfg.getfloat('beta2TauyHerschelAndBulkley')
   cdef double kHerschelAndBulkley = cfg.getfloat('kHerschelAndBulkley')
   cdef double nHerschelAndBulkley = cfg.getfloat('nHerschelAndBulkley')
+  cdef double etaBinghamCfg = cfg.getfloat('etaBingham')
   cdef double alpha1EtaBingham = cfg.getfloat('alpha1EtaBingham')
   cdef double beta1EtaBingham = cfg.getfloat('beta1EtaBingham')
+  cdef double tauyBinghamCfg = cfg.getfloat('tauyBingham')
   cdef double alpha2TauyBingham = cfg.getfloat('alpha2TauyBingham')
   cdef double beta2TauyBingham = cfg.getfloat('beta2TauyBingham')
   cdef double curvAccInFriction = cfg.getfloat('curvAccInFriction')
@@ -168,6 +173,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double nx, ny, nz, nxEnd, nyEnd, nzEnd, nxAvg, nyAvg, nzAvg
   cdef double gravAccNorm, accNormCurv, effAccNorm, gravAccTangX, gravAccTangY, gravAccTangZ, forceBotTang, sigmaB, tau
   cdef double muVoellmyRaster, xsiVoellmyRaster
+  #TODO: Influence on variable initiation?
   cdef double shearRate, etaObrienAndJulien, tauyObrienAndJulien, lmObrienAndJulien
   cdef double lambdaBagnold, cObrienAndJulien, tauyHerschelAndBulkley, etaBingham, tauyBingham                                                                          
   # variables for interpolation
@@ -326,9 +332,15 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           elif frictType == 10:
             ## O`Brien and Julien
             # viscosity
-            etaObrienAndJulien = alpha1EtaObrienAndJulien * math.exp(beta1EtaObrienAndJulien * cvSediment)
+            if etaObrienAndJulienCfg == 0:
+              etaObrienAndJulien = alpha1EtaObrienAndJulien * math.exp(beta1EtaObrienAndJulien * cvSediment)
+            else:
+              etaObrienAndJulien = etaObrienAndJulienCfg
             # yield shear stress
-            tauyObrienAndJulien = alpha2TauyObrienAndJulien * math.exp(beta2TauyObrienAndJulien * cvSediment)
+            if tauyObrienAndJulienCfg == 0:
+              tauyObrienAndJulien = alpha2TauyObrienAndJulien * math.exp(beta2TauyObrienAndJulien * cvSediment)
+            else:
+              tauyObrienAndJulien = tauyObrienAndJulienCfg
             # Prandtl mixing length
             lmObrienAndJulien = 0.4 * h
             # grain concentration
@@ -340,15 +352,24 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           elif frictType == 11:
             ## Herschel and Bulkley
             # yield shear stress
-            tauyHerschelAndBulkley = alpha2TauyHerschelAndBulkley * math.exp(beta2TauyHerschelAndBulkley * cvSediment)
+            if tauyHerschelAndBulkleyCfg == 0:
+              tauyHerschelAndBulkley = alpha2TauyHerschelAndBulkley * math.exp(beta2TauyHerschelAndBulkley * cvSediment)
+            else:
+              tauyHerschelAndBulkley = tauyHerschelAndBulkleyCfg
             # shear stress
             tau = tauyHerschelAndBulkley + kHerschelAndBulkley * math.pow(shearRate, nHerschelAndBulkley)
           elif frictType == 12:
             ## Bingham
             # viscosity
-            etaBingham = alpha1EtaBingham * math.exp(beta1EtaBingham * cvSediment)
+            if etaBinghamCfg == 0:
+              etaBingham = alpha1EtaBingham * math.exp(beta1EtaBingham * cvSediment)
+            else:
+              etaBingham = etaBinghamCfg
             # yield shear stress
-            tauyBingham = alpha2TauyBingham * math.exp(beta2TauyBingham * cvSediment)
+            if tauyBinghamCfg == 0:
+              tauyBingham = alpha2TauyBingham * math.exp(beta2TauyBingham * cvSediment)
+            else:
+              tauyBingham = tauyBinghamCfg
             # shear stress
             tau = tauyBingham + etaBingham * shearRate
           else:
@@ -754,7 +775,7 @@ def updatePositionC(cfg, particles, dem, force, fields, int typeStop=0):
   cdef double[:] mStoppedArray = np.empty(0, dtype=np.float64)
   cdef double[:] idStoppedArray = np.empty(0, dtype=np.float64)
   cdef double[:] uMagStoppedArray = np.empty(0, dtype=np.float64)
-  cdef long[:] indRemoveParticle
+  cdef long long[:] indRemoveParticle
   # read fields
   cdef double[:] forceX = force['forceX']
   cdef double[:] forceY = force['forceY']
