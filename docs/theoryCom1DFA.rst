@@ -777,7 +777,7 @@ The model by Herschel and Bulkley :cite:`HeBu1926` is expressed by an empirical 
     :label: herschelAndBulkley
 
 where the flow index :math:`n` describes the rheological behaviour of the mixture (see above). The factor in front of the shear rate
-was originally introduced as a consistency factor :math:`K`.This rheology applies to fine-grained soil-water mixtures that
+was originally introduced as a consistency factor :math:`K`. This rheology applies to fine-grained soil-water mixtures that
 exhibit shear-thinning or shear-thickening behavior, respectively, with increasing shear rates.
 
 .. _bingham:
