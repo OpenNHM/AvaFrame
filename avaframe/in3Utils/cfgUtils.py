@@ -914,13 +914,13 @@ def convertDF2numerics(simDF):
         simDFTest = simDFTest.replace("-", "", regex=False)
         # check for str(np.nan) as these cannot be converted to numerics by pd.to_numeric
         # but as friction model parameters are set to nans this is required here
-        if simDFTest.str.match("nan").any():
+        if simDFTest.dropna().astype(str).eq("nan").any():
             simDF = setStrnanToNan(simDF, simDFTest, name)
         # also include columns where nan is in first row - so check for any row
         if simDFTest.str.isdigit().any() and (name != "tSteps"):
             # problem here is that it finds even if not present in | although not in ini
             simDFTest = simDF[name].str.replace("|", "§", regex=False)
-            if simDFTest.str.contains("§").any() == False:
+            if simDFTest.astype(str).str.contains("§", regex=False).any() == False:
                 simDF[name] = pd.to_numeric(simDF[name])
                 log.debug("Converted to numeric %s" % name)
         else:
@@ -950,10 +950,10 @@ def setStrnanToNan(simDF, simDFTest, name):
 
     nanIndex = simDFTest.str.match("nan", flags=re.IGNORECASE)
     simIndex = simDF.index.values
-    # loop over each row and use simDF.at to avoid copy vs view warning
+    # loop over each row and use iloc to avoid duplicate index issues
     for index, nanInd in enumerate(nanIndex):
         if nanInd:
-            simDF.at[simIndex[index], name] = np.nan
+            simDF.iloc[index, simDF.columns.get_loc(name)] = np.nan
             log.info("%s for index: %s set to numpy nan" % (name, index))
     return simDF
 
