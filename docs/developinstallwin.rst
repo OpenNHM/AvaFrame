@@ -1,11 +1,11 @@
-Advanced Installation (Windows)
+Script Installation (Windows)
 ------------------------------
 
 This is a quick guide on how to install AvaFrame
 and the required dependencies on your machine. AvaFrame is developed on **Linux
 machines** (Ubuntu/Manjaro/Arch) with recent Python versions > 3.8.
 These instructions assume you are familiar with working in a terminal. This
-guide is described for **Windows**. For *Linux*, see :ref:`developinstall:Advanced Installation (Linux)`.
+guide is described for **Windows**. For *Linux*, see :ref:`developinstall:Script Installation (Linux)`.
 
 Requirements
 ^^^^^^^^^^^^
@@ -74,4 +74,4 @@ An to run QGIS::
 Depending on your mode of QGis installation (direct installer, conda, OSGeo4W...) your script AvaFrame installation
 might be overruled...
 
-Now you can **install the AvaFrameConnector plugin** via QGIS as per usual (:ref:`installation:Operational Installation`).
+Now you can **install the AvaFrameConnector plugin** via QGIS as per usual (:ref:`standardUsage:Standard Usage (QGis)`).

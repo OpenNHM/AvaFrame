@@ -1,11 +1,11 @@
-Advanced Installation (Linux)
+Script Installation (Linux)
 ------------------------------
 
 This is a quick guide on how to install AvaFrame
 and the required dependencies on your machine. AvaFrame is developed on **Linux
 machines** (Ubuntu/Manjaro/Arch) with recent Python versions > 3.8.
 These instructions assume you are familiar with working in a terminal. This
-guide is described for **Linux**. For *Windows*, see :ref:`developinstallwin:Advanced Installation (Windows)`.
+guide is described for **Linux**. For *Windows*, see :ref:`developinstallwin:Script Installation (Windows)`.
 
 Requirements
 ^^^^^^^^^^^^

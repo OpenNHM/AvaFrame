@@ -29,7 +29,7 @@ It is possible to modify these settings. The main options are:
   :py:func:`in3Utils.cfgUtils.getModuleConfig`
 
 * create an expert configuration file at ``{avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini``
-  (see :doc:`expertConfiguration` for details)
+  (see :doc:`advancedUsage` for details)
 
 * create a copy of the module configuration file called ``local_`` followed by
   the name of the original configuration file and set the desired values of the
@@ -48,7 +48,7 @@ So the order is as follows:
 #. if there is a path provided via the ``fileOverride`` parameter, configuration is read from this file.
 
 #. if the ``avalancheDir`` is provided and ``{avalancheDir}/Inputs/CFGs/{moduleName}Cfg.ini`` exists,
-   this expert config is used (see :doc:`expertConfiguration` for details).
+   this expert config is used (see :doc:`advancedUsage` for details).
 
 #. if there is no expert config, the ``local_...`` configuration file is read if
    it exists.
