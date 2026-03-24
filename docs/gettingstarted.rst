@@ -52,7 +52,7 @@ Workflow example
 
 The following example should make it easier for you to find your way in AvaFrame and setup your own AvaFrame workflow
 after you did the full setup. There is also a directory with examples for different workflows, see more here:
-:ref:`advancedUsage:Example runScripts`.
+:ref:`complexUsage:Example runScripts`.
 
 Make sure you change to your ``AvaFrame`` directory by::
 
@@ -93,7 +93,7 @@ the module you want to use (for example ``com1DFACfg.ini`` for module com1DFA).
 If you want to use different settings, create a ``local_`` copy of the ``.ini``
 file and modify the desired parameters.
 
-More information about the configuration can be found here: :ref:`advancedUsage:Configuration`
+More information about the configuration can be found here: :ref:`complexUsage:Configuration`
 
 Building your run script
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -104,5 +104,5 @@ template.
 We suggest you copy it and adjust it to your liking. There are annotations in
 the code that should help you to understand the structure.
 
-A lot more examples can be found in the ``runScripts`` directory (see also :ref:`advancedUsage:Example runscripts`).
+A lot more examples can be found in the ``runScripts`` directory (see also :ref:`complexUsage:Example runscripts`).
 

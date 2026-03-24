@@ -33,8 +33,8 @@ The motivational background and concepts behind the model, as well as a list of 
 Running the code
 ----------------
 
-Generate an environment as described in :ref:`developinstall:Advanced Installation (Linux)` or
-:ref:`developinstallwin:Advanced Installation (Windows)`. Once you have a working ``pixi shell``, you can run the
+Generate an environment as described in :ref:`developinstall:Script Installation (Linux)` or
+:ref:`developinstallwin:Script Installation (Windows)`. Once you have a working ``pixi shell``, you can run the
 model via::
 
     python runCom4FlowPy.py

@@ -23,7 +23,7 @@ To run
 * copy ``avaframeCfg.ini`` to ``local_avaframeCfg.ini`` and set your desired avalanche directory name
 * create an avalanche directory with required input files - for this task you can use :ref:`moduleIn3Utils:Initialize Project`
 * copy ``com6RockAvalanche/com6RockAvalancheCfg.ini`` to ``com6RockAvalanche/local_com6RockAvalancheCfg.ini`` and if desired change configuration settings
-* if you are on a develop installation, make sure you have an updated compilation, see :ref:`advancedUsage:Update AvaFrame`
+* if you are on a develop installation, make sure you have an updated compilation, see :ref:`complexUsage:Update AvaFrame`
 * run:
   ::
 
