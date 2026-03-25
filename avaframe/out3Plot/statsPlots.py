@@ -232,7 +232,10 @@ def plotHistCDFDiff(dataDiffPlot, ax1, ax2, insert='True', title=['', '']):
     width = diffMax - diffMin
     stepsInterval = int(pU.cfg['steps2Centile2'])
     stepWidth = 2*sortedDiffPlot[ind]/stepsInterval    # stepsInterval bins in the [-2sigma,+2sigma] interval
-    bins = int(width/stepWidth)
+    if stepWidth > 0 and width > 0:
+        bins = int(width/stepWidth)
+    else:
+        bins = 1
 
     # reduce bins to a sensible size
     if bins > 1000:

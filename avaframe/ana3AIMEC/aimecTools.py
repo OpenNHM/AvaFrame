@@ -1219,7 +1219,7 @@ def computeRunOut(
     resAnalysisDF.loc[simRowHash, "zRelease"] = zThalweg[cUpper]
     resAnalysisDF.loc[simRowHash, "elevRel"] = zThalweg[cUpper]
     resAnalysisDF.loc[simRowHash, "deltaZ"] = zThalweg[cUpper] - zThalweg[cLower]
-    resAnalysisDF.loc[simRowHash, "runoutFound"] = runoutFound
+    resAnalysisDF.loc[simRowHash, "runoutFound"] = str(runoutFound)
 
     return resAnalysisDF
 
@@ -1520,11 +1520,11 @@ def analyzeArea(
     if (
         simRowHash != refSimRowHash
         and cfgPlots.getboolean("extraPlots")
-        and resAnalysisDF.loc[simRowHash, "runoutFound"]
+        and resAnalysisDF.loc[simRowHash, "runoutFound"].lower() == "true"
     ):
         # only plot comparisons of simulations to reference
         compPlotPath = outAimec.visuComparison(rasterTransfo, inputs, pathDict)
-    elif not resAnalysisDF.loc[simRowHash, "runoutFound"] and cfgPlots.getboolean("extraPlots"):
+    elif not resAnalysisDF.loc[simRowHash, "runoutFound"].lower() == "true" and cfgPlots.getboolean("extraPlots"):
         log.warning(
             "ContourComparisonToReference plot not generated as only 0 values for comparison simulation: %s"
             % resAnalysisDF.loc[simRowHash, "simName"]
