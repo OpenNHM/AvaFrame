@@ -1,7 +1,7 @@
 [build-system]
 # Cython dependency is optional, see setup.py for details.
 # For the package (run-time) dependencies, see setup.cfg.
-requires = ["setuptools", "numpy", "Cython>=3.0.10", "setuptools-scm"]
+requires = ["setuptools", "numpy<2.0", "Cython>=3.0.10", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
