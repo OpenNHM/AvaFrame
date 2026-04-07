@@ -40,6 +40,8 @@ Input
 
 The standard inputs required to perform a simulation run using :py:mod:`com1DFA` 
 can be found here: :ref:`moduleCom1DFA:Input`.
+In contrast to :py:mod:`com1DFA`, in :py:mod:`com5SnowSlide`, resistance areas represent areas of rigid obstacles such
+as buildings.
 There is a run script to perform a snow slide com1DFA run: :py:mod:`runCom5SnowSlide.py`,
 and the configuration settings can be found in ``com5SnowSlide/com5SnowSlideCfg.ini``.
 The snow slide-specific parameters are:
@@ -49,6 +51,8 @@ The snow slide-specific parameters are:
   * the maximum strain before breaking of the bond ``cohesionMaxStrain``
 
   * the Young modulus in N/m² ``cohesiveSurfaceTension``
+
+  * resistance areas: extreme values of cResH to represent buildings and detrainment set to False
 
 However, also several other parameters, for example the particle initialization method,
 friction model and parameters, are changed compared to the default configuration of :py:mod:`com1DFA` and listed
@@ -66,6 +70,8 @@ premises:
   * height difference from approx. 30 m to max. 60-80 m
 
   * valid for altitude levels > 500 m and < 1,500 m sea level
+
+  * resistance areas represent buildings 
 
 
 Initialization of bonds
