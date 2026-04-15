@@ -723,7 +723,7 @@ volumetric sediment concentration :math:`C_v`. The dependencies are expressed by
 
 where :math:`\alpha_1` and :math:`\beta_1`, :math:`\alpha_2` and :math:`\beta_2`, respectively, are empirical coefficients which are determined in lab experiments.
 In the :py:mod:`com1DFA` module, it is optional whether the parameters :math:`\eta_m` and :math:`\tau_y` are defined directly in the configuration file or
-calculated using equations :numref:`eta-cv` and :numref:`tauy-cv`, for which the parameters :math:`\alpha_{1,2}`,
+calculated using equations :eq:`eta-cv` and :eq:`tauy-cv`, for which the parameters :math:`\alpha_{1,2}`,
 :math:`\beta_{1,2}` and :math:`C_v` have to be set.
 
 Since the governing equations to be solved are depth-averaged, the shear rate :math:`\dot\gamma = \frac{du}{dz}`
