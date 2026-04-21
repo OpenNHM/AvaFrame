@@ -104,6 +104,8 @@ azimuthDegree = cfg.getfloat("azimuthDegree")
 elevationDegree = cfg.getfloat("elevationDegree")
 vertExag = cfg.getfloat("vertExag")
 hillshadeContLevs = cfg.getint("hillshadeContLevs")
+hsContrastDiff = cfg.getfloat("hsContrastDiff")
+hsContrastMult = cfg.getfloat("hsContrastMult")
 
 # define settings for colormaps creation
 discreteLevels = cfg.getint("discreteLevels")
@@ -882,8 +884,14 @@ def addHillShadeContours(
         else:
             extentPlot = extent
 
+        hs = ls.hillshade(data, vert_exag=vertExag, dx=data.shape[1], dy=data.shape[0])
+        # normalize hillshade and increase the contrast
+        if np.nanmin(hs) != np.nanmax(hs):
+            hs = (hs - np.nanmin(hs)) / (np.nanmax(hs) - np.nanmin(hs))
+            hs = np.clip((hs - hsContrastDiff) * hsContrastMult, 0, 1)
+
         im1 = ax.imshow(
-            ls.hillshade(data, vert_exag=vertExag, dx=data.shape[1], dy=data.shape[0]),
+            hs,
             cmap="gray",
             extent=extentPlot,
             origin="lower",
