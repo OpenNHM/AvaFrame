@@ -149,8 +149,14 @@ def scarpAnalysisMain(cfg, baseDir):
         )
     else:
         raise ValueError("Unsupported method. Choose 'plane' or 'ellipsoid'.")
+        
 
     hRelData = dem["rasterData"] - scarpData
+    min_hrel = hRelData.min()
+    if min_hrel < 0:
+        log.warning("hRel: most negative clipped value = %.2f m", min_hrel)
+    hRelData = np.maximum(0, hRelData)   #enforce non-negative release
+
     
     #Compute and log excavated volume
     cellArea = abs(dem["header"]["cellsize"] ** 2)
@@ -247,6 +253,8 @@ def calculateScarpWithPlanes(elevData, periData, elevTransform, planes):
     betaX = [ math.tan(slopeRad) * math.sin(dipRad) ]
     betaY = [ math.tan(slopeRad) * math.cos(dipRad) ]
 
+    min_clipped = 0.0
+
     for i in range(1, nPlanes):
         xSeed.append(planes[5 * i])
         ySeed.append(planes[5 * i + 1])
@@ -266,11 +274,17 @@ def calculateScarpWithPlanes(elevData, periData, elevTransform, planes):
             scarpVal = zSeed[0] + (north - ySeed[0]) * betaY[0] - (west - xSeed[0]) * betaX[0]
             for k in range(1, nPlanes):
                 scarpVal = max(scarpVal, zSeed[k] + (north - ySeed[k]) * betaY[k] - (west - xSeed[k]) * betaX[k])
-
+                
             if periData[row, col] > 0:
-                scarpData[row, col] = min(elevData[row, col], scarpVal)
+                val = min(elevData[row, col], scarpVal)
+                if val < 0:
+                    min_clipped = min(min_clipped, val)
+                scarpData[row, col] = max(0, val)
             else:
                 scarpData[row, col] = elevData[row, col]
+                
+    if min_clipped < 0:
+        log.warning("Plane scarp: most negative clipped value = %.2f m", min_clipped)
 
     return scarpData
 
@@ -305,6 +319,7 @@ def calculateScarpWithEllipsoids(elevData, periData, elevTransform, ellipsoids):
     xCenter, yCenter, maxDepth = [], [], []
     semiMajor, semiMinor = [], []
     tilt, tiltDir, offset, dip = [], [], [], []
+    min_clipped = 0.0
 
     for i in range(nEllipsoids):
         xCenter.append(ellipsoids[9 * i])
@@ -373,6 +388,15 @@ def calculateScarpWithEllipsoids(elevData, periData, elevTransform, ellipsoids):
                     totalDepth = baseDepth + tiltEffect + z0
                     scarpVal = min(scarpVal, elevData[row, col] - totalDepth)
 
-            scarpData[row, col] = scarpVal if periData[row, col] > 0 else elevData[row, col]
+            if periData[row, col] > 0:
+                val = min(elevData[row, col], scarpVal)
+                if val < 0:
+                    min_clipped = min(min_clipped, val)
+                scarpData[row, col] = max(0, val)
+            else:
+                scarpData[row, col] = elevData[row, col]
+
+    if min_clipped < 0:
+        log.warning("Ellipsoid scarp: most negative clipped value = %.2f m", min_clipped)            
 
     return scarpData
