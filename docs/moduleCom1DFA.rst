@@ -370,7 +370,7 @@ To run
 * run:
   ::
 
-    python3 runCom1DFA.py
+    pixi run python runCom1DFA.py
 
 
 Theory

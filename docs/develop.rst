@@ -237,7 +237,7 @@ as a next step, you need to add the benchmark results:
 
 Now, you are ready to go! Move to ``AvaFrame/avaframe`` and run: ::
 
-  python runStandardTestsCom1DFA.py
+  pixi run python runStandardTestsCom1DFA.py
 
 You can check out the markdown-style report of the comparison at:
 ``tests/reports/standardTestsReportPy.md``.

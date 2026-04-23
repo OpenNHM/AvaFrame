@@ -61,7 +61,7 @@ In order to run this example:
 * copy ``ana4Stats/probAnaCfg.ini`` to ``ana4Stats/local_probAnaCfg.ini`` and optionally adjust variation settings
 * run::
 
-      python3 runAna4ProbAna.py
+      pixi run python runAna4ProbAna.py
 
 
 It is also possible to generate the probability maps for already existing simulations. The settings for the probability map
@@ -87,11 +87,11 @@ In order to run:
 * copy ``ana4Stats/probAnaCfg.ini`` to ``ana4Stats/local_probAnaCfg.ini`` and optionally adjust GENERAL and PLOT settings
 * for simulations generated with **com1DFA** run::
 
-      python3 runProbAnalysisOnly.py
+      pixi run python runProbAnalysisOnly.py
 
 * all other models run::
 
-     python3 runProbAnalysisOnly.py *pathToAvalancheDirectory* *comMod*
+     pixi run python runProbAnalysisOnly.py *pathToAvalancheDirectory* *comMod*
 
 Another example on how to generate probability maps for avalanche simulations performed with :py:mod:`com1DFA`
 is given in :py:mod:`runScripts.runProbAna`, where for *avaHockeyChannel* simulations are performed with
@@ -107,7 +107,7 @@ In order to run this example:
 * uncomment ``'FILTER'`` section in ``local_probAnaCfg.ini`` and insert filter parameters if you want to first filter simulations
 * run::
 
-      python3 runScripts/runProbAna.py
+      pixi run python runScripts/runProbAna.py
 
 
 .. figure:: _static/avaHockeyChannel_probMap_lim1.0.png
@@ -150,7 +150,7 @@ additionally an :ref:`moduleAna3AIMEC:ana3AIMEC: Aimec` analysis is performed.
 * uncomment ``'FILTER'`` section in ``ana4Stats/local_getStatsCfg.ini`` and insert filter parameters if you want to first filter simulations
 * run::
 
-      python3 runScripts/runStatsExample.py
+      pixi run python runScripts/runStatsExample.py
 
 
 .. figure:: _static/Scatter_pft_vs_pfv_dist_test.png

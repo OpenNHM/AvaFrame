@@ -127,8 +127,8 @@ analytical solution. In order to run the test example:
 
 * in ``AvaFrame/avaframe`` run::
 
-    python3 runScripts/runDamBreak.py
-    python3 runScripts/runAnalyzeDamBreak.py
+    pixi run python runScripts/runDamBreak.py
+    pixi run python runScripts/runAnalyzeDamBreak.py
 
 
 

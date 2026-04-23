@@ -99,4 +99,4 @@ To run
 * run:
   ::
 
-    python3 runCom5SnowSlide.py
+    pixi run python runCom5SnowSlide.py

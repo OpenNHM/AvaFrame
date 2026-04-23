@@ -120,7 +120,7 @@ To run
 * run:
   ::
 
-    python3 com1DFAOrig/runCom1DFA.py
+    pixi run python com1DFAOrig/runCom1DFA.py
 
 
 Theory

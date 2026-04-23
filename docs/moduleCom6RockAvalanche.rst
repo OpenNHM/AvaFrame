@@ -27,7 +27,7 @@ To run
 * run:
   ::
 
-    python runCom6RockAvalanche.py
+    pixi run python runCom6RockAvalanche.py
 
 
 Scarp Calculation
@@ -90,4 +90,4 @@ configuration settings
 
 If all the data is provided successfully, start the script by running::
 
-    python runCom6Scarp.py
+    pixi run python runCom6Scarp.py

@@ -35,13 +35,13 @@ Setup AvaFrame
 
     .. code-block::
 
-      python3 -m pip install --user avaframe
+      python -m pip install --user avaframe
 
 #. To avoid a numpy error (see note at bottom of page), update numpy and pandas:
 
     .. code-block::
      
-      python3 -m pip install --user --upgrade numpy pandas
+      python -m pip install --user --upgrade numpy pandas
 
 
 Setup QGis and run
@@ -76,13 +76,13 @@ Update Avaframe to a new release
 
     .. code-block::
 
-      python3 -m pip install -U --user avaframe
+      python -m pip install -U --user avaframe
 
 #. To avoid a numpy error (see note at bottom of page), update numpy and pandas:
 
     .. code-block::
      
-      python3 -m pip install --user --upgrade numpy pandas
+      python -m pip install --user --upgrade numpy pandas
 
 
 #. Restart/Open QGis from your start menu and go to Plugins -> Manage and Install Plugins
@@ -99,6 +99,6 @@ Update Avaframe to a new release
    run the following in OSGeo4W shell (the *py3_env* command is not needed on newer versions of QGis, skip it)::
 
      py3_env
-     python3 -m pip install --user --upgrade numpy pandas
+     python -m pip install --user --upgrade numpy pandas
 
    and restart QGis.

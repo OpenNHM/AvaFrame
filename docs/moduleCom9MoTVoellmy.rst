@@ -87,5 +87,5 @@ To run
 * enter the path to the desired dataset in ``local_avaframeCfg.ini``
 * run::
 
-      python3 runCom9MoTVoellmy.py
+      pixi run python runCom9MoTVoellmy.py
 

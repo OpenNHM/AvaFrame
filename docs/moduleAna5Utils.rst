@@ -62,7 +62,7 @@ To run
     and edit (if not, default values are used)
 3.  run::
 
-        python runAna5DFAPathGeneration.py
+        pixi run python runAna5DFAPathGeneration.py
 
 
 Theory

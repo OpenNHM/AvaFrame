@@ -11,8 +11,8 @@
 First run
 ---------
 
-Follow these steps to run your first simulation (assuming you finished the advanced installation steps; if you come
-back later, make sure to run ``pixi shell`` again to activate the environment):
+Follow these steps to run your first simulation (assuming you finished the complex usage installation steps). The commands
+below use ``pixi run``, so you do not need to activate the environment via ``pixi shell`` first:
 
 * change into your ``AvaFrame`` directory (replace [YOURDIR]
   with your path from the installation steps)::
@@ -22,7 +22,7 @@ back later, make sure to run ``pixi shell`` again to activate the environment):
 * run:
   ::
 
-    python runCom1DFA.py
+    pixi run python runCom1DFA.py
 
 * a similar output should show up:
   ::
@@ -76,7 +76,7 @@ variable ``avalancheDir``.
 
 Then run ::
 
-  python runScripts/runInitializeProject.py
+  pixi run python runScripts/runInitializeProject.py
 
 This will create a new directory with the input required by AvaFrame structured as described
 in :ref:`moduleIn3Utils:Initialize Project`.

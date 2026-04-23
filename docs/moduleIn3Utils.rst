@@ -52,7 +52,7 @@ To run generateTopo
   (if not, the default values are used)
 * run::
 
-	python3 runScripts/runGenerateTopo.py
+	pixi run python runScripts/runGenerateTopo.py
 
 
 Theory
@@ -146,7 +146,7 @@ Following these steps, you can generate an avalanche test case including a DEM a
   and ``in3Utils/local_getReleaseAreaCfg.ini`` and set desired parameter values (if not, the default values are used)
 * run::
 
-	python3 runGenProjTopoRelease.py
+	pixi run python runGenProjTopoRelease.py
 
 **Parameters:**
 
@@ -196,7 +196,7 @@ To run
 * copy ``avaframeCfg.ini`` to ``local_avaframeCfg.ini`` and set your desired avalanche directory name
 * run::
 	
-			python3 runInitializeProject.py
+			pixi run python runInitializeProject.py
 
 
 ..

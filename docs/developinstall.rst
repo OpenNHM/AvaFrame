@@ -14,6 +14,13 @@ Install `git <https://github.com/git-guides/install-git>`_ and `pixi <https://pi
 Some operating systems might require the python headers (e.g python-dev on ubuntu) or other supporting
 libraries/packages (e.g. Visual Studio on Windows needs the c++ compiler components).
 
+.. Note::
+   This documentation uses pixi environments. You can either prefix commands with ``pixi run <command>``,
+   which runs the command in the pixi environment without requiring you to activate it first, or you
+   can run ``pixi shell`` once to start an interactive environment and then run the commands without
+   the ``pixi run`` prefix (e.g. ``pixi run python script.py`` is equivalent to ``pixi shell`` then
+   ``python script.py``).
+
 
 Setup AvaFrame
 ^^^^^^^^^^^^^^
@@ -25,28 +32,28 @@ Clone the AvaFrame repository (in a directory of your choice: [YOURDIR]) and cha
   cd AvaFrame
 
 
-Run pixi::
-
-  pixi shell
-
 Compile the cython com1DFA part. You might also have to install a c-compiler (gcc or similar) through your systems
 package manager::
 
-  python setup.py build_ext --inplace
+  pixi run build
 
 .. Warning::
    You will have to do this compilation every time something changes in the cython code. We also suggest
-   to do this everytime updates from the repositories are pulled.
+   to do this everytime updates from the repositories are pulled. Use ``pixi run rebuild`` to clean
+   and rebuild in one step.
 
 All this installs avaframe in editable mode, so every time you import avaframe the
 current (local) version will be used.
 
-If you want to have the lastet stable release instead, run::
+Test it by running::
 
-  pixi shell --environment prod
+  pixi run python -c "import avaframe"
 
-Test it by starting ``python`` and do an ``import avaframe``. If no error comes
-up, you are good to go.
+If you want to use the lastet stable release instead, run::
+
+  pixi run --environment prod python -c "import avaframe"
+
+If no error comes up, you are good to go.
 
 To see the current version, you can use::
 
