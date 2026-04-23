@@ -34,10 +34,9 @@ Running the code
 ----------------
 
 Generate an environment as described in :ref:`developinstall:Script Installation (Linux)` or
-:ref:`developinstallwin:Script Installation (Windows)`. Once you have a working ``pixi shell``, you can run the
-model via::
+:ref:`developinstallwin:Script Installation (Windows)`. Run the model via::
 
-    python runCom4FlowPy.py
+    pixi run python runCom4FlowPy.py
      
 
 Configuration

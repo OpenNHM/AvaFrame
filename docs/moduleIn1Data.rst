@@ -49,4 +49,4 @@ distribution can be generated, is provided by :py:mod:`runScripts/runComputeDist
   ``avaframeCfg.ini``
 * run::
 
-      python3 runScripts/runComputeDist.py
+      pixi run python runScripts/runComputeDist.py

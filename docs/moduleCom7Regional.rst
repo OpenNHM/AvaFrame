@@ -196,7 +196,7 @@ To Run - Script based
 
 .. code-block:: bash
 
-    python runScripts/runSplitInputs.py
+    pixi run python runScripts/runSplitInputs.py
 
 ---------------
 
@@ -317,4 +317,4 @@ To Run
 
 .. code-block:: bash
 
-    python runCom7Regional.py
+    pixi run python runCom7Regional.py

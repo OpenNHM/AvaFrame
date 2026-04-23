@@ -25,7 +25,7 @@ To run
 * enter the path to the desired dataset in ``local_avaframeCfg.ini``
 * run::
 
-      python3 runCom8MoTPSA.py
+      pixi run python runCom8MoTPSA.py
 
 
 Theory

@@ -103,7 +103,7 @@ in :py:mod:`runScript/runQuickPlotSimple`
 * specifiy input directory, default is ``data/NameOfAvalanche/Work/simplePlot``
 * run::
 
-    python3 runScripts/runQuickPlotSimple.py
+    pixi run python runScripts/runQuickPlotSimple.py
 
 
 generateOnePlot
@@ -137,7 +137,7 @@ is provided in :py:mod:`runScript/runQuickPlotOne`
 *  copy ``out3Plot/outQuickPlotCfg.ini`` to ``out3Plot/local_outQuickPlotCfg.ini`` and optionally specify input directory
 *  run::
 
-    python3 runScripts/runQuickPlotOne.py
+    pixi run python runScripts/runQuickPlotOne.py
 
 
 in1DataPlots
@@ -240,7 +240,7 @@ To run
 * run:
   ::
 
-    python3 runScripts/runParticleAnalysis.py
+    pixi run python runScripts/runParticleAnalysis.py
 
 
 

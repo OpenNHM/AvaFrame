@@ -40,7 +40,7 @@ To run
 * enter the path to the desired dataset in ``local_avaframeCfg.ini``
 * run::
 
-      python3 runCom2AB.py
+      pixi run python runCom2AB.py
 
 
 Theory

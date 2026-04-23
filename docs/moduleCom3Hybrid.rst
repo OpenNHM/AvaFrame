@@ -44,7 +44,7 @@ To run
 * enter the path to the desired dataset in ``local_avaframeCfg.ini``
 * run::
 
-      python3 runScripts/runCom3Hybrid.py
+      pixi run python runScripts/runCom3Hybrid.py
 
 
 Procedure

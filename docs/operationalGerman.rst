@@ -35,13 +35,13 @@ Setup AvaFrame
 
     .. code-block::
 
-      python3 -m pip install --user avaframe
+      python -m pip install --user avaframe
 
 #. Um einen potentiellen Fehler zu vermeiden (siehe Note unten), numpy und pandas mittels folgendem Befehl updaten:
 
     .. code-block::
      
-      python3 -m pip install --user --upgrade numpy pandas
+      python -m pip install --user --upgrade numpy pandas
 
 
 Setup QGis 
@@ -76,13 +76,13 @@ Update Avaframe
 
     .. code-block::
 
-      python3 -m pip install -U --user avaframe
+      python -m pip install -U --user avaframe
 
 #. Um einen potentiellen Fehler zu vermeiden (siehe Note unten), numpy und pandas mittels folgendem Befehl updaten:
 
     .. code-block::
      
-      python3 -m pip install --user --upgrade numpy pandas
+      python -m pip install --user --upgrade numpy pandas
 
 #. Starten Sie QGis neu/öffnen Sie es über Ihr Startmenü und gehen Sie zu Plugins -> Plugins verwalten und installieren
 
@@ -99,7 +99,7 @@ Update Avaframe
    nicht benötigt, überspringen Sie ihn)::
 
      py3_env
-     python3 -m pip install --user --upgrade numpy pandas
+     python -m pip install --user --upgrade numpy pandas
 
    und starten Sie QGis neu.
 

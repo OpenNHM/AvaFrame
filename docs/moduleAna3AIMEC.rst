@@ -96,7 +96,7 @@ To run
 *  enter path to the desired ``NameOfAvalanche/`` folder in your local copy of ``avaframeCfg.ini``
 *  run::
 
-      python3 runScripts/runAna3AIMEC.py
+      pixi run python runScripts/runAna3AIMEC.py
 
 .. Note:: 
    In the default configuration, the analysis is performed on the simulation result files located in ``NameOfAvalanche/Outputs/anaMod/peakFiles``, where anaMod is specified in the aimecCfg.ini. There is also the option to directly provide a path to an input directory to the :py:func:`ana3AIMEC.ana3AIMEC.fullAimecAnalysis`. However, the peak field file names need to have a specific format: *A_B_C_D_E.*, where:
