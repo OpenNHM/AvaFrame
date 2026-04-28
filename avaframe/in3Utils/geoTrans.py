@@ -201,7 +201,15 @@ def resizeData(raster, rasterRef):
         X, Y = np.meshgrid(xgrid, ygrid)
         Points = {"x": X, "y": Y}
         Points, _ = projectOnRaster(raster, Points, interp="bilinear")
-        raster["rasterData"] = Points["z"]
+        bilinearData = Points["z"]
+
+        if np.isnan(bilinearData).any():
+            PointsNearest = {"x": X, "y": Y}
+            PointsNearest, _ = projectOnRaster(raster, PointsNearest, interp="nearest")
+            nanMask = np.isnan(bilinearData)
+            bilinearData[nanMask] = PointsNearest["z"][nanMask]
+
+        raster["rasterData"] = bilinearData
         return raster["rasterData"], rasterRef["rasterData"]
 
 

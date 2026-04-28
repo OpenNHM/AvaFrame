@@ -781,7 +781,7 @@ def test_checkExtentAndCellSize(tmp_path):
     testFile5, outFile5, remeshedFlag5 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
     newRaster5 = IOf.readRaster((inDir / testFile5))
     assert remeshedFlag5 == "Yes"
-    assert np.isnan(newRaster5["rasterData"][0, :]).all()
+    assert not np.isnan(newRaster5["rasterData"][0, :]).any()
     assert np.isnan(newRaster5["rasterData"][-1, :]).all()
 
     inputFile = inDirR / "inputFile51.asc"
@@ -802,9 +802,11 @@ def test_checkExtentAndCellSize(tmp_path):
     inField[0:2, :] = np.nan
     IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
 
-    with pytest.raises(AssertionError) as e:
-        assert dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
-    assert "nan values found inside DEM extent - this is not allowed" in str(e.value)
+    testFile6, outFile6, remeshedFlag6 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+    newRaster6 = IOf.readRaster((inDir / testFile6))
+    assert remeshedFlag6 == "Yes"
+    assert np.isnan(newRaster6["rasterData"][-1, :]).all()
+
 
 # Produced by AI (test):
 
