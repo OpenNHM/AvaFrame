@@ -740,15 +740,30 @@ def test_checkExtentAndCellSize(tmp_path):
     headerInput["transform"] = IOf.transformFromASCHeader(headerInput)
     headerInput["crs"] = rasterio.crs.CRS()
 
+    # Test that NaN values in non-DEM input files are not allowed
+    inputFile = inDirR / "inputFile3.asc"
+    headerInput = {
+        "nrows": 4,
+        "ncols": 5,
+        "xllcenter": 1,
+        "yllcenter": 5,
+        "cellsize": 1,
+        "nodata_value": -9999,
+        "driver": "AAIGrid",
+    }
+    headerInput["transform"] = IOf.transformFromASCHeader(headerInput)
+    headerInput["crs"] = rasterio.crs.CRS()
+
     inField = np.ones((4, 5))
     inField[2, 2] = 10.0
     inField[0, :] = np.nan
     IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
 
-    testFile4, outFile4, remeshedFlag4 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+    with pytest.raises(AssertionError) as e:
+        dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+    assert "nan values found - this is not allowed" in str(e.value)
 
-    assert remeshedFlag4 == "No"
-
+    # Test with interior NaN (not just on border)
     inputFile = inDirR / "inputFile4.asc"
     inField = np.ones((4, 5))
     inField[2, 2] = 10.0
@@ -757,15 +772,16 @@ def test_checkExtentAndCellSize(tmp_path):
     IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
 
     with pytest.raises(AssertionError) as e:
-        assert dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
-    assert "nan values found inside DEM extent - this is not allowed" in str(e.value)
+        dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
+    assert "nan values found - this is not allowed" in str(e.value)
 
+    # Test that DEM files ARE allowed to have NaN values
     inputFile = inDirR / "inputFile5.asc"
     headerInput = {
         "nrows": 4,
         "ncols": 5,
-        "xllcenter": 1.3,
-        "yllcenter": 4.2,
+        "xllcenter": 1,
+        "yllcenter": 5,
         "cellsize": 1,
         "nodata_value": -9999,
         "driver": "AAIGrid",
@@ -778,34 +794,9 @@ def test_checkExtentAndCellSize(tmp_path):
     inField[0, :] = np.nan
     IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
 
-    testFile5, outFile5, remeshedFlag5 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
-    newRaster5 = IOf.readRaster((inDir / testFile5))
-    assert remeshedFlag5 == "Yes"
-    assert not np.isnan(newRaster5["rasterData"][0, :]).any()
-    assert np.isnan(newRaster5["rasterData"][-1, :]).all()
-
-    inputFile = inDirR / "inputFile51.asc"
-    headerInput = {
-        "nrows": 4,
-        "ncols": 5,
-        "xllcenter": 1.3,
-        "yllcenter": 4.2,
-        "cellsize": 1,
-        "nodata_value": -9999,
-        "driver": "AAIGrid",
-    }
-    headerInput["transform"] = IOf.transformFromASCHeader(headerInput)
-    headerInput["crs"] = rasterio.crs.CRS()
-
-    inField = np.ones((4, 5))
-    inField[2, 2] = 10.0
-    inField[0:2, :] = np.nan
-    IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=True)
-
-    testFile6, outFile6, remeshedFlag6 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "rel")
-    newRaster6 = IOf.readRaster((inDir / testFile6))
-    assert remeshedFlag6 == "Yes"
-    assert np.isnan(newRaster6["rasterData"][-1, :]).all()
+    # fileType="DEM" should allow NaNs
+    testFile5, outFile5, remeshedFlag5 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "DEM")
+    assert remeshedFlag5 == "No"
 
 
 # Produced by AI (test):

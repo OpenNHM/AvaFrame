@@ -63,7 +63,7 @@ or GeoTIFF format, or shape files and specified for the respective input type be
     - or raster file(s):
         - cells with non-zero values define the release area
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
-        - negative values are not allowed (specified no-data values are not considered)
+        - negative values and no-data values are not allowed
     - ALL features within one shapefile or all cells with non-zero values in a raster file are released at the same time (and interact), this is what we refer to as *scenario*
     - if you want to simulate different scenarios with the same features, you have to copy them to separate shapefiles/raster files
     - the release area name should not contain an underscore, if so '_AF' is added.
@@ -80,7 +80,7 @@ at least two results are generated: the *null* variant and the variant with entr
     - or raster file:
         - cells with non-zero values define where entrainment can occur
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
-        - negative values are not allowed (specified no-data values are not considered)
+        - negative values and no-data values are not allowed
 
 * **one resistance area as (multi-) polygon shapefile OR raster file (in Inputs/RES)**
     - marks the (multiple) areas where resistance is considered
@@ -89,7 +89,7 @@ at least two results are generated: the *null* variant and the variant with entr
         - resistance areas must not contain any "holes" or inner rings
     - or raster file:
         - cells with non-zero values define where entrainment can occur
-        - negative values are not allowed (specified no-data values are not considered)
+        - negative values and no-data values are not allowed
         - if the cellsize does not match the requested meshCellSize, the file is
           remeshed if within `resizeThreshold`
 

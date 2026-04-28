@@ -426,11 +426,16 @@ def checkThicknessSettings(cfg, thName, inputSimFiles):
             )
             log.error(message)
             raise AssertionError(message)
-        if (cfg["GENERAL"].getboolean("timeDependentRelease") and inputSimFiles["entResInfo"]["relTh" + "FileType"] in [".asc", ".tif"]):
+        if cfg["GENERAL"].getboolean("timeDependentRelease") and inputSimFiles["entResInfo"][
+            "relTh" + "FileType"
+        ] in [".asc", ".tif"]:
             message = "When release is time dependent, release file needs to be provided as shape file"
             log.error(message)
             raise FileNotFoundError(message)
-        if (cfg["GENERAL"].getboolean("timeDependentRelease") and cfg["GENERAL"].getboolean("relThFromFile") is False):
+        if (
+                cfg["GENERAL"].getboolean("timeDependentRelease")
+                and cfg["GENERAL"].getboolean("relThFromFile") is False
+        ):
             message = "When release is time dependent, relThFromFile needs to be set to True"
             log.error(message)
             raise FileNotFoundError(message)
@@ -890,11 +895,8 @@ def appendThicknessToCfg(cfg):
             for count, id in enumerate(idList):
                 thNameId = thType + id
                 if thNameId in cfg["GENERAL"].keys():
-                    log.info(
-                        "Thickness value for %s already set in initial config file, \
-                              read from there not from shp file"
-                        % thNameId
-                    )
+                    log.info("Thickness value for %s already set in initial config file, \
+                              read from there not from shp file" % thNameId)
                 else:
                     cfgGen[thNameId] = str(float(thicknessList[count]))
 
@@ -968,6 +970,17 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
     """
 
     inputField = IOf.readRaster(inputFile)
+
+    # Check for NaN values before remeshing - not allowed in non-DEM input rasters
+    if fileType.upper() != "DEM":
+        if np.isnan(inputField["rasterData"]).any():
+            message = "In %s file (%s) nan values found - this is not allowed" % (
+                fileType,
+                inputFile.name,
+            )
+            log.error(message)
+            raise AssertionError(message)
+
     cellSizeOld = inputField["header"]["cellsize"]
     demHeader = dem["header"]
 
