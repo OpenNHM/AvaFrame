@@ -110,6 +110,20 @@ def test_resizeData():
     testRes = np.allclose(np.nan_to_num(data1 - data2), zSol, atol=tol)
     assert testRes
 
+    raster3 = {
+        "header": {"ncols": 3, "nrows": 3, "xllcenter": 0.0, "yllcenter": 0.0, "cellsize": 10.0},
+        "rasterData": np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]),
+    }
+    raster4 = {
+        "header": {"ncols": 5, "nrows": 5, "xllcenter": 0.0, "yllcenter": 0.0, "cellsize": 5.0},
+        "rasterData": np.zeros((5, 5)),
+    }
+
+    data3, _ = geoTrans.resizeData(raster3, raster4)
+
+    assert np.isnan(data3).sum() == 0
+    assert np.isclose(data3[2, 2], 5.0)
+
 
 # def test_findAngleProfile(capfd):
 def test_findAngleProfile():
