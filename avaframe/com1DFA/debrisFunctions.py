@@ -114,7 +114,7 @@ def addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, d
         relLine,
         dem,
         np.sqrt(2),
-        thList=[thickness],
+        thList=[thickness] * len(relLine["Name"]),
         combine=True,
         checkOverlap=False,
     )
