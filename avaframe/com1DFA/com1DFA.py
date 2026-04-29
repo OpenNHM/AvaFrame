@@ -476,7 +476,9 @@ def prepareReleaseEntrainment(cfg, rel, inputSimLines):
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
         # when release is time dependent: release thickness is used from csv file
         # then thickness is already in releaseLine dictionary
-        inputSimLines["releaseLine"]["thicknessSource"] = ["csv file"]
+        inputSimLines["releaseLine"]["thicknessSource"] = ["csv file"] * len(
+            inputSimLines["releaseLine"]["Name"]
+        )
     elif cfg["INPUT"]["relThFile"] == "":
         # otherwise release thickness is read from ini or shape file
         releaseLine = setThickness(cfg, inputSimLines["releaseLine"], "relTh")
@@ -638,7 +640,9 @@ def prepareInputData(inputSimFiles, cfg):
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
         releaseLine["type"] = "time dependent Release"
         timeDepRelValues, _ = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
-        releaseLine["thickness"] = [timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0].item()]
+        releaseLine["thickness"] = [
+            timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0].item()
+        ] * len(releaseLine["Name"])
         releaseLine["thicknessSource"] = ["csv file"]
         releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
         releaseLine["timeDepRelValues"] = timeDepRelValues
