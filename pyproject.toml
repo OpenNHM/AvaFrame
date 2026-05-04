@@ -70,6 +70,9 @@ build-verbosity = 1
 [tool.cibuildwheel.linux]
 repair-wheel-command = "auditwheel --verbose repair   -w {dest_dir} {wheel} --plat manylinux_2_34_x86_64"
 
+[tool.cibuildwheel.windows]
+skip = ["cp313-*"]
+
 #Flake8
 [tool.flake8]
 max-line-length = 109
