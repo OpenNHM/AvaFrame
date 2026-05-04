@@ -2,26 +2,6 @@ Advanced Usage (QGis, Script)
 =============================
 
 .. Warning::
-   The QGis Connector features described below require the **pre-release** versions of both AvaFrame and the
-   OpenNHM QGis Connector. They are not available in the current stable release.
-
-   To install:
-
-   1. Install the AvaFrame pre-release. On **Windows**, use the OSGeo4W Shell matching your QGis version.
-      On **Linux**, use the terminal in the environment you are using. Then run::
-
-        pip install avaframe==2.0rc3
-
-   2. Download the OpenNHM QGis Connector zip from the
-      `GitHub Releases <https://github.com/OpenNHM/AvaFrame/releases>`_ page.
-
-   3. In QGis, go to **Plugins > Manage and Install Plugins**, choose **Install from ZIP** and select the
-      downloaded file.
-
-   Check `PyPI <https://pypi.org/project/avaframe/#history>`_ for the latest AvaFrame pre-release version and
-   `GitHub Releases <https://github.com/OpenNHM/AvaFrame/releases>`_ for the newest connector zip.
-
-.. Warning::
    Modifying default parameters moves you outside the validated and calibrated setup.
    Results are no longer covered by the standard validation and you use them at your own risk.
 

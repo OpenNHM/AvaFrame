@@ -72,4 +72,5 @@ To run QGIS (this will install the environment on first use)::
 Depending on your mode of QGis installation (direct installer, conda, OSGeo4W...) your script AvaFrame installation
 might be overruled...
 
-Now you can **install the AvaFrameConnector plugin** via QGIS as per usual (:ref:`standardUsage:Standard Usage (QGis)`).
+Now you can **install the OpenNHMConnector plugin** via QGIS as per usual (:ref:`standardUsage:Standard Usage
+(QGis)`).

@@ -49,9 +49,9 @@ Setup QGis
 
 #. Öffnen Sie QGis über Ihr Startmenü und gehen Sie zu Erweiterungen -> Erweiterungen verwalten und installieren
 
-#. Nach `AvaFrameConnector` suchen und installieren
+#. Nach `OpenNHMConnector` suchen und installieren
 
-#. Rufen Sie den QGis - AvaframeConnector über Verarbeitungswerkzeuge -> AvaFrame -> AvaFrameConnector auf
+#. Rufen Sie den QGis - OpenNHMConnector über Verarbeitungswerkzeuge -> OpenNHM -> OpenNHMConnector auf
 
 #. Fügen Sie die beschriebenen Daten hinzu und starten Sie den Connector. Die Ergebnisse werden nach einer Weile geladen 
    (abhängig von der Größe Ihres DEM).
@@ -86,7 +86,7 @@ Update Avaframe
 
 #. Starten Sie QGis neu/öffnen Sie es über Ihr Startmenü und gehen Sie zu Plugins -> Plugins verwalten und installieren
 
-#. Suchen Sie nach AvaFrameConnector und prüfen Sie, ob es aktualisiert werden muss
+#. Suchen Sie nach OpenNHMConnector und prüfen Sie, ob es aktualisiert werden muss
 
 
 .. Note::
