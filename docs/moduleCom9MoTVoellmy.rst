@@ -21,15 +21,10 @@ MoT Voellmy via QGis
 Installation on Windows:
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. Open the OSGeo4WShell that matches your QGis installation
-#. Run::
-
-        pip install avaframe==2.0a3
-
 #. Start QGis and go to `Plugins` -> `Manage and install plugins`
-#. Choose `All`, search for `AvaFrame` and install/update
-#. You find the `AvaFrame` toolset in the `Processing Toolbox`
-#. Go to `NGI_experimental` and start `MoTVoellmy (com9)`
+#. Choose `All`, search for `OpenNHM` and install/update
+#. You find the `OpenNHM` toolset in the `Processing Toolbox`
+#. Go to `AvaFrame_experimental` and start `MoTVoellmy (com9)`
 
 
 Input

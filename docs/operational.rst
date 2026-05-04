@@ -49,9 +49,9 @@ Setup QGis and run
 
 #. Open QGis from your start menu and go to Plugins -> Manage and Install Plugins
 
-#. Search for `AvaFrameConnector` and install it
+#. Search for `OpenNHMConnector` and install it
 
-#. Access the QGis - Avaframe connector via Toolbox ->  AvaFrame -> AvaFrameConnector
+#. Access the QGis - OpenNHM connector via Toolbox ->  OpenNHM -> OpenNHMConnector
 
 #. Add the described data and run. Results will be loaded after a while
    (depending on the size of your DEM).
@@ -87,7 +87,7 @@ Update Avaframe to a new release
 
 #. Restart/Open QGis from your start menu and go to Plugins -> Manage and Install Plugins
 
-#. Search for `AvaFrameConnector` and check whether it also needs updating
+#. Search for `OpenNHMConnector` and check whether it also needs updating
 
 
 .. Note::
