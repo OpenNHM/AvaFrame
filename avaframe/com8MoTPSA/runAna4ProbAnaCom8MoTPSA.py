@@ -63,7 +63,11 @@ def runProbAna(avalancheDir=''):
 
     # perform com8MoTPSA simulations
     # dem, plotDict, reportDictList, simDF = com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath)
-    com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath)
+    chunkSize = cfgProb['GENERAL']['chunkSize']
+    if chunkSize != "":
+        chunkSize = int(chunkSize)
+
+    com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath, chunkSize=chunkSize)
 
     # fetch simDF of only sims that were created in above call to com8MoTPSAMain - do not include sims
     # that were run previously and are still located in outDir

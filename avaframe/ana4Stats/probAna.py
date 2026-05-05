@@ -998,7 +998,7 @@ def createSample(cfgProb, varParList):
         sample = morris.sample(
             param_ranges,
             N=nTrajectories,  # number of trajectories
-            num_levels=6,  # how many discrete values per parameter
+            num_levels=cfgProb["PROBRUN"].getint("morrisNumLevels"),  # how many discrete values per parameter
             seed=sampleSeed,
         )
 

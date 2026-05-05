@@ -7,9 +7,12 @@ from avaframe.in3Utils import cfgUtils, logUtils
 from avaframe.in3Utils import fileHandlerUtils as fU
 from avaframe.in3Utils import initializeProject as initProj
 import avaframe.out3Plot.outAna6Plots as saveResults
+from avaframe.in3Utils import cfgHandling
 from avaframe.com8MoTPSA import com8MoTPSA
+from avaframe.com1DFA import com1DFA
 from avaframe.ana6Optimisation import optimisationUtils
-
+from avaframe.ana3AIMEC import ana3AIMEC
+from avaframe.runScripts.runPlotAreaRefDiffs import createArealIndicatorPickle
 
 def runOptimisation():
     """
@@ -30,6 +33,7 @@ def runOptimisation():
     outDir = pathlib.Path(avalancheDir, resultDirOpt, comModuleName)
     fU.makeADir(outDir)
 
+    # TODO: use flag to only load if required? then inDir in call to loadVariationData has to be changed
     # Get config from morris for path to morris results
     cfgDir = 'runMorrisSA.py'
     cfgMorrisSA = cfgUtils.getModuleConfig(pathlib.Path(cfgDir), toPrint=False)
@@ -42,21 +46,65 @@ def runOptimisation():
     log.info('MAIN SCRIPT')
     log.info('Current avalanche: %s', avalancheDir)
 
-    # Load variation parameters and their bounds
-    paramBounds, paramSelected = optimisationUtils.loadVariationData(cfgOpt, avalancheDir, inDir)
+    # Load variation parameters and their bounds that has been saved when running ana4Prob to get simulations
+    paramBounds, paramSelected, paramSetsValues = optimisationUtils.loadVariationData(
+        cfgOpt, avalancheDir, inDir
+    )
 
-    # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
-    optimisationUtils.calcArealIndicatorsAndAimec(cfgOpt, avalancheDir)
+    # +++++ Initial set of simulations - compute areal indicators and runoutLineDiff_RMSE
+    cfgAIMEC = cfgUtils.getModuleConfig(
+        ana3AIMEC,
+        fileOverride="",
+        toPrint=False,
+        onlyDefault=cfgOpt["ana3AIMEC_ana3AIMEC_override"].getboolean("defaultConfig"),
+    )
+    # override with parameters set in the cfgOpt
+    cfgAIMEC, cfgOpt = cfgHandling.applyCfgOverride(cfgAIMEC, cfgOpt, ana3AIMEC, addModValues=False)
+    # create output directory
+    fU.makeADir(pathlib.Path(avalancheDir, "Outputs", "ana3AIMEC", cfgAIMEC["AIMECSETUP"]["anaMod"]))
+    # check if comMod settings the same in all analysis
+    if comModuleName != cfgAIMEC["AIMECSETUP"]["anaMod"]:
+        message = "Chosen computational module for general analysis and runoutLineDifference analysis (aimec) is not identical"
+        log.error(message)
+        raise AssertionError(message)
+    simName = cfgAIMEC["AIMECSETUP"]["referenceSimName"]
+    aimecInfo = ana3AIMEC.initialAimecRunoutDiffSetup(cfgAIMEC, avalancheDir, simName, comModuleName)
+
+    # initialize an allResults list to collect areal indicator info for all simulations and append to a pickle
+    allResults = []
+    outDirArialIndi = pathlib.Path(avalancheDir, "Outputs", "out1Peak")
+    fU.makeADir(outDirArialIndi)
+
+    # load all sims
+    inputsDF, _ = fU.makeSimFromResDF(avalancheDir, comModuleName)
+
+    # check if the parameter sets found in the ana4Stats pickle match the number of sims found
+    if len(inputsDF) != len(paramSetsValues):
+        message = "Number of simulations does not math the paramValuesD.pickle from the ana4Prob run"
+        log.warning(message)
+        # raise ValueError(message)
+
+    for ind1, row in inputsDF.iterrows():
+        # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
+        aimecInfo, allResults = optimisationUtils.calcArealIndicatorsAndAimecOneAtATime(
+            cfgOpt, avalancheDir, aimecInfo, row["simName"], allResults
+        )
+    # append areal indicator allResults List to pickle
+    createArealIndicatorPickle(allResults, outDirArialIndi)
+    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     # Read and merge results from parameter sets (simulation data), areal indicators and AIMEC
-    finalDF = optimisationUtils.buildFinalDF(avalancheDir, paramSelected, cfgOpt)
-
-    # Check if there is simulation in finalDF
+    # one row per simulation simName, parameter set values, areal indicators, runoutLineDiffs
+    finalDF = optimisationUtils.buildFinalDF(
+        avalancheDir, paramSelected, cfgOpt, cfgOpt["GENERAL"]["modName"]
+    )
+    # Check if there are simulations in finalDF
     nAvailable = len(finalDF)
     if nAvailable == 0:
         message = "No simulations found in finalDF."
         log.error(message)
         raise RuntimeError(message)
+
     # ------------------------------------------------------------------------------------------------------------------
     # Two surrogate-based optimisation strategies are available:
     # nonseq: Non-sequential optimisation uses a fixed set of simulations to train the surrogate and evaluate the loss.
@@ -91,16 +139,31 @@ def runOptimisation():
         # Clean input directory(ies) of old work files
         initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
-        cfgFiles, cfgPath = optimisationUtils.writeCfgFiles(avalancheDir, paramSets, optimisationType, comModuleName)
+        cfgFiles, cfgPath = optimisationUtils.writeCfgFiles(
+            avalancheDir, paramSets, optimisationType, comModuleName, cfgOpt
+        )
 
-        # Perform com8MoTPSA simulations
-        com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath)
+        if comModuleName.lower() == "com1dfa":
+            _, _, _, simDFNew = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgPath)
+            simNameNew = simDFNew[simDFNew["newSim"] == 1]["simName"].to_list()
+        elif comModuleName.lower() == "com8motpsa":
+            # Perform com8MoTPSA simulations
+            simNameNew = com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath, returnSimName=True)
+            # TODO: add returning the simHash of the new simulation!
 
-        # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
-        optimisationUtils.calcArealIndicatorsAndAimec(cfgOpt, avalancheDir)
+        # loop over new simulations (for non-sequential this are topNBest mean, and best sim)
+        for sN in simNameNew:
+            # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
+            aimecInfo, allResults = optimisationUtils.calcArealIndicatorsAndAimecOneAtATime(
+                cfgOpt, avalancheDir, aimecInfo, sN, allResults
+            )
+            # add to pickle the areal indicators
+            createArealIndicatorPickle(allResults, outDirArialIndi)
 
         # Read and merge results from parameter sets (simulation data), areal indicators and AIMEC
-        finalDF = optimisationUtils.buildFinalDF(avalancheDir, paramSelected, cfgOpt)
+        finalDF = optimisationUtils.buildFinalDF(
+            avalancheDir, paramSelected, cfgOpt, cfgOpt["GENERAL"]["modName"]
+        )
 
         simNameMean = optimisationUtils.findSimName(finalDF, topNStat["TopNBest"]["mean_params"], atol=1e-6)
         simNameBest = optimisationUtils.findSimName(finalDF, topNStat["Best"]["params"], atol=1e-6)
@@ -151,18 +214,32 @@ def runOptimisation():
             initProj.cleanSingleAvaDir(avalancheDir, deleteOutput=False)
 
             # Generate and write config file
-            cfgFiles, cfgPath = optimisationUtils.writeCfgFiles(avalancheDir, xBestDict, optimisationType,
-                                                                comModuleName, counter=start_counter + i)
+            cfgFiles, cfgPath = optimisationUtils.writeCfgFiles(
+                avalancheDir, xBestDict, optimisationType, comModuleName, cfgOpt, counter=start_counter + i
+            )
 
-            # Perform com8MoTPSA simulation
-            com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath)
+            if comModuleName.lower() == "com1dfa":
+                _, _, _, simDFNew = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgPath)
+                simNameNew = simDFNew.index[simDFNew["newSim"] == 1]["simName"].to_list()
+            elif comModuleName.lower() == "com8motpsa":
+                # Perform com8MoTPSA simulations
+                simNameNew = com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath, returnSimName=True)
+                # TODO: fetch hash of new sim
+            else:
+                message = "Not implemented for module: %s" % comModuleName
+                log.error(message)
+                raise NotImplementedError(message)
 
-            # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
-            optimisationUtils.calcArealIndicatorsAndAimec(cfgOpt, avalancheDir)
+            # loop over new simulations (for sequential this is only one)
+            for sN in simNameNew:
+                # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
+                optimisationUtils.calcArealIndicatorsAndAimecOneAtATime(
+                    cfgOpt, avalancheDir, aimecInfo, sN, allResults
+                )
+                createArealIndicatorPickle(allResults, outDirArialIndi)
 
-            # Read and merge results from parameter sets (simulation data), areal indicators and AIMEC
-            finalDF = optimisationUtils.buildFinalDF(avalancheDir, paramSelected, cfgOpt)
-
+            finalDF = optimisationUtils.buildFinalDF(avalancheDir, paramSelected, cfgOpt, comModuleName)
+            
             # Save latest sim
             simName = optimisationUtils.findSimName(finalDF, xBestDict, atol=1e-6)
             saveResults.saveBestOrSpecificSimulation(finalDF, paramSelected, ei, lcb, simName,
@@ -203,13 +280,13 @@ def runOptimisation():
 
     # Save comparison boxplots for the top N simulations and No-PSC simulations of two avalanche paths.
     # Required are the corresponding finalDF.pickle files.
-    saveComparisonBoxplot = cfgOpt['OPTIMISATION']['saveComparisonBoxplot']
+    saveComparisonBoxplot = cfgOpt["OPTIMISATION"].getboolean("saveComparisonBoxplot")
     n_top_samples = cfgOpt.getint('OPTIMISATION', 'n_model_top')
     if saveComparisonBoxplot:
         saveResults.plotComparisonBoxplots(
             outDir=outDir,
-            avaName1="avaFleisskar",
-            avaName2="avaWolfsgrube",
+            avaName1=cfgOpt["OPTIMISATION"]["avaName1"],
+            avaName2=cfgOpt["OPTIMISATION"]["avaName2"],
             N=n_top_samples,
             paramBounds=paramBounds,
             yScaled=True,

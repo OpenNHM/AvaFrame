@@ -316,6 +316,9 @@ def com1DFAPostprocess(simDF, tCPUDF, simDFExisting, cfgMain, dem, reportDictLis
 
     # append new simulations configuration to old ones (if they exist),
     # return total dataFrame and write it to csv
+    if isinstance(simDFExisting, pd.DataFrame):
+        simDFExisting["newSim"] = np.zeros(len(simDFExisting))
+    simDF["newSim"] = np.ones(len(simDF))
     simDFNew = pd.concat([simDF, simDFExisting], axis=0)
     cfgUtils.writeAllConfigurationInfo(avalancheDir, simDFNew, specDir="")
 

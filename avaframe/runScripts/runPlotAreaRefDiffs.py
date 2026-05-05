@@ -19,9 +19,39 @@ import avaframe.in1Data.getInput as gI
 import avaframe.in2Trans.shpConversion as shpConv
 import avaframe.in3Utils.geoTrans as gT
 import avaframe.com1DFA.DFAtools as DFAtls
+from avaframe.in3Utils import cfgHandling
 
 
-def runPlotAreaRefDiffs(resType, thresholdValueSimulation, modName):
+# TODO: create a function for this not located in runScript
+def runPlotAreaRefDiffs(
+    thresholdValueSimulation, modName, allResults, resType, layer="", simName="", alpha=1, beta=1
+):
+    """compute the area indicators comparing a simulation result to a reference polygon
+
+    Parameters:
+    -------------
+    thresholdValueSimulation: float
+        threshold value of simulation result used to compute area indicators
+    modName: str
+        name of the computational module used to perform simulation
+    allResults: dict
+        dictionary containing area indicators for each simulation result
+    resType: str
+        type of simulation result (pft, ppr, etc.)
+    layer: str
+        optional - name of the result layer if multi-layer computational module (l1, l2, etc.)
+    simName: str
+        optional - simName
+    alpha, beta: float
+        weighting factors used to compute area indicators
+
+    Returns:
+    ---------
+    allResults: dict
+        dictionary containing area indicators for each simulation result
+
+    """
+
     # Load avalanche directory from general configuration file
     cfgMain = cfgUtils.getGeneralConfig()
     avalancheDir = cfgMain["MAIN"]["avalancheDir"]
@@ -61,106 +91,106 @@ def runPlotAreaRefDiffs(resType, thresholdValueSimulation, modName):
         cropLine = shpConv.readLine(cropFile, "cropFile", dem)
         cropLine = gT.prepareArea(cropLine, dem, np.sqrt(2), combine=True, checkOverlap=False)
 
-    if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
+    # TODO: this should also work for com9
+    if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche", "com8MoTPSA"]:
+        # create resType to find matching result files
+        if layer != "":
+            resTypeAnalysis = resType.lower() + "_" + layer.lower()
+        else:
+            resTypeAnalysis = resType.lower()
+
         # load dataFrame for all configurations of simulations in avalancheDir
-        simDF = cfgUtils.createConfigurationInfo(avalancheDir)
+        simDF = cfgUtils.createConfigurationInfo(avalancheDir, comModule=modName)
+
         # create data frame that lists all available simulations and path to their result type result files
-        inputsDF, resTypeList = fU.makeSimFromResDF(avalancheDir, "com1DFA")
+        inputsDF, resTypeList = fU.makeSimFromResDF(avalancheDir, modName, simName=simName)
         # merge  parameters as columns to dataDF for matching simNames
         dataDF = inputsDF.merge(simDF, left_on="simName", right_on="simName")
 
         ## loop over all simulations and load desired resType
         for index, row in dataDF.iterrows():
-            simFile = row[resType]
+            simFile = row[resTypeAnalysis]
             simData = IOf.readRaster(simFile)
+            simName = simFile.stem
 
-        # compute referenceMask and simulationMask and true positive, false positive and false neg. arrays
-        # here thresholdValueReference is set to 0.9 as when converting the polygon to a raster,
-        # values inside polygon are set to 1 and outside to 0
-        refMask, compMask, indicatorDict = oPD.computeAreaDiff(
-            referenceLine["rasterData"],
-            simData["rasterData"],
-            0.9,
-            thresholdValueSimulation,
-            dem,
-            cropToArea=cropLine["rasterData"],
-        )
+            # compute areal indicators and create plot
+            allResults = oPD.mainAreaDiffAndPlot(
+                referenceLine,
+                simData,
+                cropLine,
+                cropFile,
+                dem,
+                thresholdValueSimulation,
+                outDir,
+                simName,
+                alpha,
+                beta,
+                allResults,
+                resType,
+            )
 
-        # plot differences
-        oPD.plotAreaDiff(
-            referenceLine["rasterData"],
-            refMask,
-            simData["rasterData"],
-            compMask,
-            resType,
-            simData["header"],
-            thresholdValueSimulation,
-            outDir,
-            indicatorDict,
-            row["simName"],
-            cropFile=cropFile,
-        )
     else:
         # load all result files
         resultDir = pathlib.Path(avalancheDir, "Outputs", modName, "peakFiles")
-        peakFilesList = list(resultDir.glob("*_%s.tif" % resType)) + list(resultDir.glob("*_%s.asc" % resType))
+        # filter for resType and layer if available
+        if layer == "":
+            peakFilesList = list(resultDir.glob("*_%s.tif" % resType)) + list(
+                resultDir.glob("*_%s.asc" % resType)
+            )
+        else:
+            peakFilesList = list(resultDir.glob("*_%s_%s.tif" % (layer, resType))) + list(
+                resultDir.glob("*_%s_%s.asc" % (layer, resType))
+            )
 
-        allResults = []
+        # filter all simulations for simName if provided
+        if simName != "":
+            peakFilesList = [pf for pf in peakFilesList if simName in pf.stem]
 
         for pF in peakFilesList:
             simData = IOf.readRaster(pF)
             simName = pF.stem
 
-            # compute referenceMask and simulationMask and true positive, false positive and false neg. arrays
-            refMask, compMask, indicatorDict = oPD.computeAreaDiff(
-                referenceLine["rasterData"],
-                simData["rasterData"],
-                0.9,
-                thresholdValueSimulation,
+            # compute areal indicators and create plot
+            allResults = oPD.mainAreaDiffAndPlot(
+                referenceLine,
+                simData,
+                cropLine,
+                cropFile,
                 dem,
-                cropToArea=cropLine["rasterData"],
-            )
-
-            # plot differences
-            oPD.plotAreaDiff(
-                referenceLine["rasterData"],
-                refMask,
-                simData["rasterData"],
-                compMask,
-                resType,
-                simData["header"],
                 thresholdValueSimulation,
                 outDir,
-                indicatorDict,
                 simName,
-                cropFile=cropFile,
+                alpha,
+                beta,
+                allResults,
+                resType,
             )
 
-            allResults.append({
-                "sim_name": simName,
-                "res_type": resType,
-                "threshold": thresholdValueSimulation,
-                "indicator_dict": indicatorDict,
-            })
+    return allResults
 
-        # Save summary of TP/FP/FN indicators as pickle
-        rows = []
-        for entry in allResults:
-            cleanName = re.sub(r"_ppr$", "", entry["sim_name"])
-            indicators = entry["indicator_dict"]
-            row = {"simName": cleanName}
 
-            for key, subdict in indicators.items():
-                shortKey = key.replace("truePositive", "TP_SimRef") \
-                    .replace("falsePositive", "FP_SimRef") \
-                    .replace("falseNegative", "FN_SimRef")
-                row["%s_cells" % shortKey] = subdict.get("nCells", None)
-                row["%s_area" % shortKey] = subdict.get("areaSum", None)
+def createArealIndicatorPickle(allResults, outDir):
 
-            rows.append(row)
+    # Save summary of TP/FP/FN indicators as pickle
+    rows = []
+    for entry in allResults:
+        cleanName = re.sub(r"_ppr$", "", entry["sim_name"])
+        indicators = entry["indicator_dict"]
+        row = {"simName": cleanName}
 
-        with open(outDir / "arealIndicators.pkl", "wb") as f:
-            pickle.dump(rows, f)
+        for key, subdict in indicators.items():
+            shortKey = (
+                key.replace("truePositive", "TP_SimRef")
+                .replace("falsePositive", "FP_SimRef")
+                .replace("falseNegative", "FN_SimRef")
+            )
+            row["%s_cells" % shortKey] = subdict.get("nCells", None)
+            row["%s_area" % shortKey] = subdict.get("areaSum", None)
+
+        rows.append(row)
+
+    with open(outDir / "arealIndicators.pkl", "wb") as f:
+        pickle.dump(rows, f)
 
 
 if __name__ == "__main__":

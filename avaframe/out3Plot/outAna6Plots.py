@@ -637,10 +637,29 @@ def saveBestOrSpecificSimulation(finalDF, paramSelected, ei=None, lcb=None, simN
     is written to the output file.
     """
     # Subset df, save only important entries
-    cols_keep = ['simName', 'sampleMethods', 'order', 'Simulation time (s)', 'Minimum time step (s)',
-                 'Initial CFL number (-)', 'TP_SimRef_cells', 'TP_SimRef_area', 'FP_SimRef_cells', 'FP_SimRef_area',
-                 'FN_SimRef_cells', 'FN_SimRef_area', 'recall', 'precision', 'f1_score', 'tversky_score', '1-tversky',
-                 'runoutRMSENormalised', 'optimisationVariable']
+    # cols_keep = ['simName', 'sampleMethods', 'order', 'Simulation time (s)', 'Minimum time step (s)',
+    #             'Initial CFL number (-)', 'TP_SimRef_cells', 'TP_SimRef_area', 'FP_SimRef_cells', 'FP_SimRef_area',
+    #             'FN_SimRef_cells', 'FN_SimRef_area', 'recall', 'precision', 'f1_score', 'tversky_score', '1-tversky',
+    #             'runoutRMSENormalised', 'optimisationVariable']
+
+    cols_keep = [
+        "simName",
+        "sampleMethods",
+        "order",
+        "TP_SimRef_cells",
+        "TP_SimRef_area",
+        "FP_SimRef_cells",
+        "FP_SimRef_area",
+        "FN_SimRef_cells",
+        "FN_SimRef_area",
+        "recall",
+        "precision",
+        "f1_score",
+        "tversky_score",
+        "1-tversky",
+        "runoutRMSENormalised",
+        "optimisationVariable",
+    ]
     columns_keep = cols_keep[:6] + [p for p in paramSelected if p not in cols_keep] + cols_keep[6:]
     df = finalDF[columns_keep]
 
