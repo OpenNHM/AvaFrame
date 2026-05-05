@@ -112,6 +112,7 @@ def plotAreaDiff(
     indicatorDict,
     simName,
     cropFile=None,
+    Tversky="",
 ):
     """plot comparison of reference and simulation and area indicators
 
@@ -138,6 +139,8 @@ def plotAreaDiff(
         name of simulation
     cropFile: None or pathlib path
         None or path to cropfile with polygon used to perfrom analysis
+    Tversky: float
+        optional if provided add text with Tversky score on plot
 
     """
 
@@ -215,6 +218,19 @@ def plotAreaDiff(
         alpha=0.75,
         zorder=5,
     )
+
+    if Tversky != "":
+        ax[0].text(
+            0.9,
+            0.01,
+            ("1- Tversky: %.4f " % (1.0 - Tversky)),
+            horizontalalignment="right",
+            verticalalignment="bottom",
+            transform=ax[0].transAxes,
+            color="darkgrey",
+            alpha=0.75,
+            zorder=5,
+        )
     title = str(
         "Affected area based on %s %.2f %s"
         % (resType, thresholdValueSimulation, pU.cfgPlotUtils["unit" + resType])
@@ -267,3 +283,103 @@ def plotAreaDiff(
     ax[2].set_title("Reference mask")
 
     pU.saveAndOrPlot({"pathResult": outDir}, "areaIndicatorAnalysis_%s" % simName, fig)
+
+
+def mainAreaDiffAndPlot(
+    referenceLine,
+    simData,
+    cropLine,
+    cropFile,
+    dem,
+    thresholdValueSimulation,
+    outDir,
+    simName,
+    alpha,
+    beta,
+    allResults,
+    resType,
+):
+    """ " compute areal indicators (true positive, true negative, false negative, false positive) between a reference polygon
+    and simulation raster using a cropFile to define the area of interest
+
+    Parameters:
+    -------------
+    referenceLine: dict
+        dictionary with reference polygon information and according rasterData
+    simData: dict
+        dictionary with simulation raster information
+    cropLine: dict
+        dictionary with cropshape polygon information to define the area of interest
+    cropFile: str or pathlib.Path
+        path to cropshpahe file
+    dem: dict
+        dictionary with dem information
+    thresholdValueSimulation: float
+        threshold value used to determine area of simulation resType accounted for in analysis
+    outDir: str or pathlib.Path
+        path to directory where results will be saved
+    simName: str
+        simulation name
+    alpha, beta: float
+        factors for computing Tversky score
+    allResults: list
+        list of dictionaries for results from analysis, one dict/list entry per sim
+    resType: str
+        result type for simulations used for the areal indicators
+
+    Returns:
+    --------
+    allResults: list
+        updated  list of dictionaries for results from analysis, one dict/list entry per sim
+
+    """
+
+    # compute referenceMask and simulationMask and true positive, false positive and false neg. arrays
+    # here thresholdValueReference is set to 0.9 as when converting the polygon to a raster,
+    # values inside polygon are set to 1 and outside to 0
+    refMask, compMask, indicatorDict = computeAreaDiff(
+        referenceLine["rasterData"],
+        simData["rasterData"],
+        0.9,
+        thresholdValueSimulation,
+        dem,
+        cropToArea=cropLine["rasterData"],
+    )
+    TverskyScore = computeTverskyScore(indicatorDict, alpha=alpha, beta=beta)
+    # plot differences
+    plotAreaDiff(
+        referenceLine["rasterData"],
+        refMask,
+        simData["rasterData"],
+        compMask,
+        resType,
+        simData["header"],
+        thresholdValueSimulation,
+        outDir,
+        indicatorDict,
+        simName,
+        cropFile=cropFile,
+        Tversky=TverskyScore,
+    )
+    allResults.append(
+        {
+            "sim_name": simName,
+            "res_type": resType,
+            "threshold": thresholdValueSimulation,
+            "indicator_dict": indicatorDict,
+        }
+    )
+
+    return allResults
+
+
+def computeTverskyScore(indicatorDict, alpha=1, beta=1):
+
+    TP = indicatorDict["truePositive"]["areaSum"]
+    FP = indicatorDict["falsePositive"]["areaSum"]
+    FN = indicatorDict["falseNegative"]["areaSum"]
+
+    denomTversky = TP + alpha * FP + beta * FN
+    TverskyScore = np.where(denomTversky != 0, TP / denomTversky, 0.0)
+
+    return TverskyScore

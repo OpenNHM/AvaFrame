@@ -524,3 +524,63 @@ def errorDuplicateListEntry(listKeys, message):
         raise AssertionError
 
 
+def createInfoDF(avalancheDir, modName, keepColumns, varParList):
+    """Create a dataFrame with one row per simulation and information on values of parameterList
+    condensed into a list in the column parameterSet and information on the simulation config listed in keepColumns
+    always provided is simName
+
+    Parameters
+    ------------
+    avalancheDir: str or pathlib.Path
+        path to avalanche directory
+    modName: str
+        name of computational module
+    keepColumns: list
+        list of column names that should be kept from simulation info in infoDF
+    varParList: list
+        list of parameter names that should be kept as a list of values in a column called parameterSet
+
+    Returns
+    --------
+    infoDF: pandas.DataFrame
+        dataframe with one row per simulation and information on values of parameterList
+
+    """
+
+    # load all sims
+    inputsDF, _ = fU.makeSimFromResDF(avalancheDir, modName)
+
+    # look for configuration files for all the simulations found and merge info to inputsDF
+    try:
+        # load dataFrame for all configurations
+        configurationDF = cfgUtils.createConfigurationInfo(avalancheDir, comModule=modName)
+        # Merge inputsDF with the configurationDF. Make sure to keep the indexing from inputs and to merge on 'simName'
+        inputsDF = (
+            inputsDF.reset_index().merge(configurationDF, on=["simName", "modelType"]).set_index("index")
+        )
+    except (NotADirectoryError, FileNotFoundError) as e:
+        log.debug("No configuration files found in avalanche directory")
+
+    # loop over varParList and condense the parameter values into a list and save in the new column parameterSet
+    varListFull = []
+    for ind1, row in inputsDF.iterrows():
+        varList = []
+        for varPar in varParList:
+            varList.append(row[varPar])
+        varListFull.append(varList)
+    inputsDF["parameterSet"] = varListFull
+
+    # merge inputs and config dataFrames, first check if keepColumns exist
+    keepColumnsCleaned = [kC for kC in keepColumns if kC in inputsDF.columns]
+    infoDF = inputsDF[keepColumnsCleaned + ["parameterSet"]]
+
+    # TODO: this is required in ana6Optimisation
+    # rename sampleMethod to sampleMethods
+    if "sampleMethod" in keepColumnsCleaned:
+        infoDF = infoDF.rename(columns={"sampleMethod": "sampleMethods"})
+    # rename scenario to order
+    infoDF = infoDF.rename(columns={"scenario": "order"})
+    # remove index and set to 0, 1, .., N
+    infoDF = infoDF.reset_index(drop=True)
+
+    return infoDF

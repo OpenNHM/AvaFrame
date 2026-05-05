@@ -5,6 +5,7 @@
 import logging
 import numpy as np
 import pathlib
+import pandas as pd
 
 # Local imports
 from avaframe.in2Trans import shpConversion
@@ -16,7 +17,7 @@ import avaframe.in1Data.getInput as gI
 from avaframe.in3Utils import geoTrans
 from avaframe.com1DFA import com1DFA
 import avaframe.in3Utils.fileHandlerUtils as fU
-
+import avaframe.in3Utils.cfgUtils as cfgUtils
 
 # create local logger
 log = logging.getLogger(__name__)
@@ -762,3 +763,205 @@ def addSLToParticles(avaDir, cfgAimec, demFileName, particlesList, saveToPickle=
     rasterTransfo['demHeader'] = dem['header']
 
     return particlesList, rasterTransfo, dem
+
+
+def initialAimecRunoutDiffSetup(cfgAIMEC, avalancheDir, simName, comModule):
+    """Setup thalweg following coordinate system using a reference simulation and DEM based on a runoutResType
+    and analyze reference data from e.g. observations
+    If only certain results of the aimec analysis workflow are required this provided info for domain transfo
+
+    Parameters
+    -----------
+    cfgAIMEC: configparser object
+        aimec configuration settings
+    avalancheDir: str or pathlib.Path
+        path to avalanche directory
+    simName: str
+        full simulation name or path thereof
+    comModule: str
+        name of computational module that has been used to run simulations
+
+    Returns
+    ----------
+    aimecInfo: dict
+        dictionary including:
+            rasterTransfo dict (info about domain transformation)
+            newRasters dict (info on transformed DEM)
+            refDataTransformed dict (info on reference dataset (observations) transformed)
+            pathDict dict (info on all required input file paths, project name, etc.)
+            cfgAIMEC (aimec configuration settings)
+    """
+
+    cfgSetup = cfgAIMEC["AIMECSETUP"]
+    # create data frame that lists all available simulations and path to their result type result files
+    inputsDF, resTypeList = fU.makeSimFromResDF(avalancheDir, comModule, inputDir="", simName=simName)
+
+    # use first simulation as reference
+    refSimRowHash = inputsDF.index[0]
+    refSimName = inputsDF.loc[refSimRowHash, "simName"]
+
+    # initialize pathDict
+    pathDict = {
+        "refSimRowHash": refSimRowHash,
+        "refSimName": refSimName,
+        "compType": ["singleModule", comModule],
+        "colorParameter": False,
+        "resTypeList": resTypeList,
+        "valRef": "",
+        "demFileName": "",
+    }
+    pathDict = aimecTools.readAIMECinputs(
+        avalancheDir, pathDict, cfgSetup.getboolean("defineRunoutArea"), dirName=comModule
+    )
+    pathDict = aimecTools.checkAIMECinputs(cfgSetup, pathDict, inputsDF)
+
+    # Extract input config parameters
+    interpMethod = cfgSetup["interpMethod"]
+    # Read input dem
+    demSource = pathDict["demSource"]
+    dem = IOf.readRaster(demSource)
+    # read reference file and raster and config
+    runoutResType = pathDict["runoutResType"]
+    runoutLayer = pathDict.get("runoutLayer", "")
+    refResTypeCol = aimecTools.resolveResTypeColumn(inputsDF.loc[refSimRowHash], runoutResType, runoutLayer)
+    refResultSource = inputsDF.loc[refSimRowHash, refResTypeCol]
+    refRaster = IOf.readRaster(refResultSource)
+    refHeader = refRaster["header"]
+
+    # Make domain transformation
+    rasterTransfo = aimecTools.makeDomainTransfo(pathDict, dem, refHeader["cellsize"], cfgSetup)
+    rasterTransfo["avaDir"] = pathDict["avalancheDir"]
+
+    # ####################################################
+    # visualisation
+    # TODO: needs to be moved somewhere else
+    newRasters = {}
+    log.debug("Assigning dem data to deskewed raster")
+    newRasters["newRasterDEM"] = aimecTools.transform(dem, demSource, rasterTransfo, interpMethod, dem=True)
+
+    # if includeReference add reference data to resAnalysisDF
+    if cfgSetup.getboolean("includeReference"):
+        referenceDF = aimecTools.createReferenceDF(pathDict)
+        refDataTransformed, referenceDF = postProcessReference(
+            cfgAIMEC, rasterTransfo, pathDict, referenceDF, newRasters
+        )
+        # save resultsDF to file
+        referenceDFPath = pathlib.Path(pathDict["pathResult"], "referenceDF.csv")
+        referenceDF.to_csv(referenceDFPath)
+    else:
+        refDataTransformed = {}
+
+    aimecInfo = {
+        "rasterTransfo": rasterTransfo,
+        "newRasters": newRasters,
+        "refDataTransformed": refDataTransformed,
+        "pathDict": pathDict,
+        "cfgAIMEC": cfgAIMEC,
+    }
+    # initialize an empty dataframe to collect runoutLineDiff_RMSE values for all simulations
+    aimecInfo["resAnalysisDFFull"] = pd.DataFrame()
+
+    return aimecInfo
+
+
+def addSimToResAnalysisDFForRunoutComparison(avalancheDir, simName, comModule, aimecInfo):
+    """analyze simulation in thalweg following coordinate system derive runout line and compare runout line to
+     reference rounout line
+
+    Parameters
+    -----------
+    avalancheDir : str or pathlib.Path
+        path to avalanche directory
+    simName : str
+        simulation name or part thereof as e.g. simHash
+    comModule : str
+        name of computational module that was used to run simulation
+    aimecInfo : dict
+        dictionary with info on domain transformation output from initialAimecRunoutDiffSetup()
+
+    Returns
+    -------
+    resAnalysisDF: pandas dataFrame
+        dataFrame with one row per simulation, so here only 1 row with runout line difference analysis
+        and simulation configuration
+
+    """
+
+    # initialize required inputs and parameters
+    cfgSetup = aimecInfo["cfgAIMEC"]["AIMECSETUP"]
+    rasterTransfo = aimecInfo["rasterTransfo"]
+    newRasters = aimecInfo["newRasters"]
+    refDataTransformed = aimecInfo["refDataTransformed"]
+    pathDict = aimecInfo["pathDict"]
+
+    # create data frame that lists all available simulations and path to their result type result files
+    inputsDF, resTypeList = fU.makeSimFromResDF(avalancheDir, comModule, inputDir="", simName=simName)
+    # look for a configuration
+    try:
+        # load dataFrame for all configurations
+        configurationDF = cfgUtils.createConfigurationInfo(avalancheDir, comModule=comModule)
+        # Merge inputsDF with the configurationDF. Make sure to keep the indexing from inputs and to merge on 'simName'
+        inputsDF = (
+            inputsDF.reset_index().merge(configurationDF, on=["simName", "modelType"]).set_index("index")
+        )
+        configFound = True
+    except (NotADirectoryError, FileNotFoundError) as e:
+        configFound = False
+
+    refSimRowHash = inputsDF.index[0]
+    refSimName = inputsDF.loc[refSimRowHash, "simName"]
+
+    # update pathDict
+    pathDict["refSimRowHash"] = (refSimRowHash,)
+    pathDict["refSimName"] = (refSimName,)
+
+    # Extract input config parameters
+    interpMethod = cfgSetup["interpMethod"]
+    # add fields that will be filled in analysis
+    resAnalysisDF = aimecTools.addFieldsToDF(inputsDF)
+    # read reference file and raster and config
+    runoutResType = pathDict["runoutResType"]
+    runoutLayer = pathDict.get("runoutLayer", "")
+    resTypeCol = aimecTools.resolveResTypeColumn(
+        resAnalysisDF.loc[refSimRowHash], runoutResType, runoutLayer
+    )
+    inputFiles = resAnalysisDF.loc[refSimRowHash, resTypeCol]
+    if isinstance(inputFiles, pathlib.PurePath):
+        rasterData = IOf.readRaster(inputFiles)
+        newRaster = aimecTools.transform(rasterData, inputFiles, rasterTransfo, interpMethod)
+        newRasters["newRaster" + runoutResType.upper()] = newRaster
+        if cfgSetup.getboolean("includeReference"):
+            resAnalysisDF["runoutLineDiff_line"] = np.nan
+            resAnalysisDF["runoutLineDiff_line"] = resAnalysisDF["runoutLineDiff_line"].astype(object)
+            resAnalysisDF["runoutLineDiff_poly"] = np.nan
+            resAnalysisDF["runoutLineDiff_poly"] = resAnalysisDF["runoutLineDiff_line"].astype(object)
+
+    runoutLine = aimecTools.computeRunoutLine(
+        cfgSetup,
+        rasterTransfo,
+        newRasters,
+        refSimRowHash,
+        "simulation",
+        name="",
+        runoutResType=runoutResType,
+    )
+
+    # plot comparison between runout lines
+    outAimec.compareRunoutLines(
+        cfgSetup,
+        refDataTransformed,
+        newRasters["newRaster" + runoutResType.upper()],
+        runoutLine,
+        rasterTransfo,
+        resAnalysisDF.loc[refSimRowHash],
+        pathDict,
+    )
+
+    # analyze distribution of diffs between runout lines
+    resAnalysisDF = aimecTools.analyzeDiffsRunoutLines(
+        cfgSetup, runoutLine, refDataTransformed, resAnalysisDF, refSimRowHash, pathDict
+    )
+    resAnalysisDFPath = pathlib.Path(pathDict["pathResult"], "resAnalysisDF_%s.csv" % simName)
+    resAnalysisDF.to_csv(resAnalysisDFPath)
+
+    return resAnalysisDF

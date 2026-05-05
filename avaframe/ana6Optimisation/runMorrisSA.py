@@ -9,7 +9,10 @@ from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import fileHandlerUtils as fU
 import avaframe.out3Plot.outAna6Plots as saveResults
 import optimisationUtils
-
+from avaframe.in3Utils import cfgHandling
+from avaframe.ana3AIMEC import ana3AIMEC
+from avaframe.runScripts.runPlotAreaRefDiffs import createArealIndicatorPickle
+from avaframe.in3Utils import logUtils
 
 def runMorrisSA():
     """
@@ -18,22 +21,67 @@ def runMorrisSA():
     # Get module config
     module = sys.modules[__name__]
     cfgMorrisSA = cfgUtils.getModuleConfig(module, toPrint=False)
+    comModuleName = cfgMorrisSA["GENERAL"]["modName"]
 
     # Load avalanche directory from general configuration file
     cfgMain = cfgUtils.getGeneralConfig()
     avalancheDir = cfgMain['MAIN']['avalancheDir']
     avaName = pathlib.Path(avalancheDir).name
 
-    # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
-    optimisationUtils.calcArealIndicatorsAndAimec(cfgMorrisSA, avalancheDir)
+    # Start logging
+    logName = "runMorrisSA"
+    log = logUtils.initiateLogger(avalancheDir, logName)
+    log.info("MAIN SCRIPT")
+    log.info("Current avalanche: %s", avalancheDir)
 
-    # Load variation data with bounds from pickle file
+    # ------------Compute aimec runout line differences and areal indicators for Loss function
+    # Initialize AIMEC transformation info and preprocess reference data
+    cfgAIMEC = cfgUtils.getModuleConfig(
+        ana3AIMEC,
+        fileOverride="",
+        toPrint=False,
+        onlyDefault=cfgMorrisSA["ana3AIMEC_ana3AIMEC_override"].getboolean("defaultConfig"),
+    )
+
+    # override with parameters set in the cfgMorrisSA
+    cfgAIMEC, cfgMorrisSA = cfgHandling.applyCfgOverride(
+        cfgAIMEC, cfgMorrisSA, ana3AIMEC, addModValues=False
+    )
+    # check if comMod settings the same in all analysis
+    if comModuleName != cfgAIMEC["AIMECSETUP"]["anaMod"]:
+        message = "Chosen computational module for general analysis and runoutLineDifference analysis (aimec) is not identical"
+        log.error(message)
+        raise AssertionError(message)
+    simName = cfgAIMEC["AIMECSETUP"]["referenceSimName"]
+    aimecInfo = ana3AIMEC.initialAimecRunoutDiffSetup(cfgAIMEC, avalancheDir, simName, comModuleName)
+    # initialize an allResults list to collect areal indicator info for all simulations and append to a pickle
+    allResults = []
+    outDirArialIndi = pathlib.Path(avalancheDir, "Outputs", "out1Peak")
+    fU.makeADir(outDirArialIndi)
+
+    # load all sims
+    inputsDF, _ = fU.makeSimFromResDF(avalancheDir, comModuleName)
+
+    for ind1, row in inputsDF.iterrows():
+        # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
+        aimecInfo, allResults = optimisationUtils.calcArealIndicatorsAndAimecOneAtATime(
+            cfgMorrisSA, avalancheDir, aimecInfo, row["simHash"], allResults
+        )
+
+    createArealIndicatorPickle(allResults, outDirArialIndi)
+    # # Calculate Areal indicators and AIMEC and save the results in Outputs/ana3AIMEC and Outputs/out1Peak
+    # optimisationUtils.calcArealIndicatorsAndAimec(cfgMorrisSA, avalancheDir)
+    # -----------------------------------------------------------------------------------------------------------
+
+    # Load variation data with bounds from pickle file that has been saved when running ana4Prob to get simulations
     inDir = pathlib.Path(avalancheDir, 'Outputs', "ana4Stats")
     paramValuesD = pd.read_pickle(inDir / "paramValuesD.pickle")
     varParList = paramValuesD['names']
 
     # Read and merge results from parameter sets (simulation data), areal indicators and AIMEC
-    finalDF = optimisationUtils.buildFinalDF(avalancheDir, varParList, cfgMorrisSA)
+    finalDF = optimisationUtils.buildFinalDF(
+        avalancheDir, varParList, cfgMorrisSA, cfgMorrisSA["GENERAL"]["modName"]
+    )
 
     # Check if there is simulation in finalDF
     nAvailable = len(finalDF)

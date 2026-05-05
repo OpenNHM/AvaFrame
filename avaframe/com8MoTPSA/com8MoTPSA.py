@@ -25,7 +25,7 @@ from avaframe.in3Utils.initializeProject import _checkForFolderAndDelete
 log = logging.getLogger(__name__)
 
 
-def com8MoTPSAMain(cfgMain, cfgInfo=None, returnSimName=None):
+def com8MoTPSAMain(cfgMain, cfgInfo=None, returnSimName=None, chunkSize=""):
     """Run the full MoT-PSA workflow: generate configs, run simulations in parallel, postprocess.
 
     Parameters
@@ -35,8 +35,12 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None, returnSimName=None):
     cfgInfo : dict or None, optional
         override configuration info passed to MoTGenerateConfigs
     returnSimName : any, optional
-        if not None, return the first simDict key after running
+        if not None, return the simDict keys after running (refers to simName)
+    chunkSize: int, optional
+        if empty - all simulations that should be performed according to cfgInfo are executed
+        if int, chunksize sims will be performed before deleting the WorkFolder
     """
+
     # Get all necessary information from the configuration files
     currentModule = sys.modules[__name__]
     simDict, _, inputSimFiles, _ = com1DFA.com1DFAPreprocess(cfgMain, cfgInfo, module=currentModule)
@@ -63,15 +67,11 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None, returnSimName=None):
     log.info("--- STARTING (potential) PARALLEL PART ----")
 
     # Split into chunks to postprocess and clean up working directory incrementally
-    # Get chunkSize from probAnaCfg.ini, if it is empty use 10 as default
-    cfgProbAna = cfgUtils.getModuleConfig(probAna)
-    chunkSize = cfgProbAna.get('GENERAL', 'chunkSize', fallback='')
     if chunkSize == '':
-        chunkSize = 10
+        rcfChunks = [rcfFiles]
     else:
-        chunkSize = int(chunkSize)
-
-    rcfChunks = [rcfFiles[i:i + chunkSize] for i in range(0, len(rcfFiles), chunkSize)]
+        rcfChunks = [rcfFiles[i:i + chunkSize] for i in range(0, len(rcfFiles), chunkSize)]
+        log.info("Simulations will be carried out in batches of %d " % chunkSize)
 
     for rcfFilesChunk in rcfChunks:
         simNamesChunk = [p.stem for p in rcfFilesChunk]
@@ -92,12 +92,14 @@ def com8MoTPSAMain(cfgMain, cfgInfo=None, returnSimName=None):
 
         # Delete folder in Work directory after postprocessing to reduce memory costs
         avaDir = cfgMain["MAIN"]["avalancheDir"]
-        for sim in simNamesChunk:
-            folderName = "Work/com8MoTPSA/" + sim
-            _checkForFolderAndDelete(avaDir, folderName)
+        if chunkSize != '':
+            for sim in simNamesChunk:
+                folderName = "Work/com8MoTPSA/" + sim
+                _checkForFolderAndDelete(avaDir, folderName)
+                log.info("Working folder: %s deleted" % folderName)
 
     if returnSimName is not None and simDict:
-        return next(iter(simDict))
+        return list(simDict.keys())
     return None
 
 

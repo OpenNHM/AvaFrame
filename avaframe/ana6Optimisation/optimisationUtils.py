@@ -18,16 +18,49 @@ from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
 from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import fileHandlerUtils as fU
 from avaframe.com8MoTPSA import com8MoTPSA
+from avaframe.com1DFA import com1DFA
 from avaframe.ana3AIMEC import ana3AIMEC
 from avaframe.ana4Stats import probAna
-from avaframe.runScripts.runPlotAreaRefDiffs import runPlotAreaRefDiffs
+from avaframe.runScripts.runPlotAreaRefDiffs import runPlotAreaRefDiffs, createArealIndicatorPickle
 import avaframe.out3Plot.outAna6Plots as saveResults
+from avaframe.in3Utils import cfgHandling
 
 # create local logger
 log = logging.getLogger("avaframe")
 
 
 def calcArealIndicatorsAndAimec(cfgOpt, avalancheDir):
+    """
+    Calculate areal indicators between reference polygon and simulation and AIMEC analysis and save data in ana3AIMEC
+    and out1Peak.
+    Parameters
+    ----------
+    cfgOpt : configparser.ConfigParser
+        Global configuration object. Must contain section "GENERAL"
+        with keys:
+            - resType
+            - thresholdValueSimulation
+            - modName
+    avalancheDir : str
+        Path to the avalanche directory.
+    """
+
+    # ToDo: to reduce comp. cost: run AIMEC and calcArealIndicators only for new simulations
+    # Areal indicators
+    resType = cfgOpt["GENERAL"]["resType"]
+    thresholdValueSimulation = cfgOpt.getfloat("GENERAL", "thresholdValueSimulation")
+    modName = cfgOpt["GENERAL"]["modName"]
+    allResults = []
+    allResults = runPlotAreaRefDiffs(
+        thresholdValueSimulation, modName, allResults, resType, layer="", alpha=1, beta=1
+    )
+
+    # AIMEC
+    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC)
+    rasterTransfo, resAnalysisDF, plotDict, _, pathDict = ana3AIMEC.fullAimecAnalysis(avalancheDir, cfgAIMEC)
+
+
+def calcArealIndicatorsAndAimecOneAtATime(cfgOpt, avalancheDir, aimecInfo, simName, allResults):
     """
     Calculate areal indicators between reference polygon and simulation and AIMEC analysis and save data in ana3AIMEC
     and out1Peak.
@@ -43,17 +76,43 @@ def calcArealIndicatorsAndAimec(cfgOpt, avalancheDir):
     avalancheDir : str
         Path to the avalanche directory.
 
+    Returns
+    -------
+    allResults: list
+        list with areal indicators for current simulation
+
     """
-    # ToDo: to reduce comp. cost: run AIMEC and calcArealIndicators only for new simulations
+
     # Areal indicators
+    # TODO: make layer information more prominent - handle differently?
     resType = cfgOpt["GENERAL"]["resType"]
     thresholdValueSimulation = cfgOpt.getfloat("GENERAL", "thresholdValueSimulation")
     modName = cfgOpt["GENERAL"]["modName"]
-    runPlotAreaRefDiffs(resType, thresholdValueSimulation, modName)
+    allResults = runPlotAreaRefDiffs(
+        thresholdValueSimulation,
+        modName,
+        allResults,
+        resType,
+        layer=cfgOpt["GENERAL"]["layer"],
+        simName=simName,
+        alpha=cfgOpt["LOSS_PARAMETERS"].getfloat("tverskyAlpha"),
+        beta=cfgOpt["LOSS_PARAMETERS"].getfloat("tverskyBeta"),
+    )
 
-    # AIMEC
-    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC)
-    rasterTransfo, resAnalysisDF, plotDict, _, pathDict = ana3AIMEC.fullAimecAnalysis(avalancheDir, cfgAIMEC)
+    # AIMEC runoutline comparison
+    resAnalysisDF = ana3AIMEC.addSimToResAnalysisDFForRunoutComparison(
+        avalancheDir, simName, modName, aimecInfo
+    )
+    # add runoutLineDiff_RMSE values to dataframe
+    resAnalysisDFFull = aimecInfo["resAnalysisDFFull"]
+    allAnalysis = [resAnalysisDFFull, resAnalysisDF]
+    resAnalysisDFFull = pd.concat(allAnalysis)
+    aimecInfo["resAnalysisDFFull"] = resAnalysisDFFull
+    # save resAnalysisFillDF to file
+    resAnalysisDFFullPath = pathlib.Path(aimecInfo["pathDict"]["pathResult"], "resAnalysisDFFull.csv")
+    resAnalysisDFFull.to_csv(resAnalysisDFFullPath)
+
+    return aimecInfo, allResults
 
 
 def readParamSetDF(inDir, varParList):
@@ -211,7 +270,7 @@ def addLossMetrics(df, referenceDF, cfg):
     return df
 
 
-def buildFinalDF(avalancheDir, varParList, cfg):
+def buildFinalDF(avalancheDir, varParList, cfg, modName):
     """
     Build the final merged DataFrame for a given avalanche.
 
@@ -243,26 +302,34 @@ def buildFinalDF(avalancheDir, varParList, cfg):
         - Areal indicator columns
         - Evaluation metrics (recall, precision, f1_score, tversky_score, optimisationVariable)
     """
-
-    avaName = avalancheDir.split('/')[-1]
-
+    # old code----------------
     # Folder where ini files from simulations are
-    inDir = pathlib.Path(avalancheDir, 'Outputs/com8MoTPSA/configurationFiles')
+    # inDir = pathlib.Path(avalancheDir, ("Outputs/%s/configurationFiles" % modName))
     # Read parameterSetDF
-    paramSetDF = readParamSetDF(inDir, varParList)
+    # paramSetDF = readParamSetDF(inDir, varParList)
+    # -------------------------
+    # TODO: consider using cfgHandling/createInfoDF instead
+    paramSetDF = cfgHandling.createInfoDF(
+        avalancheDir, modName, ["simName", "scenario", "sampleMethod"], varParList
+    )
 
+    # old code ------------------------
     # Get Dataframe from AIMEC analysis
-    cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC)
-    runoutResTypes = cfgAIMEC['AIMECSETUP']['resTypes']
-    thresholdValue = cfgAIMEC['AIMECSETUP']['thresholdValue']
-    domainWidth = cfgAIMEC['AIMECSETUP']['domainWidth']
+    # cfgAIMEC = cfgUtils.getModuleConfig(ana3AIMEC)
+    # runoutResType = cfgAIMEC["AIMECSETUP"]["runoutResType"]
+    # thresholdValue = cfgAIMEC['AIMECSETUP']['thresholdValue']
+    # domainWidth = cfgAIMEC['AIMECSETUP']['domainWidth']
+    # -----------------------------------
 
-    AIMECPath = avalancheDir + '/Outputs/ana3AIMEC/com8MoTPSA/'
-    AIMECFileName = f"Results_{avaName}_{runoutResTypes}_lim_{thresholdValue}_w_{domainWidth}resAnalysisDF.csv"
+    AIMECPath = avalancheDir + ("/Outputs/ana3AIMEC/%s/" % modName)
+    # AIMECFileName = (
+    #    f"Results_{avaName}_{runoutResType}_lim_{thresholdValue}_w_{domainWidth}resAnalysisDF.csv"
+    # )
+    AIMECFileName = "resAnalysisDFFull.csv"
 
     df_aimec = pd.read_csv(AIMECPath + AIMECFileName)
     # Get data of the reference in AIMEC
-    referenceDF = pd.read_csv(f"{avalancheDir}/Outputs/ana3AIMEC/com8MoTPSA/referenceDF.csv")
+    referenceDF = pd.read_csv(f"{avalancheDir}/Outputs/ana3AIMEC/{modName}/referenceDF.csv")
 
     # Read areal indicators
     arealIndicatorDir = pathlib.Path(avalancheDir, 'Outputs', 'out1Peak', 'arealIndicators.pkl')
@@ -342,21 +409,34 @@ def fitSurrogate(df, cfgOpt):
     y = df[y_col].to_numpy(dtype=float).reshape(-1)
     n_features = X.shape[1]
 
-    # GP kernel with Matern-Covariance
-    matern_nu = cfgOpt.getfloat('OPTIMISATION', 'matern_nu')
+    # GP Surrogate settings: ConstantKernel * MaternKernel + WhiteKernel
+    matern_nu = cfgOpt.getfloat('GP_SURROGATE', 'matern_nu')
+    constant_value = cfgOpt.getfloat('GP_SURROGATE', 'constant_value')
+    constant_value_bounds = tuple(float(v) for v in cfgOpt['GP_SURROGATE']['constant_bounds'].split('|'))
+    length_scale_initial = cfgOpt.getfloat('GP_SURROGATE', 'length_scale_initial')
+    length_scale_bounds = tuple(float(v) for v in cfgOpt['GP_SURROGATE']['length_scale_bounds'].split('|'))
+    white_noise_level = cfgOpt.getfloat('GP_SURROGATE', 'white_noise_level')
+    white_noise_bounds = tuple(float(v) for v in cfgOpt['GP_SURROGATE']['white_noise_bounds'].split('|'))
+
+    gp_alpha = cfgOpt.getfloat('GP_SURROGATE', 'gp_alpha')
+    normalize_y = cfgOpt.getboolean('GP_SURROGATE', 'normalize_y')
+    n_restarts_optimizer = cfgOpt.getint('GP_SURROGATE', 'n_restarts_optimizer')
+    random_state = cfgOpt.getint('GP_SURROGATE', 'random_state')
+
     kernel = (
-            ConstantKernel(1.0, (1e-3, 1e3))  # Output variance tells how strong Y varies
-            * Matern(length_scale=np.ones(n_features),
-                     length_scale_bounds=(1e-2, 1e2),  # in z (variance) space
+            ConstantKernel(constant_value=constant_value,
+                           constant_value_bounds=constant_value_bounds)
+            * Matern(length_scale=np.full(n_features, length_scale_initial),
+                     length_scale_bounds=length_scale_bounds,
                      nu=matern_nu)
-            + WhiteKernel(noise_level=1e-4, noise_level_bounds=(1e-8, 1e-1))
+            + WhiteKernel(noise_level=white_noise_level, noise_level_bounds=white_noise_bounds)
     )
     gp = GaussianProcessRegressor(
         kernel=kernel,
-        alpha=1e-8,
-        normalize_y=True,
-        n_restarts_optimizer=10,
-        random_state=0,
+        alpha=gp_alpha,
+        normalize_y=normalize_y,
+        n_restarts_optimizer=n_restarts_optimizer,
+        random_state=random_state,
     )
 
     # Pipelines (feature scaling + model)
@@ -412,7 +492,7 @@ def KFoldCrossValidation(X, y, pipe, cfgOpt, outDir, avaName, pipeName):
     for c in neg_cols:
         scores[c] = -scores[c]
     # get smoothness parameter nu
-    matern_nu = cfgOpt.getfloat('OPTIMISATION', 'matern_nu')
+    matern_nu = cfgOpt.getfloat('GP_SURROGATE', 'matern_nu')
     row = {
         "experiment_name": pipeName,
         "n_samples": X.shape[0],
@@ -689,7 +769,7 @@ def EINextPoint(pipe, y, paramBounds, cfgOpt):
     return xBest, xBestDict, np.max(ei), np.max(lcb)
 
 
-def writeCfgFiles(avalancheDir, paramSets, optimisationType, comModuleName, counter=None):
+def writeCfgFiles(avalancheDir, paramSets, optimisationType, comModuleName, cfgOpt, counter=None):
     """
     Generate and write configuration files for a given computation module
     based on optimisation results.
@@ -737,21 +817,32 @@ def writeCfgFiles(avalancheDir, paramSets, optimisationType, comModuleName, coun
     for i, xBestDict in enumerate(paramSets):
         idx = start + i  # index used for scenario + filename
 
-        # Load a fresh module configuration template
-        cfgCom8MoTPSA = cfgUtils.getModuleConfig(com8MoTPSA, toPrint=False)
+        if comModuleName == "com8MoTPSA":
+            # Load a fresh module configuration template
+            # cfgComModule = cfgUtils.getModuleConfig(com8MoTPSA, toPrint=False)
+            cfgComModule = probAna.fetchStartCfg(com8MoTPSA, cfgOpt)
+        elif comModuleName == "com1DFA":
+            # Load a fresh module configuration template
+            # cfgComModule = cfgUtils.getModuleConfig(com1DFA, toPrint=False)
+            cfgComModule = probAna.fetchStartCfg(com1DFA, cfgOpt)
+        else:
+            message = "Functionality not yet implemented for %s" % comModuleName
+            log.error(message)
+            raise AttributeError(message)
+
         # Overwrite parameters in their corresponding sections
         for param, val in xBestDict.items():
-            section = probAna.fetchParameterSection(cfgCom8MoTPSA, param)
-            cfgCom8MoTPSA[section][param] = str(val)
+            section = probAna.fetchParameterSection(cfgComModule, param)
+            cfgComModule[section][param] = str(val)
 
         # Assign unique scenario ID and optimisation type for later identification
-        cfgCom8MoTPSA['VISUALISATION']['scenario'] = str(idx)
-        cfgCom8MoTPSA["VISUALISATION"]["sampleMethod"] = optimisationType
+        cfgComModule["VISUALISATION"]["scenario"] = str(idx)
+        cfgComModule["VISUALISATION"]["sampleMethod"] = optimisationType
 
         # Write configuration file to disk
         cfgF = cfgPath / f"{idx}_{comModuleName}Cfg.ini"
         with open(cfgF, "w") as configfile:
-            cfgCom8MoTPSA.write(configfile)
+            cfgComModule.write(configfile)
 
         cfgFiles.append(cfgF)
 
@@ -798,9 +889,10 @@ def loadVariationData(cfgOpt, avaDir, outDir=None):
     Scenario 1 (Manual definition):
         - No prior Morris screening.
         - Parameter names and corresponding bounds are loaded from a previously saved pickle file 'paramValuesD.pickle'
-          generated by ``runAna4ProbAnaCom8MoTPSA.py``. The parameter variation is therefore not defined within this
-          function, but is determined by the configuration specified in ``probAnaCfg.ini``. The ``probAnaCfg.ini`` file
-          contains the settings used to generate the initial sample set, including parameter ranges and variation rules.
+          generated by ``runAna4ProbAnaCom8MoTPSA.py`` or  ``runAna4ProbAna.py`` when using com1DFA. The
+          parameter variation is therefore not defined within this function, but is determined by the configuration
+          specified in ``probAnaCfg.ini``. The ``probAnaCfg.ini`` file contains the settings used to generate the
+          initial sample set, including parameter ranges and variation rules.
 
     This is the standard scenario, as Latin Hypercube Sampling provides good coverage of the parameter space, which is
     important for training the surrogate model.
@@ -833,7 +925,7 @@ def loadVariationData(cfgOpt, avaDir, outDir=None):
     # Read scenario flag
     scenario = cfgOpt.getint('PARAM_BOUNDS', 'scenario')
 
-    avaName = avaDir.split('/')[-1]
+    avaName = pathlib.Path(avaDir).name
 
     # Scenario 1: Morris is not run prior
     if scenario == 1:
@@ -845,7 +937,7 @@ def loadVariationData(cfgOpt, avaDir, outDir=None):
             name: (float(bounds[0]), float(bounds[1]))
             for name, bounds in zip(paramValuesD["names"], paramValuesD["bounds"])
         }
-
+        paramSets = paramValuesD["values"]
     # Scenario 2: Morris run prior
     elif scenario == 2:
         # Load SA data and define how much parameters should be optimized (variation bounds included)
@@ -861,13 +953,14 @@ def loadVariationData(cfgOpt, avaDir, outDir=None):
             raise ValueError(message)
         paramSelected = list(SiDFSort['Parameter'][:topN])
         paramBounds = dict(zip(paramSelected, SiDFSort['bounds']))
+        paramSets = None
 
     else:
         message = f"Unknown scenario '{scenario}' for variation data. Expected 1 or 2."
         log.error(message)
         raise ValueError(message)
 
-    return paramBounds, paramSelected
+    return paramBounds, paramSelected, paramSets
 
 
 def loadMorrisConvergenceData(cfgMorrisSA, avalancheDir, avaName):
