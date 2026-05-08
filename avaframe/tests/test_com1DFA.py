@@ -1821,6 +1821,75 @@ def test_savePartToPickle(tmp_path):
     assert np.array_equal(particlesRead3["m"], particles1["m"])
     assert particlesRead3["t"] == 0.0
 
+    # call function to be tested
+    logName = "simNameTest4"
+    cfg = configparser.ConfigParser()
+    cfg["EXPORTS"] = {"exportParticleProperties": "x|m"}
+    cfg["TRACKPARTICLES"] = {"trackParticles": False}
+    com1DFA.savePartToPickle(particles1, outDir, logName, cfg=cfg)
+
+    # read pickle
+    picklePath4 = outDir / "particles_simNameTest4_0000.0000.pickle"
+    particlesRead4 = pickle.load(open(picklePath4, "rb"))
+
+    assert np.array_equal(particlesRead4["x"], particles1["x"])
+    assert "y" not in particlesRead4.keys()
+    assert np.array_equal(particlesRead4["m"], particles1["m"])
+    assert particlesRead4["t"] == 0.0
+
+    # call function to be tested
+    logName = "simNameTest5"
+    cfg = configparser.ConfigParser()
+    cfg["EXPORTS"] = {"exportParticleProperties": "x|m"}
+    cfg["TRACKPARTICLES"] = {"trackParticles": True, "particleProperties": "iCell"}
+    particles1["ux"] = np.asarray([1.0, 2.0, 3.0])
+    particles1["uy"] = np.asarray([1.0, 4.0, 5.0])
+    particles1["uz"] = np.asarray([10.0, 11.0, 11.0])
+    particles1["iCell"] = np.asarray([10.0, 11.0, 11.0])
+    particles2["ux"] = np.asarray([1.0, 2.0, 3.0])
+    particles2["uy"] = np.asarray([1.0, 4.0, 5.0])
+    particles2["uz"] = np.asarray([10.0, 11.0, 11.0])
+    particles2["iCell"] = np.asarray([10.0, 11.0, 11.0])
+    particles1["z"] = np.asarray([1.0, 2.0, 3.0])
+    particles2["z"] = np.asarray([1.0, 4.0, 5.0])
+    particles1["h"] = np.asarray([1.0, 2.0, 3.0])
+    particles2["h"] = np.asarray([1.0, 4.0, 5.0])
+    com1DFA.savePartToPickle(particles1, outDir, logName, cfg=cfg)
+
+    # read pickle
+    picklePath5 = outDir / "particles_simNameTest5_0000.0000.pickle"
+    particlesRead5 = pickle.load(open(picklePath5, "rb"))
+
+    assert np.array_equal(particlesRead5["x"], particles1["x"])
+    assert "y" in particlesRead5.keys()
+    assert "ux" in particlesRead5.keys()
+    assert np.array_equal(particlesRead5["iCell"], particles1["iCell"])
+    assert np.array_equal(particlesRead5["m"], particles1["m"])
+    assert particlesRead5["t"] == 0.0
+
+    # call function to be tested
+    logName = "simNameTest6"
+    cfg = configparser.ConfigParser()
+    cfg["EXPORTS"] = {"exportParticleProperties": "x|m|hallo"}
+    cfg["TRACKPARTICLES"] = {"trackParticles": False}
+
+    with pytest.raises(AttributeError) as e:
+        com1DFA.savePartToPickle(particles1, outDir, logName, cfg=cfg)
+    assert ("These particle properties are not available") in str(e.value)
+
+    # call function to be tested
+    logName = "simNameTest7"
+    cfg = configparser.ConfigParser()
+    cfg["EXPORTS"] = {"exportParticleProperties": ""}
+    cfg["TRACKPARTICLES"] = {"trackParticles": False}
+    com1DFA.savePartToPickle(particles1, outDir, logName, cfg=cfg)
+    # read pickle
+    picklePath7 = outDir / "particles_simNameTest7_0000.0000.pickle"
+    particlesRead7 = pickle.load(open(picklePath7, "rb"))
+
+    for pProp in particlesRead7:
+        assert pProp in ['ux', 'uy', 'uz', 'iCell', 'z', 'x', 'y', 'm', 'h', 't']
+
 
 def test_exportFields(tmp_path):
     """test exporting fields to ascii files"""
