@@ -619,6 +619,12 @@ def test_initializeBondsC():
     bondDist = particles["bondDist"]
     bondPart = particles["bondPart"]
     assert np.array_equal(bondStart, np.asarray([0, 2, 4, 6]))
+    assert particles["bondStart"].flags.owndata
+    assert particles["bondStart"].base is None
+    assert particles["bondPart"].flags.owndata
+    assert particles["bondPart"].base is None
+    assert particles["bondDist"].flags.owndata
+    assert particles["bondDist"].base is None
     for k in range(nPart):
         # loop on all bonded particles
         neighbors = list()
@@ -664,6 +670,12 @@ def test_removeBondsC():
     bondDist = particles["bondDist"]
     bondPart = particles["bondPart"]
     assert np.array_equal(bondStart, np.asarray([0, 1, 1, 2]))
+    assert particles["bondStart"].flags.owndata
+    assert particles["bondStart"].base is None
+    assert particles["bondPart"].flags.owndata
+    assert particles["bondPart"].base is None
+    assert particles["bondDist"].flags.owndata
+    assert particles["bondDist"].base is None
     for k in range(nPart):
         # loop on all bonded particles
         neighbors = list()
@@ -680,6 +692,45 @@ def test_removeBondsC():
             assert neighbors == [0]
     bondDist.sort()
     assert np.array_equal(bondDist, np.asarray([1, 1]))
+
+
+def test_updateFieldsC_returns_owned_arrays():
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {"rho": "200.", "rhoEnt": "100.", "interpOption": "2"}
+    header = {"nrows": 5, "ncols": 5, "cellsize": 1}
+    dem = {"header": header, "areaRaster": 25 * np.ones((header["nrows"], header["ncols"]))}
+
+    particles = {
+        "m": np.array([100.0, 100.0, 100.0, 100.0]),
+        "dmDet": np.array([1.0, 1.0, 1.0, 1.0]),
+        "dmEnt": np.array([0.0, 0.0, 0.0, 0.0]),
+        "x": np.array([2.0, 1.0, 2.0, 1.0]),
+        "y": np.array([2.0, 2.0, 1.0, 1.0]),
+        "ux": np.array([10.0, 10.0, 10.0, 10.0]),
+        "uy": np.array([10.0, 10.0, 10.0, 10.0]),
+        "uz": np.array([10.0, 10.0, 10.0, 10.0]),
+        "trajectoryAngle": np.array([10.0, 10.0, 10.0, 10.0]),
+        "stoppedParticles": {"m": np.empty(0), "x": np.empty(0), "y": np.empty(0)},
+        "nPart": 4,
+    }
+
+    fields = {
+        "computeTA": False,
+        "computeKE": False,
+        "computeP": False,
+        "pfv": np.zeros((1, 1)),
+        "ppr": np.zeros((1, 1)),
+        "pft": np.zeros((1, 1)),
+        "pta": np.zeros((1, 1)),
+        "pke": np.zeros((1, 1)),
+        "dmDet": np.zeros((header["nrows"], header["ncols"])),
+    }
+
+    particles, fields = DFAfunC.updateFieldsC(cfg["GENERAL"], particles, dem, fields)
+
+    for key in ["FM", "FV", "Vx", "Vy", "Vz", "FT", "pfv", "pft", "dmDet", "FTStop", "FTDet", "FTEnt"]:
+        assert fields[key].flags.owndata
+        assert fields[key].base is None
 
 
 def test_computeCohesionForceC():

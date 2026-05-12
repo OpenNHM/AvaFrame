@@ -481,7 +481,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
     if entrMassCell < 0:
       entrMassCell = 0
     entrMassRaster[indCellY, indCellX] = entrMassCell
-  fields['entrMassRaster'] = np.asarray(entrMassRaster)
+  fields['entrMassRaster'] = np.asarray(entrMassRaster).copy()
 
   return particles, force, fields
 
@@ -1398,27 +1398,27 @@ def updateFieldsC(cfg, particles, dem, fields):
       FTStopBilinear[j, i] = - MassStopBilinear[j, i] / (areaRaster[j, i] * rho)  # / m * FTBilinear[j, i] 
       FTEntBilinear[j, i] = - MassEntBilinear[j, i] / (areaRaster[j, i] * rhoEnt)
 
-  fields['FM'] = np.asarray(MassBilinear)
-  fields['FV'] = np.asarray(VBilinear)
-  fields['Vx'] = np.asarray(VXBilinear)
-  fields['Vy'] = np.asarray(VYBilinear)
-  fields['Vz'] = np.asarray(VZBilinear)
-  fields['FT'] = np.asarray(FTBilinear)
-  fields['pfv'] = np.asarray(PFV)
-  fields['pft'] = np.asarray(PFT)
-  fields['dmDet'] = np.asarray(DMDet)
-  fields['FTStop'] = np.asarray(FTStopBilinear)
-  fields['FTDet'] = np.asarray(FTDetBilinear)
-  fields['FTEnt'] = np.asarray(FTEntBilinear)
+  fields['FM'] = np.asarray(MassBilinear).copy()
+  fields['FV'] = np.asarray(VBilinear).copy()
+  fields['Vx'] = np.asarray(VXBilinear).copy()
+  fields['Vy'] = np.asarray(VYBilinear).copy()
+  fields['Vz'] = np.asarray(VZBilinear).copy()
+  fields['FT'] = np.asarray(FTBilinear).copy()
+  fields['pfv'] = np.asarray(PFV).copy()
+  fields['pft'] = np.asarray(PFT).copy()
+  fields['dmDet'] = np.asarray(DMDet).copy()
+  fields['FTStop'] = np.asarray(FTStopBilinear).copy()
+  fields['FTDet'] = np.asarray(FTDetBilinear).copy()
+  fields['FTEnt'] = np.asarray(FTEntBilinear).copy()
 
   if computeP:
-    fields['ppr'] = np.asarray(PP)
-    fields['P'] = np.asarray(PBilinear)
+    fields['ppr'] = np.asarray(PP).copy()
+    fields['P'] = np.asarray(PBilinear).copy()
   if computeTA:
-    fields['TA'] = np.asarray(travelAngleField)
-    fields['pta'] = np.asarray(PTA)
+    fields['TA'] = np.asarray(travelAngleField).copy()
+    fields['pta'] = np.asarray(PTA).copy()
   if computeKE:
-    fields['pke'] = np.asarray(PKE)
+    fields['pke'] = np.asarray(PKE).copy()
 
 
   for k in range(nPart):
@@ -1674,7 +1674,9 @@ def computeCohesionForceC(cfg, particles, force):
   force['forceSPHX'] = np.asarray(forceSPHX)
   force['forceSPHY'] = np.asarray(forceSPHY)
   force['forceSPHZ'] = np.asarray(forceSPHZ)
-  particles['bondDist'] = np.asarray(bondDist)
+  # bondDist is modified in-place via the memoryview; do not reassign
+  # particles['bondDist'] here, otherwise numpy will create a VIEW with
+  # base=memoryview which can hang on deallocation on Windows.
   return force, particles
 
 
@@ -1775,9 +1777,9 @@ def initializeBondsC(particles, triangles):
     bondDist[bondStart2[p2+1]-1] = distanceIni
     bondStart2[p2+1] = bondStart2[p2+1] - 1
 
-  particles['bondStart'] = np.asarray(bondStart)
-  particles['bondPart'] = np.asarray(bondPart)
-  particles['bondDist'] = np.asarray(bondDist)
+  particles['bondStart'] = np.asarray(bondStart).copy()
+  particles['bondPart'] = np.asarray(bondPart).copy()
+  particles['bondDist'] = np.asarray(bondDist).copy()
   return particles
 
 def countRemovedBonds(particles, mask, nRemove):
@@ -1870,9 +1872,9 @@ def removedBonds(particles, mask, nRemove, nBondRemove):
          countBond = countBond + 1
 
 
-  particles['bondStart'] = np.asarray(bondStartNew)
-  particles['bondPart'] = np.asarray(bondPartNew)
-  particles['bondDist'] = np.asarray(bondDistNew)
+  particles['bondStart'] = np.asarray(bondStartNew).copy()
+  particles['bondPart'] = np.asarray(bondPartNew).copy()
+  particles['bondDist'] = np.asarray(bondDistNew).copy()
   return particles
 
 
