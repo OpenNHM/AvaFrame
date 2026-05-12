@@ -310,6 +310,57 @@ def test_reprojectionC(capfd):
     assert abs(dist-dist0) <= threshold*(dist0 + csz)
 
 
+def test_distConservStoppedParticle(capfd):
+    """distConservProjectionIteratrive handles distn=0 inside loop without NaN.
+
+    prev is on a flat surface, current is above the surface at the same (x,y).
+    Initial distn is non-zero (current is above surface), so the loop enters.
+    After orthogonal reprojection, the particle lands on the surface and distn
+    becomes zero, triggering the division by zero in the distance conservation step."""
+    ncols = 20
+    nrows = 20
+    csz = 5
+    header = {}
+    header['ncols'] = ncols
+    header['nrows'] = nrows
+    header['cellsize'] = csz
+    dem = {}
+    dem['header'] = header
+    X = np.linspace(0, csz * (ncols - 1), ncols)
+    Y = np.linspace(0, csz * (nrows - 1), nrows)
+    XX, YY = np.meshgrid(X, Y)
+    # Flat surface so normal is straight up, no lateral shift
+    ZZ = np.zeros_like(XX)
+    dem['rasterData'] = ZZ
+    num = 1
+    interpOption = 2
+    dem = gT.getNormalMesh(dem, num=num)
+    Nx = dem['Nx']
+    Ny = dem['Ny']
+    Nz = dem['Nz']
+
+    xPrev = 50.0
+    yPrev = 50.0
+    zPrev = 0.0  # on flat surface
+    xCur = xPrev  # same x, y — no lateral movement
+    yCur = yPrev
+    zCur = 20.0  # above surface
+    threshold = 0.001
+
+    xNew, yNew, zNew, iCell, Lx0, Ly0, w0, w1, w2, w3 = DFAfunC.distConservProjectionIteratrive(
+        xPrev, yPrev, zPrev, ZZ, Nx, Ny, Nz,
+        xCur, yCur, zCur,
+        csz, ncols, nrows, interpOption, 10, threshold)
+
+    # Must not be NaN or inf (would be if division by zero is unguarded)
+    assert not np.isnan(xNew)
+    assert not np.isnan(yNew)
+    assert not np.isnan(zNew)
+    assert np.isfinite(xNew)
+    assert np.isfinite(yNew)
+    assert np.isfinite(zNew)
+
+
 def test_SamosATfric(capfd):
     """ Test the account4FrictionForce function"""
     tau0 = 0
