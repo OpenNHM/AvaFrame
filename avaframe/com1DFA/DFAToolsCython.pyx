@@ -675,6 +675,9 @@ cpdef (double, double, double, int, int, int, double, double, double, double) di
     # second step: conserve the distance dist (correction ov the position)
     # measure distance between this new point and the previous time step position
     distn = norm(xNew-xPrev, yNew-yPrev, zNew-zPrev)
+    # guard against stopped particle (distn == 0)
+    if distn == 0:
+      break
     # adjust position on the Xprev, Xnew line
     xNew = xPrev + (xNew-xPrev) * dist / distn
     yNew = yPrev + (yNew-yPrev) * dist / distn
