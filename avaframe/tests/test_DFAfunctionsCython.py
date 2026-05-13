@@ -669,15 +669,18 @@ def test_removeBondsC():
     bondStart = particles["bondStart"]
     bondDist = particles["bondDist"]
     bondPart = particles["bondPart"]
-    assert np.array_equal(bondStart, np.asarray([0, 1, 1, 2]))
+    # After removing particle 1 (old index), indices are remapped:
+    # old 0 -> new 0, removed, old 2 -> new 1
+    assert np.array_equal(bondStart, np.asarray([0, 1, 2]))
     assert particles["bondStart"].flags.owndata
     assert particles["bondStart"].base is None
     assert particles["bondPart"].flags.owndata
     assert particles["bondPart"].base is None
     assert particles["bondDist"].flags.owndata
     assert particles["bondDist"].base is None
-    for k in range(nPart):
-        # loop on all bonded particles
+    # Only 2 particles remain; bondStart is new-indexed
+    nPartNew = nPart - nRemove
+    for k in range(nPartNew):
         neighbors = list()
         for ib in range(bondStart[k], bondStart[k + 1]):
             l = bondPart[ib]
@@ -685,10 +688,8 @@ def test_removeBondsC():
 
         neighbors.sort()
         if k == 0:
-            assert neighbors == [2]
+            assert neighbors == [1]
         if k == 1:
-            assert neighbors == []
-        if k == 2:
             assert neighbors == [0]
     bondDist.sort()
     assert np.array_equal(bondDist, np.asarray([1, 1]))

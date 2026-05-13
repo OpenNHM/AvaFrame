@@ -1872,7 +1872,33 @@ def removedBonds(particles, mask, nRemove, nBondRemove):
          countBond = countBond + 1
 
 
-  particles['bondStart'] = np.asarray(bondStartNew).copy()
+  # Remap bondStart and bondPart to use compacted (new) particle indices
+  # After removePart compacts particle arrays via np.extract, old indices become stale
+  cdef int[:] oldToNew = np.full(nPart, -1, dtype=np.int32)
+  cdef int newIdx = 0
+  cdef int kk
+  for kk in range(nPart):
+    if keepParticle[kk] == 1:
+      oldToNew[kk] = newIdx
+      newIdx = newIdx + 1
+  cdef int nPartNew = newIdx
+
+  # Rebuild bondStart indexed by new particle indices
+  cdef int[:] bondStartFinal = np.zeros(nPartNew + 1, dtype=np.int32)
+  cdef int bondCumul = 0
+  newIdx = 0
+  for kk in range(nPart):
+    if keepParticle[kk] == 1:
+      bondCumul = bondCumul + (bondStartNew[kk + 1] - bondStartNew[kk])
+      bondStartFinal[newIdx + 1] = bondCumul
+      newIdx = newIdx + 1
+
+  # Remap bondPartNew target indices from old to new
+  cdef int ibb
+  for ibb in range(countBondNew):
+    bondPartNew[ibb] = oldToNew[bondPartNew[ibb]]
+
+  particles['bondStart'] = np.asarray(bondStartFinal).copy()
   particles['bondPart'] = np.asarray(bondPartNew).copy()
   particles['bondDist'] = np.asarray(bondDistNew).copy()
   return particles
