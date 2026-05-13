@@ -582,6 +582,112 @@ def test_updatePositionC():
     assert particles["massStopped"] == -np.sum(particles["stoppedParticles"]["m"])
 
 
+def test_updatePositionC_no_circular_reference():
+    """updatePositionC must not create circular reference in stoppedParticles.
+
+    Uses stopCrit=1.0 with typeStop=0 and stopCritType=kinEnergy so that the stop
+    criterion is met on the first call. This exercises the `if stop:` code path
+    where the circular reference was previously created."""
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "stopCrit": "1.01",
+        "stopCritIni": "0.1",
+        "stopCritIniSmall": "1.001",
+        "stopCritType": "kinEnergy",
+        "uFlowingThreshold": "0.1",
+        "gravAcc": "9.81",
+        "velMagMin": "1.e-6",
+        "rho": "100.",
+        "interpOption": "2",
+        "explicitFriction": "0",
+        "centeredPosition": "1",
+        "reprojMethodPosition": "2",
+        "reprojectionIterations": "5",
+        "thresholdProjection": "0.001",
+        "dissDam": "1",
+        "snowSlide": "1",
+        "wetSnow": "1",
+        "adaptSfcStopped": "0",
+        "adaptSfcDetrainment": "0",
+        "adaptSfcEntrainment": "0",
+    }
+
+    particles = {
+        "dt": 1.0,
+        "m": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "idFixed": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "x": np.asarray([0.0, 1.0, 2.0], dtype=np.float64),
+        "y": np.asarray([2.0, 3.0, 4.0], dtype=np.float64),
+        "z": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ux": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uy": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "uz": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "uAcc": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "kineticEne": 0.0,
+        "peakKinEne": 0.0,
+        "peakForceSPH": 0.0,
+        "forceSPHIni": 0.0,
+        "nPart": 3,
+        "peakMassFlowing": 0.0,
+        "iterate": True,
+        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "velocityMag": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "h": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ID": np.array([0, 1, 2], dtype=np.int64),
+        "stoppedParticles": {},
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
+    }
+    particles["potentialEne"] = np.sum(9.81 * particles["z"] * particles["m"])
+
+    demHeader = {}
+    demHeader["xllcenter"] = 0.0
+    demHeader["yllcenter"] = 0.0
+    demHeader["cellsize"] = 5.0
+    demHeader["nodata_value"] = -9999
+    demHeader["nrows"] = 10
+    demHeader["ncols"] = 10
+    dem = {"header": demHeader}
+    dem["rasterData"] = np.ones((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["outOfDEM"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64).flatten()
+    dem["Nx"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["Ny"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["Nz"] = np.ones((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+
+    force = {
+        "forceZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceFrict": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "dM": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "dMDet": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceX": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceY": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHX": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHY": np.asarray([50.0, 50.0, 50.0], dtype=np.float64),
+        "forceSPHZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+    }
+    fields = {"FT": np.zeros((2, 2))}
+    wallLineDict = {
+        "dam": 0,
+        "nIterDam": 1,
+        "cellsCrossed": np.zeros((dem["header"]["ncols"] * dem["header"]["nrows"]), dtype=np.int64),
+    }
+    for key in ["x", "y", "z", "xCrown", "yCrown", "zCrown",
+                "xTangent", "yTangent", "zTangent"]:
+        wallLineDict[key] = np.ones((1)) * 1.0
+    for key in ["nPoints", "height", "slope", "restitutionCoefficient"]:
+        wallLineDict[key] = 0
+    dem["damLine"] = wallLineDict
+
+    particles = DFAfunC.updatePositionC(cfg["GENERAL"], particles, dem, force, fields, typeStop=0)
+
+    # Verify no circular reference was created
+    assert particles["stoppedParticles"] is not particles
+    assert "stoppedParticles" not in particles["stoppedParticles"]
+
+
 def test_computeTrajectoryAngle():
     # first compute travel angle for each particle
     # get parent Id in order to  get the first z position
