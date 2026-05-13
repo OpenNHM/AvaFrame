@@ -643,7 +643,7 @@ def prepareInputData(inputSimFiles, cfg):
         releaseLine["thickness"] = [
             timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0].item()
         ] * len(releaseLine["Name"])
-        releaseLine["thicknessSource"] = ["csv file"]
+        releaseLine["thicknessSource"] = ["csv file"] * len(releaseLine["Name"])
         releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
         releaseLine["timeDepRelValues"] = timeDepRelValues
 
@@ -3813,7 +3813,7 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary", ti
         if releaseType == "timeDepRel":
             timeDepRelValues, _ = gI.getTimeDepRelCsv(timeDepRelFile)
             # for time dependent release use the release volume summed up over all timesteps
-            releaseLine["thickness"] = [np.sum(timeDepRelValues["thickness"])]
+            releaseLine["thickness"] = [np.sum(timeDepRelValues["thickness"])] * len(releaseLine["Name"])
         # check if release features overlap between features
         thresholdPointInPoly = cfg["GENERAL"].getfloat("thresholdPointInPoly")
         geoTrans.prepareArea(releaseLine, demVol, thresholdPointInPoly, combine=True, checkOverlap=True)
