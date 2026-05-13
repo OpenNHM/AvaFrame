@@ -1115,7 +1115,6 @@ def updatePositionC(cfg, particles, dem, force, fields, int typeStop=0):
 
   if stop:
     particles['iterate'] = False
-    particles['stoppedParticles'] = particles
     massStopped = massStopped + massFlowing
 
     if typeStop == 1:
