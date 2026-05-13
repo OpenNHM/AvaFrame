@@ -825,11 +825,11 @@ def test_updateFieldsC_returns_owned_arrays():
         "computeTA": False,
         "computeKE": False,
         "computeP": False,
-        "pfv": np.zeros((1, 1)),
-        "ppr": np.zeros((1, 1)),
-        "pft": np.zeros((1, 1)),
-        "pta": np.zeros((1, 1)),
-        "pke": np.zeros((1, 1)),
+        "pfv": np.zeros((header["nrows"], header["ncols"])),
+        "ppr": np.zeros((header["nrows"], header["ncols"])),
+        "pft": np.zeros((header["nrows"], header["ncols"])),
+        "pta": np.zeros((header["nrows"], header["ncols"])),
+        "pke": np.zeros((header["nrows"], header["ncols"])),
         "dmDet": np.zeros((header["nrows"], header["ncols"])),
     }
 
