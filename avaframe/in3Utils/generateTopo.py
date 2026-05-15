@@ -190,7 +190,7 @@ def addDrop(cfg, x, y, zv):
         z coordinate of the raster taking the drop into account
     """
 
-    # input parameters
+    # input parameters -test
     dx, xEnd, yEnd = getGridDefs(cfg)
 
     xStartDrop = float(cfg["DROP"]["xStartDrop"])
