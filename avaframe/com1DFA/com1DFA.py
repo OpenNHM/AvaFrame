@@ -2833,6 +2833,41 @@ def releaseSecRelArea(cfg, particles, fields, dem, zPartArray0, reportAreaInfo):
     return particles, zPartArray0, reportAreaInfo
 
 
+def _buildParticlePropertiesFilter(cfg, dictKeys):
+    """Build a set of particle property keys to keep when saving.
+
+    Returns None if all properties should be saved (no filtering).
+    Validates both export and track particle properties against dictKeys.
+    """
+    if not isinstance(cfg, configparser.ConfigParser):
+        return None
+
+    exportProperties = cfg["EXPORTS"]["exportParticleProperties"]
+    if exportProperties == "":
+        return None
+
+    exportKeys = exportProperties.split("|")
+    nonExisting = [k for k in exportKeys if k not in dictKeys]
+    if nonExisting:
+        message = "These particle properties are not available %s" % nonExisting
+        log.error(message)
+        raise KeyError(message)
+
+    propertiesFilter = {"t"} | set(exportKeys)
+
+    if cfg["TRACKPARTICLES"].getboolean("trackParticles"):
+        trackProperties = cfg["TRACKPARTICLES"]["particleProperties"]
+        if trackProperties != "":
+            # Track properties are validated upstream by trackParticles();
+            # no validation against dictKeys here since custom keys may be present.
+            trackKeys = trackProperties.split("|")
+            propertiesFilter |= set(trackKeys)
+        # Core properties always needed for particle tracking
+        propertiesFilter |= {"x", "y", "z", "ux", "uy", "uz", "m", "h"}
+
+    return propertiesFilter
+
+
 def savePartToPickle(dictList, outDir, logName, cfg=""):
     """Save each dictionary from a list to a pickle in outDir; works also for one dictionary instead of list
     Note: particle coordinates are still in com1DFA reference system with origin 0,0
@@ -2846,7 +2881,7 @@ def savePartToPickle(dictList, outDir, logName, cfg=""):
     logName : str
         simulation Id
     cfg: str or configparser object
-        ['EXPORTS'] and ['GENERAL'] settings to provide particle properties to be saved,
+        ['EXPORTS'] and ['TRACKPARTICLES'] settings to provide particle properties to be saved,
         if empty str all particle properties are saved, t (time info) always appended
     """
 
@@ -2903,50 +2938,14 @@ def savePartToPickle(dictList, outDir, logName, cfg=""):
         "massStopped",
     ]
 
-    # create list of particle properties and append t (time info)
-    if isinstance(cfg, configparser.ConfigParser):
-        if cfg["EXPORTS"]["exportParticleProperties"] == "":
-            particleProperties = ""
-        else:
-            # first check if particle properties are valid
-            nonExisting = [
-                item
-                for item in cfg["EXPORTS"]["exportParticleProperties"].split("|")
-                if item not in dictKeys
-            ]
-            if len(nonExisting) > 0:
-                message = "These particle properties are not available %s" % nonExisting
-                log.error(message)
-                raise AttributeError(message)
+    propertiesFilter = _buildParticlePropertiesFilter(cfg, dictKeys)
 
-            particleProperties = list(set(["t"] + cfg["EXPORTS"]["exportParticleProperties"].split("|")))
-            if cfg["TRACKPARTICLES"].getboolean("trackParticles"):
-                trackParticleProperties = cfg["TRACKPARTICLES"]["particleProperties"].split("|")
-                particleProperties = set(
-                    ["x", "y", "z", "ux", "uy", "uz", "m", "h"]
-                    + particleProperties
-                    + trackParticleProperties
-                )
-    else:
-        particleProperties = ""
-
-    if isinstance(dictList, list):
-        for dict in dictList:
-            if particleProperties != "":
-                particlesToSave = {key: dict[key] for key in particleProperties}
-            else:
-                particlesToSave = dict
-            fi = open(outDir / ("particles_%s_%09.4f.pickle" % (logName, dict["t"])), "wb")
-            pickle.dump(particlesToSave, fi)
-            fi.close()
-    else:
-        if particleProperties != "":
-            particlesToSave = {key: dictList[key] for key in particleProperties}
-        else:
-            particlesToSave = dictList
-        fi = open(outDir / ("particles_%s_%09.4f.pickle" % (logName, dictList["t"])), "wb")
-        pickle.dump(particlesToSave, fi)
-        fi.close()
+    dicts = dictList if isinstance(dictList, list) else [dictList]
+    for d in dicts:
+        if propertiesFilter is not None:
+            d = {key: d[key] for key in propertiesFilter}
+        with open(outDir / ("particles_%s_%09.4f.pickle" % (logName, d["t"])), "wb") as fi:
+            pickle.dump(d, fi)
 
 
 def trackParticles(cfgTrackPart, dem, particlesList):
