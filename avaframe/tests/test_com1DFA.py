@@ -1873,7 +1873,7 @@ def test_savePartToPickle(tmp_path):
     cfg["EXPORTS"] = {"exportParticleProperties": "x|m|hallo"}
     cfg["TRACKPARTICLES"] = {"trackParticles": False}
 
-    with pytest.raises(AttributeError) as e:
+    with pytest.raises(KeyError) as e:
         com1DFA.savePartToPickle(particles1, outDir, logName, cfg=cfg)
     assert ("These particle properties are not available") in str(e.value)
 
