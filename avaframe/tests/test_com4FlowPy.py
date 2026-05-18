@@ -209,12 +209,12 @@ def test_calculation():
     travelLengthMin[3, 2] = 2 * np.sqrt(cellsize**2)
     results = flowCore.calculation(args)
 
-    assert len(results) == 16
+    assert len(results) == 14
     assert np.all(results[1] == flux)
     assert np.all(results[10] == routFluxSum)
     assert np.all(results[11] == depFluxSum)
     assert np.all(results[8] == travelLengthMin)
-    assert results[7] == None
+    assert results[7] is None
 
 
 def createTestRaster(pathTestFolder, rasterName):
@@ -454,7 +454,8 @@ def test_mergeDictToRaster():
 
 
 def test_mergeDictToPolygon():
-    pathTestFolder = pathlib.Path("avaframe/tests/data/testCom4")
+    _testDIR = pathlib.Path(__file__).parent 
+    pathTestFolder = _testDIR /  "data" / "testCom4"
     rasterName = "testRaster"
     ext = ".tif"
     pathRaster = pathTestFolder / (rasterName + ext)
@@ -487,7 +488,7 @@ def test_mergeDictToPolygon():
 
     assert len(gdfPathPolygons) == 3
     assert np.all(gdfPathPolygons["PRA_id"] == refPolygons["PRA_id"])
-    assert np.all(gdfPathPolygons == refPolygons)
+    assert np.all(gdfPathPolygons.geometry.geom_equals(refPolygons.geometry))
 
     # manipulate dictionaries that the polygons overlap
 

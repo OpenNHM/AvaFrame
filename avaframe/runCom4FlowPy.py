@@ -26,7 +26,7 @@ import avaframe.in2Trans.rasterUtils as IOf
 import avaframe.in3Utils.geoTrans as gT
 
 
-def main(avalancheDir=''):
+def main(avalancheDir=""):
     """this is a wrapper around com4FlowPy.py that handles the following tasks:
     * reading inputs from (local_)avaframeCfg.ini and (local_)com4FlowPyCfg.ini
     * constructing cfgPath and cfgSetup dictionaries for passing to com4FlowPy.com4FlowPyMain()
@@ -53,18 +53,18 @@ def main(avalancheDir=''):
         # if "useCustomPaths" == False, we also use the AvaDir Info for the
         # creation of the simulaiton uid
 
-        if avalancheDir != '':
-            cfgMain['MAIN']['avalancheDir'] = avalancheDir
+        if avalancheDir != "":
+            cfgMain["MAIN"]["avalancheDir"] = avalancheDir
         else:
             # Load avalanche directory from general configuration file
             avalancheDir = cfgMain["MAIN"]["avalancheDir"]
-        cfg['GENERAL']['avaDir'] = cfgMain["MAIN"]["avalancheDir"]
+        cfg["GENERAL"]["avaDir"] = cfgMain["MAIN"]["avalancheDir"]
         uid = cfgUtils.cfgHash(cfg)
         # Clean input directory of old work and output files from module
         initProj.cleanModuleFiles(avalancheDir, com4FlowPy, deleteOutput=False)
 
         # Start logging
-        log = logUtils.initiateLogger(avalancheDir, logName+'_'+uid)
+        log = logUtils.initiateLogger(avalancheDir, logName + "_" + uid)
         log.info("==================================")
         log.info("MAIN SCRIPT")
         log.info("Current avalanche: %s", avalancheDir)
@@ -90,7 +90,11 @@ def main(avalancheDir=''):
         # check if simulation with same uid already has results folder
         if os.path.isdir(cfgPath["resDir"]):
             log.info("folder with same name already exists - aborting")
-            log.info("simulation results folder with same .ini parameters already exists: simulation {}".format(uid))
+            log.info(
+                "simulation results folder with same .ini parameters already exists: simulation {}".format(
+                    uid
+                )
+            )
             sys.exit(1)
         else:
             fU.makeADir(cfgPath["resDir"])
@@ -98,12 +102,12 @@ def main(avalancheDir=''):
             fU.makeADir(cfgPath["tempDir"])
 
         # writing config to .json file
-        successToJSON = writeCfgJSON(cfg, uid, cfgPath['outDir'])
+        successToJSON = writeCfgJSON(cfg, uid, cfgPath["outDir"])
 
         if successToJSON is True:
-            log.info('wrote config to {}/{}.json'.format(cfgPath['outDir'], uid))
+            log.info("wrote config to {}/{}.json".format(cfgPath["outDir"], uid))
         else:
-            log.info('could not write  config to {}/{}.json'.format(cfgPath['outDir'], uid))
+            log.info("could not write  config to {}/{}.json".format(cfgPath["outDir"], uid))
             log.error("Exception occurred: %s", str(successToJSON), exc_info=True)
 
         cfgPath["deleteTemp"] = "False"
@@ -132,14 +136,18 @@ def main(avalancheDir=''):
             except Exception as e:
                 return e
 
-        log = logUtils.initiateLogger(workDir, logName+'_'+uid)
+        log = logUtils.initiateLogger(workDir, logName + "_" + uid)
 
         timeString = datetime.now().strftime("%Y%m%d_%H%M%S")
         try:
             os.makedirs(workDir / "res_{}".format(uid))  # (time_string))
-            res_dir = workDir / "res_{}".format(uid)   # (time_string)
+            res_dir = workDir / "res_{}".format(uid)  # (time_string)
         except FileExistsError:
-            log.info("simulation results folder with same .ini parameters already exists: simulation {}".format(uid))
+            log.info(
+                "simulation results folder with same .ini parameters already exists: simulation {}".format(
+                    uid
+                )
+            )
             sys.exit(1)
         try:
             os.makedirs(workDir / res_dir / "temp")
@@ -152,9 +160,9 @@ def main(avalancheDir=''):
         successToJSON = writeCfgJSON(cfg, uid, workDir)
 
         if successToJSON is True:
-            log.info('wrote config to {}/{}.json'.format(workDir, uid))
+            log.info("wrote config to {}/{}.json".format(workDir, uid))
         else:
-            log.info('could not write  config to {}/{}.json'.format(workDir, uid))
+            log.info("could not write  config to {}/{}.json".format(workDir, uid))
             log.error("Exception occurred: %s", str(successToJSON), exc_info=True)
 
         cfgPath["workDir"] = pathlib.Path(workDir)
@@ -270,7 +278,9 @@ def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
     if cfgFlowPy.getboolean("GENERAL", "variableExponent") is True:
         varExponentPath, available, _ = gI.getAndCheckInputFiles(inputDir, "EXP", "exp", fileExt="raster")
         if available == "No":
-            message = f"There is no variable EXPONENT file in supported format provided in {avalancheDir}/EXP"
+            message = (
+                f"There is no variable EXPONENT file in supported format provided in {avalancheDir}/EXP"
+            )
             log.error(message)
             raise AssertionError(message)
         log.info("variable Exponent file is: %s" % varExponentPath)
@@ -339,7 +349,7 @@ def checkOutputFilesFormat(strOutputFiles):
     """
 
     try:
-        setA = set(strOutputFiles.split('|'))
+        setA = set(strOutputFiles.split("|"))
         setB = set(
             [
                 "zDelta",
@@ -355,24 +365,22 @@ def checkOutputFilesFormat(strOutputFiles):
                 "zDeltaSum",
                 "routFluxSum",
                 "depFluxSum",
-                "relVolMin",
-                "relVolMax",
                 "relIdPolygon",
                 "relIdCount",
             ]
         )
         # if there is at least 1 correct outputfile defined, we use the string provided in the .ini file
-        if (setA & setB):
+        if setA & setB:
             outNotValid = setA - setB
             if outNotValid:
                 for outFile in outNotValid:
                     print("WARNING! - {} is not a valid output file and is not computed".format(outFile))
             return strOutputFiles
         else:
-            raise ValueError('outputFiles defined in .ini have wrong format - using default settings')
+            raise ValueError("outputFiles defined in .ini have wrong format - using default settings")
     except ValueError:
         # else we return the default options
-        return 'zDelta|cellCounts|travelLength|fpTravelAngle'
+        return "zDelta|cellCounts|travelLength|fpTravelAngle"
 
 
 def writeCfgJSON(cfg, uid, workDir):
@@ -399,7 +407,7 @@ def writeCfgJSON(cfg, uid, workDir):
     cfgDict = cfgUtils.convertConfigParserToDict(cfg)
 
     try:
-        with open(workDir / "{}.json".format(uid), 'w') as outfile:
+        with open(workDir / "{}.json".format(uid), "w") as outfile:
             jsonDict = json.dumps(cfgDict, sort_keys=True, ensure_ascii=True)
             outfile.write(jsonDict)
 
