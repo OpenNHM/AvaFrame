@@ -168,7 +168,7 @@ def projectOnGrid(x, y, Z, csz=1, xllc=0, yllc=0, interp="bilinear", getXYField=
         return z, ioob
 
 
-def resizeData(raster, rasterRef):
+def resizeData(raster, rasterRef, interp="default"):
     """
     Reproject raster on a grid of shape rasterRef, raster adapts cellsize and extend of rasterRef
 
@@ -178,6 +178,8 @@ def resizeData(raster, rasterRef):
         raster dictionary
     rasterRef : dict
         reference raster dictionary
+    interp: str
+        default - refers to bilinear, other option is nearest
 
     Returns
     -------
@@ -189,6 +191,18 @@ def resizeData(raster, rasterRef):
     if rU.isEqualASCheader(raster["header"], rasterRef["header"]):
         return raster["rasterData"], rasterRef["rasterData"]
     else:
+        if interp == "default":
+            interpMethod = "bilinear"
+        elif interp == "nearest":
+            interpMethod = "nearest"
+        else:
+            message = (
+                'Interpolation method "%s" not recognized (valid options: "default" (bilinear), "nearest" (nearest-neighbor))'
+                % (interp)
+            )
+            log.error(message)
+            raise NameError(message)
+
         headerRef = rasterRef["header"]
         ncols = headerRef["ncols"]
         nrows = headerRef["nrows"]
@@ -199,7 +213,7 @@ def resizeData(raster, rasterRef):
         ygrid = np.linspace(yllc, yllc + (nrows - 1) * csz, nrows)
         X, Y = np.meshgrid(xgrid, ygrid)
         Points = {"x": X, "y": Y}
-        Points, _ = projectOnRaster(raster, Points, interp="bilinear")
+        Points, _ = projectOnRaster(raster, Points, interp=interpMethod)
         bilinearData = Points["z"]
 
         if np.isnan(bilinearData).any():
@@ -231,7 +245,8 @@ def remeshData(rasterDict, cellSizeNew, remeshOption="griddata", interpMethod="c
         Check the scipy documentation for more details
         default is 'griddata'
     interpMethod: str
-        interpolation order to use for the interpolation ('linear', 'cubic' or 'quintic')
+        interpolation order to use for the interpolation ('default', 'linear', 'cubic' or 'quintic')
+        default refers to cubic
     larger: Boolean
         if true (default) output grid is at least as big as the input
 
@@ -241,7 +256,20 @@ def remeshData(rasterDict, cellSizeNew, remeshOption="griddata", interpMethod="c
         remeshed data dict with data as numpy array and header info
 
     """
+
     header = rasterDict["header"]
+
+    # TODO: shall we allow other options?
+    if interpMethod == "default":
+        interpMethod = "cubic"
+    elif interpMethod in ["nearest", "linear", "cubic"] and remeshOption == "griddata":
+        interpMethod = interpMethod
+    elif interpMethod in ["linear", "quintic", "cubic"] and remeshOption == "RectBivariateSpline":
+        interpMethod = interpMethod
+    else:
+        message = 'Interpolation method "%s" not recognized' % (interpMethod)
+        log.error(message)
+        raise NameError(message)
 
     # fetch shape info and get new mesh info
     xGrid, yGrid, _, _ = makeCoordGridFromHeader(header)
@@ -306,7 +334,7 @@ def remeshData(rasterDict, cellSizeNew, remeshOption="griddata", interpMethod="c
     return remeshedRaster
 
 
-def remeshDataRio(rasterFile, cellSizeNew, larger=True):
+def remeshDataRio(rasterFile, cellSizeNew, resamplingM="default", larger=True):
     """resample raster data using rasterio to change effective cell size to cellSizeNew by specifying an output array
     of specified size, default resampling option is set to cubic
 
@@ -316,6 +344,8 @@ def remeshDataRio(rasterFile, cellSizeNew, larger=True):
         path to file with raster data options asci or tif
     cellSizeNew: float
         desired spatial resolution of new raster dataset, cellsize
+    resamplingM: str
+        options are: default: cubic resampling, nearest
     larger: Boolean
         if true (default) output grid is at least as big as the input
 
@@ -347,6 +377,16 @@ def remeshDataRio(rasterFile, cellSizeNew, larger=True):
     else:
         srcCrs = src.crs
 
+    # set resampling method
+    if resamplingM == "default":
+        resamplingMethod = Resampling.cubic
+    elif resamplingM == "nearest":
+        resamplingMethod = Resampling.nearest
+    else:
+        message = 'Interpolation method "%s" not recognized' % (resamplingM)
+        log.error(message)
+        raise NameError(message)
+
     data, transform = rasterio.warp.reproject(
         source=src.read(),
         destination=np.empty((src.count, height, width)) * np.nan,
@@ -356,7 +396,7 @@ def remeshDataRio(rasterFile, cellSizeNew, larger=True):
         dst_crs=srcCrs,
         src_nodata=src.nodata,
         dst_nodata=src.nodata,
-        resampling=Resampling.cubic,
+        resampling=resamplingMethod,
     )
 
     data = np.where(data == src.nodata, np.nan, data)
@@ -373,6 +413,7 @@ def remeshDataRio(rasterFile, cellSizeNew, larger=True):
 
     # create remeshed raster dictionary
     remeshedRaster = {"rasterData": data[0], "header": headerRemeshed}
+    log.info('Remeshing of %s complete using resampling method "%s"' % (rasterFile.name, resamplingM))
 
     return remeshedRaster
 
@@ -430,13 +471,19 @@ def remeshRaster(rasterFile, cfgSim, typeIndicator="DEM", onlySearch=False, lega
     )
     if legacy:
         remeshedRaster = remeshData(
-            raster, cszRasterNew, remeshOption="griddata", interpMethod="cubic", larger=False
+            raster,
+            cszRasterNew,
+            remeshOption="griddata",
+            interpMethod=cfgSim["GENERAL"]["remeshInterpMethod"],
+            larger=False,
         )
         log.info("Legacy option used for remeshing")
         flipArg = True
     else:
         log.info("Using rasterio resampling")
-        remeshedRaster = remeshDataRio(rasterFile, cszRasterNew, larger=False)
+        remeshedRaster = remeshDataRio(
+            rasterFile, cszRasterNew, cfgSim["GENERAL"]["remeshInterpMethod"], larger=False
+        )
         flipArg = False
 
     # save remeshed raster
@@ -2129,3 +2176,51 @@ def checkDBOverlap(DBXl, DBXr, DBYl, DBYr):
     if not DBrLine.is_simple or not DBlLine.is_simple:
         message = "Domain transformation for given path_aimec - curvature of provided line leads to folding"
         log.warning(message)
+
+
+def interpolateLineLinear(lineDict, distance):
+    """interpolate a lines x, y coordinates using numpy.interp performing a one-dimensional piecewise linear
+    interpolation
+
+    Parameters
+    ------------
+    lineDict: dict
+        dictionary with x, y coordinates
+    distance: float
+        distance between new points
+
+    Returns
+    ---------
+    lineDict: dict
+        updated dictionary with x, y coordinates
+
+    """
+
+    # fetch x, y coors from lineDict
+    x = lineDict["x"]
+    y = lineDict["y"]
+
+    # check if duplicate points in lineDict coordinates
+    indexNonDup = np.where(np.abs(np.diff(x)) + np.abs(np.diff(y)) > 0)
+    xcoor = x[indexNonDup]
+    xNew = np.append(xcoor, x[-1])
+    ycoor = y[indexNonDup]
+    yNew = np.append(ycoor, y[-1])
+
+    s = computeLengthOfLine2D(xNew, yNew)
+    s = np.append(0, s)
+    nPoints = int(np.ceil(s[-1] / distance))
+
+    # create a count for the number of given coordinate points in lineDict
+    xPoints = np.linspace(0, s[-1], nPoints)
+    yPoints = np.linspace(0, s[-1], nPoints)
+
+    # perform interpolation on each coordinate
+    X1 = np.interp(xPoints, s, xNew)
+    Y1 = np.interp(yPoints, s, yNew)
+
+    # set new x, y coordinates
+    lineDict["x"] = X1
+    lineDict["y"] = Y1
+
+    return lineDict

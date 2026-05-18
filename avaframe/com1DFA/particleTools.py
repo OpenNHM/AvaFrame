@@ -16,7 +16,7 @@ import avaframe.in3Utils.fileHandlerUtils as fU
 import avaframe.com1DFA.DFAtools as DFAtls
 import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.DFAfunctionsCython as DFAfunC
-
+import avaframe.out3Plot.outDebugPlots as outDebug
 
 # create local logger
 # change log level in calling module to DEBUG to see log messages
@@ -1009,3 +1009,178 @@ def savePartDictToPickle(partDict, fName):
     fi = open(fName, "wb")
     pickle.dump(partDict, fi)
     fi.close()
+
+
+def createAssetsRasterFromParticleLocations(particlesTimeArrays, dem, uniqueAssets, assetsValues):
+    """create a raster indicating particle trajectories colorcoded with assets classes, highest overrides lower classes
+
+     Parameters
+    -----------
+    particlesTimeArrays: dict
+        dictionary with time series of properties of particles
+    dem: dict
+        dictionary with dem information header nrows, ncols required
+    uniqueAssets: list
+        list of assets class values sorted from low to high
+    assetsValues: dict
+        dictionary with for each infrastructure class value the affected cell numbers
+
+    Returns
+    ---------
+    particleAssets: numpy ndarray
+        array with particle trajectories colorcoded with assets classes
+    particlesTimeArrays: dict
+        updated with assets value
+
+    """
+
+    # initialize particle assets arrays with nans
+    nTime, nPart = particlesTimeArrays["ID"].shape
+    particlesTimeArrays["assetsValue"] = np.full((nTime, nPart), np.nan)
+    particleAssets = np.full((dem["header"]["nrows"], dem["header"]["ncols"]), np.nan)
+
+    # process classes from low to high so higher classes naturally override lower ones
+    for assetClass in uniqueAssets:
+        # find for each particle if its trajectory has an overlap with an asset class
+        assetCells = np.asarray(assetsValues["value_%d" % assetClass])
+        inAsset = np.isin(particlesTimeArrays["inCellDEM"], assetCells)
+
+        # loop over all particles
+        for pId in range(nPart):
+            # if particle trajectory has overlap mark all time steps until the last time step it has overlap
+            # if not leave loop
+            hitTimes = np.where(inAsset[:, pId])[0]
+            if len(hitTimes) == 0:
+                continue
+
+            # mark particle trajectory up to the last time it has overlap with this asset class
+            mMax = hitTimes[-1]
+            particlesTimeArrays["assetsValue"][:mMax, pId] = assetClass
+            # find indices of respective cells and mark them in particleAssets array
+            indX = particlesTimeArrays["indXDEM"][: mMax + 1, pId].astype(int)
+            indY = particlesTimeArrays["indYDEM"][: mMax + 1, pId].astype(int)
+            # only overwrite cells not already set to a higher class
+            particleAssets[indY, indX] = np.where(
+                particleAssets[indY, indX] >= assetClass, particleAssets[indY, indX], assetClass
+            )
+
+    # find indices of all cells that were affected by particles
+    xyIndAllUnique = findUniqueCellIndices(particlesTimeArrays)
+
+    # set all locations where particles were but not affecting assets to class -1.0
+    testArray = np.full((dem["header"]["nrows"], dem["header"]["ncols"]), np.nan)
+    testArray[xyIndAllUnique[:, 1], xyIndAllUnique[:, 0]] = -1.0
+    particleAssets = np.where(~np.isnan(particleAssets), particleAssets, testArray)
+
+    return particleAssets, particlesTimeArrays
+
+
+def findUniqueCellIndices(particlesTimeArrays):
+    """find indices of all cells that are saved for each particle as the particle location was within that cell for the
+    respective time step
+
+    Parameters
+    --------------
+    particlesTimeArrays: dict
+        dictionary with time series of properties of particles, keys: property each with a timeSteps x number of
+        particles array
+
+    Returns
+    ----------
+    xyIndAllUnique: np.ndarray
+        array with 2 columns: column 1: X indices of all affected cells column 2: Y indices of all affected cells
+
+    """
+
+    xyIndAll = np.column_stack(
+        (particlesTimeArrays["indXDEM"].flatten(), particlesTimeArrays["indYDEM"].flatten())
+    )
+    xyIndAllUnique = np.unique(xyIndAll, axis=0)
+    xyIndAllUnique = xyIndAllUnique[~np.isnan(xyIndAllUnique).any(axis=1)]
+    xyIndAllUnique = np.asarray(xyIndAllUnique, dtype=int)
+
+    return xyIndAllUnique
+
+
+def interpolateParticlesTrajectories(dem, particlesTimeArrays, cellSizeFactor, debugPlot=False):
+    """interpolate particle trajectories to have more closely spaced values important if affected grid cells
+    should be identified without gaps
+
+       Parameters
+       --------------
+       dem: dict
+           dictionary with info on dem header and rasterData
+       particlesTimeArrays: dict
+           dictionary with time series of properties of particles
+        cellSizeFactor: float
+            dem mesh cellsize x cellSizeFactor will give desired distance of interpolated points
+
+       Returns
+       ----------
+       pLong: dict
+            updated dictionary with time series of particles location, affected cells
+
+    """
+
+    # fetch initial information
+    ncols = dem["header"]["ncols"]
+    cellSize = dem["header"]["cellsize"]
+    x = particlesTimeArrays["x"]
+    y = particlesTimeArrays["y"]
+    z = particlesTimeArrays["z"]
+    nTime, nPart = particlesTimeArrays["ID"].shape
+    # computational mesh has origin 0,0 in com1DFA required for projectOnRaster for z coordinates in prepareLine function
+    demComputation = {
+        "header": {"xllcenter": 0, "yllcenter": 0, "cellsize": dem["header"]["cellsize"]},
+        "rasterData": dem["rasterData"],
+    }
+
+    # initialize dict for interpolated particle trajectories
+    pLong = {}
+    indLongest = 0
+    for k in range(nPart):
+        pTraj = {"x": x[:, k], "y": y[:, k], "z": z[:, k]}
+        # interpolate particle trajectories
+        pTraj, _ = geoTrans.prepareLineStrict(
+            demComputation,
+            pTraj,
+            np.floor(dem["header"]["cellsize"] * cellSizeFactor),
+            Point=None,
+        )
+        # plot particle trajectories original and interpolated result on grid
+        if debugPlot:
+            outDebug.plotParticleTrajOnGrid(x[:, k], y[:, k], pTraj["x"], pTraj["y"], dem)
+
+        pLong["%s_pTraj" % particlesTimeArrays["ID"][0, k]] = pTraj
+        if (pTraj["x"].shape[0]) > indLongest:
+            indLongest = pTraj["x"].shape[0]
+
+    # initialize arrays
+    pLong["indXDEM"] = np.zeros((indLongest, nPart))
+    pLong["indYDEM"] = np.zeros((indLongest, nPart))
+    pLong["inCellDEM"] = np.zeros((indLongest, nPart))
+    pLong["ID"] = np.zeros((indLongest, nPart))
+    pLong["x"] = np.zeros((indLongest, nPart))
+    pLong["y"] = np.zeros((indLongest, nPart))
+    # pLong["z"] = np.zeros((indLongest, nPart))
+
+    # find grid cells for each particle location
+    for k in range(nPart):
+        x1 = np.full(indLongest, np.nan)
+        lenX = pLong["%s_pTraj" % particlesTimeArrays["ID"][0, k]]["x"].shape[0]
+        x1[0:lenX] = pLong["%s_pTraj" % particlesTimeArrays["ID"][0, k]]["x"]
+        y1 = np.full(indLongest, np.nan)
+        y1[0:lenX] = pLong["%s_pTraj" % particlesTimeArrays["ID"][0, k]]["y"]
+        # z1 = np.full(indLongest, np.nan)
+        # z1[0:lenX] = pLong["%s_pTraj" % particlesTimeArrays["ID"][0, k]]["z"]
+        # find cell indices
+        pLong["indXDEM"][:, k] = np.round(x1[:] / cellSize)
+        pLong["indYDEM"][:, k] = np.round(y1[:] / cellSize)
+        # get index of cell containing the particle
+        pLong["inCellDEM"][:, k] = pLong["indXDEM"][:, k] + ncols * pLong["indYDEM"][:, k]
+        pLong["ID"][:, k] = particlesTimeArrays["ID"][0, k]
+        pLong["x"][:, k] = x1
+        pLong["y"][:, k] = y1
+        # pLong["z"][:, k] = z1
+
+    return pLong

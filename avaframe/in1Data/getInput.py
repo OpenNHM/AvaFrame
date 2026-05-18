@@ -1266,3 +1266,66 @@ def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
             message = "The initial velocity provided in %s can not be negative." % (timeDepRelCsv)
             log.error(message)
             raise ValueError(message)
+
+
+def preprocessAssets(avalancheDir, dem, cfg):
+    """fetch an assets raster with same extent as simulation DEM and create assets class info
+       nan values and 0 are disregarded as asset class
+
+    Parameters
+    ------------
+    avalancheDir: str or pathlib.Path
+        path to avalanche directory
+    dem: dict
+        dictionary with info on DEM
+    cfg: configparser object
+        configuration settings for remeshing
+
+    Returns
+    ---------
+    uniqueAssets: list
+        list of asset class values ordered from low to high
+    assets: dict
+        dictionary with assets info
+    assetsValues: dict
+        dictionary with affected cell numbers for each asset class value
+
+
+    """
+
+    # load infrastructure data
+    assetsPath = pathlib.Path(avalancheDir, "Inputs", "INFRA")
+    assetsFileList = list(assetsPath.glob("*.asc")) + list(assetsPath.glob("*.tif"))
+    if len(assetsFileList) > 1:
+        message = "More than one assets class file found in %s, this is not allowed" % (str(assetsPath))
+        log.error(message)
+        raise ValueError(message)
+    elif len(assetsFileList) == 0:
+        message = "No assets class file found in %s" % (assetsPath)
+        log.error(message)
+        raise FileNotFoundError(message)
+    else:
+        assetsFile = assetsFileList[0]
+
+    # check extent and cell size of assets raster - if not aligned with computational mesh - remesh
+    pathToAssets, pathToAssetsFull, remeshedAssets = dP.checkExtentAndCellSize(
+        cfg, assetsFile, dem, "ASSETS", nanInsideDEMCheck=False
+    )
+    assets = IOf.readRaster(pathToAssetsFull, noDataToNan=True)
+
+    # create cell number
+    cellNo = np.zeros((dem["header"]["nrows"], dem["header"]["ncols"]))
+    for m in range(dem["header"]["nrows"]):
+        for k in range(dem["header"]["ncols"]):
+            cellNo[m, k] = k + m * dem["header"]["ncols"]
+    # fetch available assets classes and sort low to high class
+    uniqueAssets = np.sort(np.unique(assets["rasterData"]))
+    uniqueAssets = [i for i in uniqueAssets if i != 0 and not np.isnan(i)]
+
+    # fetch corresponding cell numbers for all infrastructure classes
+    assetsValues = {}
+    for i in uniqueAssets:
+        assetsArray = np.where(assets["rasterData"] == i, cellNo, np.nan)
+        assetsValues["value_%d" % i] = [int(k) for k in assetsArray.flatten() if np.isnan(k) == False]
+
+    return uniqueAssets, assets, assetsValues
