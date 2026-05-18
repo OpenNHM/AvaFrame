@@ -1036,6 +1036,7 @@ def readConfigurationInfoFromDone(avaDir, specDir="", latest=False):
                             "nSave",
                             "nIter",
                             "simName",
+                            "simTimestamp",
                         ]
                     ],
                     how="left",

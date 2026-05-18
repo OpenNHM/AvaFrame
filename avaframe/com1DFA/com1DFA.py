@@ -2123,6 +2123,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         "timePos": 0.0,
         "timeNeigh": 0.0,
         "timeField": 0.0,
+        "simTimestamp": 0.0,
     }
 
     # Load configuration settings
@@ -2366,6 +2367,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         tCPUtimeLoop = time.time() - startTime
         tCPU["timeLoop"] = tCPU["timeLoop"] + tCPUtimeLoop
     tCPU["nIter"] = nIter
+
+    tCPU["simTimestamp"] = datetime.now().strftime("%Y%m%d_%Hh%Mm%Ss")
     log.info("Ending computation at time t = %f s", t - dt)
     log.debug("Saving results for time step t = %f s", t - dt)
     log.info("MTot = %f kg, %s particles" % (particles["mTot"], particles["nPart"]))

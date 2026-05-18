@@ -422,13 +422,59 @@ def plotParticlesRelease(particles, relRaster, releaseLine, dem, cfg, xyParticle
         xyParticlesAll["x"] + dem["originalHeader"]["xllcenter"],
         xyParticlesAll["y"] + dem["originalHeader"]["yllcenter"],
         "+g",
-    )
+        )
     # only particles that have not been removed
     ax.plot(
         particles["x"] + dem["originalHeader"]["xllcenter"],
         particles["y"] + dem["originalHeader"]["yllcenter"],
         "*r",
-    )
+        )
     ax.plot(releaseLine["x"], releaseLine["y"], "-b")
     ax.set_title("mass/rho: %.2fm3" % (volParticles))
+    plt.show()
+
+
+def plotParticleTrajOnGrid(x, y, xNew, yNew, dem):
+    """plot particle trajectory old and new (interpolated) on grid
+        current use: interpolateParticlesTrajectories in com1DFA/particleTools.py
+
+    Parameters
+    -----------
+    x, y, xNew, yNew : array
+        old and new (interpolated) coordinates of particle trajectories
+    dem: dict
+        dictionary with header and rasterData of computational DEM 
+    """
+    extentCellCenters, extentCellCorners = pU.createExtentMinMax(
+        dem["rasterData"], dem["header"], originLLCenter=True
+    )
+
+    # figure
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    # Minor ticks
+    ax.set_xticks(
+        np.arange(extentCellCorners[0], extentCellCorners[1], dem["header"]["cellsize"]), minor=True
+    )
+    ax.set_yticks(
+        np.arange(extentCellCorners[2], extentCellCorners[3], dem["header"]["cellsize"]), minor=True
+    )
+    # Gridlines based on minor ticks
+    ax.grid(which="minor", color="gray", linestyle="-", linewidth=2)
+    ax.plot(
+        x + dem["header"]["xllcenter"],
+        y + dem["header"]["yllcenter"],
+        "-",
+        color="blue",
+        linewidth=5,
+        alpha=0.25,
+    )
+    ax.plot(
+        x + dem["header"]["xllcenter"],
+        y + dem["header"]["yllcenter"],
+        "+",
+        color="blue",
+        markersize=15,
+    )
+    ax.plot(xNew + dem["header"]["xllcenter"], yNew + dem["header"]["yllcenter"], "-*r")
+    ax.axis("equal")
     plt.show()

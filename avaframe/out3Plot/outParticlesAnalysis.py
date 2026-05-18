@@ -838,3 +838,101 @@ def readMeasuredParticleData(avalancheDir, demHeader, pData=""):
     mParticles["y"] = mParticles["y"] - demHeader["yllcenter"]
 
     return mParticles
+
+
+def plotParticlesAssets(dem, assets, particleAssets, outDir, plotName, title):
+    """Plot locations of particles over all timesteps that reached assets color coded with highes assets class
+
+    Parameters
+    -----------
+    dem: dict
+        dictionary with dem info
+    assets: dict
+        dictionary with assets info
+    particleAssets: numpy ndarray
+        array with particle trajectories colorcoded with assets classes
+    outDir: pathlib.Path
+        path to output directory
+    plotName: str
+        name of plot file
+    title: str
+        plot title
+    """
+    extentCellCenters, extentCellCorners = pU.createExtentMinMax(
+        dem["rasterData"], dem["header"], originLLCenter=True
+    )
+
+    fig, ax = plt.subplots(ncols=1)
+    ax.set_title(title)
+    # add DEM hillshade with contour lines
+    # set extent in meters using cellSize and llcenter location
+    _, _ = pU.addHillShadeContours(ax, dem["rasterData"], dem["header"]["cellsize"], extentCellCenters)
+
+    # create common colormap for assets info and particles assets info
+    vMin = np.nanmin(assets["rasterData"])
+    vMax = np.nanmax(assets["rasterData"])
+    cmap1, colorsNew, levelsNew, norm = pU.makeColorMap(
+        {"cmap": cm.hawaii.reversed()}, vMin, vMax, continuous=True
+    )
+    # set all cells that have been affected by particles but don't belong to the identified trajectories affecting assets
+    # to white
+    cmap1.set_under("white")
+    ax.imshow(
+        np.where(assets["rasterData"] != 0, assets["rasterData"], np.nan),
+        alpha=1.0,
+        extent=extentCellCenters,
+        origin="lower",
+        cmap=cmap1,
+        zorder=11,
+        vmin=vMin,
+        vmax=vMax,
+    )
+
+    im1 = ax.imshow(
+        np.where(particleAssets != 0, particleAssets, np.nan),
+        extent=extentCellCenters,
+        origin="lower",
+        alpha=0.6,
+        cmap=cmap1,
+        zorder=10,
+        vmin=vMin,
+        vmax=vMax,
+    )
+    # separate plot so that alpha=1
+    ax.imshow(
+        np.where(particleAssets == -1.0, particleAssets, np.nan),
+        extent=extentCellCenters,
+        origin="lower",
+        alpha=0.2,
+        cmap=cmap1,
+        zorder=10,
+        vmin=vMin,
+        vmax=vMax,
+    )
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("y [m]")
+    fig.colorbar(im1, ax=ax)
+
+    # save and or plot
+    plotPath = pU.saveAndOrPlot({"pathResult": outDir}, plotName, fig)
+    log.info("Plot for %s successfully saved at %s" % (plotName, str(plotPath)))
+
+
+def checkSavingTimeStepParticles(timeStepInfo, limitValue=2.0):
+    """check if saved particles are of high enough temporal resolution
+
+    Parameters
+    -----------
+    timeStepInfo: list, np array
+        list of saved time steps
+    limitValue: float
+        allowed difference between consecutive saved time steps
+    """
+    deltaT = np.diff(timeStepInfo)
+    if np.any(deltaT > limitValue):
+        message = (
+            "Saving time step of simulation particle Info exceeds two seconds - this can lead to errors in analysis"
+            "set saving time step to <= %.2f" % limitValue
+        )
+        log.error(message)
+        raise AssertionError(message)

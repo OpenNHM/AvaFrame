@@ -245,3 +245,33 @@ To run
 
 
 
+particle assets information
+=============================
+:py:mod:`out3Plot.particleAnalysisPlots` can also be used to create a plot that shows the cells affected by the particle
+trajectories color-coded according to different assets classes (from high to low). This functionality is implemented only
+for :py:mod:`com1DFA.com1DFA` and relies on particle dictionaries that are saved for each simulation run. For this,
+adding *particles* to the ``resType`` and adjusting the desired saving time step in ``tSteps`` (see Note) in your local copy
+of ```com1DFACfg.ini`` is required. To reduce the amount of data that is saved, consider only exporting the required
+particle properties by setting ``exportParticlePorperties`` to: *ID|indXDEM|indYDEM|x|y|z|inCellDEM|nPart*.
+In addition, an assets raster file in ``avalancheDir/Inputs/INFRA`` is required. Classes have to be > 0,
+negative and zero values are treated as no data values. Preferably, the extent and resolution of the provided
+assets raster should match the extent and resolution of the simulation DEM. If extents or resolution do not match,
+remeshing will be performed. However, this can potentially introduce geometrical artefacts in the assets layer
+(a corresponding warning will be written to the log-file). In order to avoid introducing new classes as a result
+of interpolation, the default setting in the corresponding run script (parameter ``remeshInterpMethod``)
+is using a nearest-neighbor based interpolation. To perform the analysis (requires a prior :py:mod:`com1DFA.com1DFA`
+simulation run using the settings described above):
+run:
+  ::
+
+    pixi run python runScripts/runParticlesAssetsInfo.py
+
+.. Note::
+    The setting of the saving time step ``tSteps`` has a strong effect on the results of the assets analysis.
+    Choosing a saving time step close to the computational time step dt (default value is 0.1s), will result in
+    most accurate results. When choosing a significantly larger time step, derived particle trajectories will lead
+    to gaps in the analysis, hence cells will not be attributed and color-coded correctly. Interpolation of particle
+    trajectories (setting: ``interpolateParticlesTrajectoriesFlag = True``), can help to determine which cells are
+    affected but also with this option, if a too large saving time step (> 1 second) is chosen, errors have to be
+    expected. Hence, the default setting is ``interpolateParticlesTrajectoriesFlag = True`` and if saving time steps
+    exceed 2 seconds an error is raised.

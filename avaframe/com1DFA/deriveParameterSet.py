@@ -965,7 +965,7 @@ def checkRasterMeshSize(cfgSim, rasterFile, typeIndicator="DEM", onlySearch=Fals
     return pathToRaster
 
 
-def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
+def checkExtentAndCellSize(cfg, inputFile, dem, fileType, nanInsideDEMCheck=True):
     """check if extent of inputFile is within resizeThreshold of dem, if so resize and save to remeshedRasters
 
     Parameters
@@ -978,12 +978,14 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
         dictionary with info on DEM
     fileType: str
         name of fileType
+    nanInsideDEMCheck: bool
+        if True check if in remeshed file only nans where also DEM has nans
     """
 
     inputField = IOf.readRaster(inputFile)
 
     # Check for NaN values before remeshing - not allowed in non-DEM input rasters
-    if fileType.upper() != "DEM":
+    if fileType.upper() != "DEM" and fileType.upper() != "ASSETS":
         if np.isnan(inputField["rasterData"]).any():
             message = "In %s file (%s) nan values found - this is not allowed" % (
                 fileType,
@@ -996,18 +998,12 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
     demHeader = dem["header"]
 
     # check if negative values in raster file
-    if np.any(inputField["rasterData"] < 0):
-        message = "In %s file (%s) negative values found - this is not allowed" % (
-            fileType,
-            inputFile.name,
-        )
-        log.error(message)
-        raise AssertionError(message)
+    checkNegativeInRaster(inputField, fileType, inputFile)
 
     rT = float(cfg["GENERAL"]["resizeThreshold"])
     cT = float(cfg["GENERAL"]["meshCellSizeThreshold"])
 
-    diffX0, diffX1, diffY0, diffY1 = checkSizeExtent(inputField, demHeader, inputFile, fileType, rT)
+    diffX0, diffX1, diffY0, diffY1 = checkSizeExtent(inputField, demHeader, fileType, rT)
 
     # check if identical extent, if so use unchanged
     if (
@@ -1020,7 +1016,9 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
         remeshedFlag = "No"
     else:
         # resize data, project data from inputFile onto computational domain
-        inputField["rasterData"], _ = geoTrans.resizeData(inputField, dem)
+        inputField["rasterData"], _ = geoTrans.resizeData(
+            inputField, dem, interp=cfg["GENERAL"]["remeshInterpMethod"]
+        )
 
         # add warning
         log.warning(
@@ -1065,40 +1063,65 @@ def checkExtentAndCellSize(cfg, inputFile, dem, fileType):
         returnStr = str(pathlib.Path("remeshedRasters", outFile.name))
         remeshedFlag = "Yes"
 
-    # check if no data values only where DEM also has no data values
-    # if remeshed - potentially nans at edges, if inputField has a different origin/extent
-    # for example if extent of DEM is larger -> nans in this region in remeshed input file
-    # first maks nans values of DEM as there, also inputField is allowed to have nans
-    nanDEMMasked = np.where(np.isnan(dem["rasterData"]), -9999, inputField["rasterData"])
-    # search for indices where nans come from remeshing use difference in extent prior to remeshing
-    # if diff is negative on Left side DEM is smaller
-    # if diff is negative on right side DEM is larger
-    nNeglectRowsMin = int(np.ceil(abs(min(0, diffY0 / dem["header"]["cellsize"]))))
-    nNeglectRowsMax = int(np.ceil(abs(max(0, diffY1 / dem["header"]["cellsize"]))))
-    # if diff is negative on lower side DEM is smaller
-    # if diff is negative on right side DEM is larger
-    nNeglectColsMin = int(np.ceil(abs(min(0, diffX0 / dem["header"]["cellsize"]))))
-    nNeglectColsMax = int(np.ceil(abs(max(0, diffX1 / dem["header"]["cellsize"]))))
-    maxRows = dem["header"]["nrows"] - nNeglectRowsMin
-    maxCols = dem["header"]["ncols"] - nNeglectColsMin
+    if nanInsideDEMCheck:
+        # check if no data values only where DEM also has no data values
+        # if remeshed - potentially nans at edges, if inputField has a different origin/extent
+        # for example if extent of DEM is larger -> nans in this region in remeshed input file
+        # first maks nans values of DEM as there, also inputField is allowed to have nans
+        nanDEMMasked = np.where(np.isnan(dem["rasterData"]), -9999, inputField["rasterData"])
+        # search for indices where nans come from remeshing use difference in extent prior to remeshing
+        # if diff is negative on Left side DEM is smaller
+        # if diff is negative on right side DEM is larger
+        nNeglectRowsMin = int(np.ceil(abs(min(0, diffY0 / dem["header"]["cellsize"]))))
+        nNeglectRowsMax = int(np.ceil(abs(max(0, diffY1 / dem["header"]["cellsize"]))))
+        # if diff is negative on lower side DEM is smaller
+        # if diff is negative on right side DEM is larger
+        nNeglectColsMin = int(np.ceil(abs(min(0, diffX0 / dem["header"]["cellsize"]))))
+        nNeglectColsMax = int(np.ceil(abs(max(0, diffX1 / dem["header"]["cellsize"]))))
+        maxRows = dem["header"]["nrows"] - nNeglectRowsMin
+        maxCols = dem["header"]["ncols"] - nNeglectColsMin
 
-    # add mask where nans come from remeshing
-    # change order because diff is with origin lower!!
-    nanDEMMaskedLimited = nanDEMMasked[nNeglectRowsMax:maxRows, nNeglectColsMax:maxCols]
+        # add mask where nans come from remeshing
+        # change order because diff is with origin lower!!
+        nanDEMMaskedLimited = nanDEMMasked[nNeglectRowsMax:maxRows, nNeglectColsMax:maxCols]
 
-    # check if nan values in raster file data (excluding nans from remeshing and where also DEM has nans)
-    if np.any(np.isnan(nanDEMMaskedLimited)):
-        message = "In %s file (%s) nan values found inside DEM extent - this is not allowed" % (
+        # check if nan values in raster file data (excluding nans from remeshing and where also DEM has nans)
+        if np.any(np.isnan(nanDEMMaskedLimited)):
+            message = "In %s file (%s) nan values found inside DEM extent - this is not allowed" % (
+                fileType,
+                inputFile.name,
+            )
+            log.error(message)
+            raise AssertionError(message)
+
+    return returnStr, outFile, remeshedFlag
+
+
+def checkNegativeInRaster(inputField, fileType, inputFile):
+    """check if inputField['rasterData'] contains negative values, if True error
+
+    Parameters
+    -------------
+    inputField: dict
+        dictionary with header and rasterData to be checked
+    fileType: str
+        file type used in error message
+    inputFile: pathlib.Path
+        path to input file - used in error message
+
+    """
+
+    # check if negative values in raster file
+    if np.any(inputField["rasterData"] < 0):
+        message = "In %s file (%s) negative values found - this is not allowed" % (
             fileType,
             inputFile.name,
         )
         log.error(message)
         raise AssertionError(message)
 
-    return returnStr, outFile, remeshedFlag
 
-
-def checkSizeExtent(inputField, demHeader, inputFile, fileType, rT):
+def checkSizeExtent(inputField, demHeader, fileType, rT):
     """check if extent of an inputfield matches the extent of the DEM
     and also cellSize in case of RELTH files
     optionally within a specified threshold
@@ -1109,8 +1132,6 @@ def checkSizeExtent(inputField, demHeader, inputFile, fileType, rT):
         dictionary with header and data of input field
     demHeader: dict
         header of DEM
-    inputFile: pathlib Path
-        path to input field
     fileType: str
         name of file type of input field
     rT: float
