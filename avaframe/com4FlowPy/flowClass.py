@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-    Functions for calculations at the 'cell level' (vgl. D'Amboise et al., 2022)
+Functions for calculations at the 'cell level' (vgl. D'Amboise et al., 2022)
 """
 
 import numpy as np
@@ -28,7 +28,6 @@ class Cell:
         fluxDistOldVersionBool=False,
         FSI=None,
         forestParams=None,
-        startcellVol=None,
     ):
         """constructor for the Cell class that describes a raster cell that is hit by the GMF.
         the constructor function is called every time a new instance of type 'Cell' is
@@ -37,8 +36,12 @@ class Cell:
                    * bool --> isStart
                    * Cell --> startCell
         """
-        self.rowindex = rowindex  # index of the Cell in row-direction (i.e. local y-index in the calculation domain)
-        self.colindex = colindex  # index of the Cell in column-direction (i.e. local x-index in the calculation domain)
+        self.rowindex = (
+            rowindex  # index of the Cell in row-direction (i.e. local y-index in the calculation domain)
+        )
+        self.colindex = (
+            colindex  # index of the Cell in column-direction (i.e. local x-index in the calculation domain)
+        )
         self.dem_ng = dem_ng  # elevation values in the 3x3 neigbourhood around the Cell
         self.altitude = dem_ng[1, 1]  # elevation value of the cell (central cell of 3x3 neighbourhood)
         self.cellsize = cellsize  # cellsize in meters
@@ -60,21 +63,22 @@ class Cell:
 
         self.fluxDistOldVersionBool = fluxDistOldVersionBool
 
-        self.tanAlpha = np.tan(np.deg2rad(self.alpha))  # moved to constructor, so this doesn't have to be calculated on
+        self.tanAlpha = np.tan(
+            np.deg2rad(self.alpha)
+        )  # moved to constructor, so this doesn't have to be calculated on
         # every iteration of calc_z_delta(self)
 
         self.min_distance = 0  # minimal distance to start-cell (i.e. along shortest path) min_distance >=
         self.minDistXYZ = 0  # minimal distance to start-cell (Actual 3D lenght, not projected!!)
         self.max_distance = 0  # NOTE: self.max_distance is never used - maybe remove!?
-        self.min_gamma = 0  # NOTE: self.min_gamma (assumingly minimal travel angle to cell) never used - maybe remove!?
+        self.min_gamma = (
+            0  # NOTE: self.min_gamma (assumingly minimal travel angle to cell) never used - maybe remove!?
+        )
         self.max_gamma = 0
         self.sl_gamma = 0
 
         self._SQRT2 = np.sqrt(2.0)
         self._RAD90 = np.deg2rad(90.0)
-
-        self.startcellVolMin = startcellVol
-        self.startcellVolMax = startcellVol
 
         # NOTE: Forest Interaction included here
         # if FSI != None AND forestParams != None - then self.ForestBool = True and forestParams and
@@ -117,7 +121,9 @@ class Cell:
                 elif forestParams["fFrLayerType"] == "relative":
                     self.AlphaFor = self.alpha + FSI
 
-                self.AlphaFor = max(self.AlphaFor, self.alpha)  # Friction in Forest can't be lower than without forest
+                self.AlphaFor = max(
+                    self.AlphaFor, self.alpha
+                )  # Friction in Forest can't be lower than without forest
                 self.tanAlphaFor = np.tan(np.deg2rad(self.AlphaFor))
 
             # NOTE: This is a quick hack to check if all values for Detrainment are set to 0 (as provided in the
@@ -191,10 +197,6 @@ class Cell:
             if parent.forestIntCount < (self.forestIntCount - self.isForest):
                 self.forestIntCount = parent.forestIntCount + self.isForest
 
-    def calc_startCellVol(self, startcellVolNew):
-        self.startcellVolMin = min(self.startcellVolMin, startcellVolNew)
-        self.startcellVolMax = max(self.startcellVolMax, startcellVolNew)
-
     def calcDistMin(self, calc3D=False):
         """
         function calculates the projected horizontal (self.min_distance) and 3D (self.minDistXYZ) length
@@ -213,7 +215,7 @@ class Cell:
                 _dy = abs(parent.rowindex - self.rowindex) * self.cellsize
                 _dz = abs(parent.altitude - self.altitude)
                 _ldistMin.append(math.sqrt(_dx * _dx + _dy * _dy) + parent.min_distance)
-                _lDistMinXYZ.append(math.sqrt(_dy*_dy + _dy*_dy + _dz*_dz) + parent.minDistXYZ)
+                _lDistMinXYZ.append(math.sqrt(_dy * _dy + _dy * _dy + _dz * _dz) + parent.minDistXYZ)
             self.min_distance = np.amin(_ldistMin)
             self.minDistXYZ = np.amin(_lDistMinXYZ)
         else:
@@ -255,8 +257,8 @@ class Cell:
         self.z_gamma = self.altitude - self.dem_ng
         ds = np.array([[self._SQRT2, 1, self._SQRT2], [1, 0, 1], [self._SQRT2, 1, self._SQRT2]])
 
-        if (not self.is_start):
-            if (not self.forestBool):
+        if not self.is_start:
+            if not self.forestBool:
                 self.calcDistMin()
             else:
                 self.calcDistMin(calc3D=True)
@@ -270,7 +272,7 @@ class Cell:
                     _tanAlpha = self.tanAlpha
 
             if self.forestModule in ["forestFriction", "forestDetrainment"]:
-                if (not self.is_start) and (self.FSI > 0.) and (self.skipForestDist < self.minDistXYZ):
+                if (not self.is_start) and (self.FSI > 0.0) and (self.skipForestDist < self.minDistXYZ):
                     # if forestBool, we assume that forestFriciton is activated
                     # and if FSI > 0 then we also calculate _tanAlpha with forestEffect
                     # NOTE: We also don't assume a forest Effect on potential Start Zells, since this should
@@ -284,7 +286,9 @@ class Cell:
                         _slope = (_rest - self.minAddedFrictionForest) / (0 - self.noFrictionEffectZDelta)
                         # y = mx + b, shere z_delta is the x
                         friction = max(self.minAddedFrictionForest, _slope * self.z_delta + _rest)
-                        _alpha_calc = self.alpha + max(0, friction)  # NOTE: not sure what this does, seems redundant!
+                        _alpha_calc = self.alpha + max(
+                            0, friction
+                        )  # NOTE: not sure what this does, seems redundant!
                     else:
                         _alpha_calc = self.alpha + self.minAddedFrictionForest
 
@@ -302,8 +306,7 @@ class Cell:
         self.z_delta_neighbour[self.z_delta_neighbour > self.max_z_delta] = self.max_z_delta
 
     def calc_tanbeta(self):
-        """calculates the normalized terrain based routing
-        """
+        """calculates the normalized terrain based routing"""
         _ds = np.array([[self._SQRT2, 1, self._SQRT2], [1, 1, 1], [self._SQRT2, 1, self._SQRT2]])
         _distance = _ds * self.cellsize
 
@@ -330,7 +333,9 @@ class Cell:
                 dx = parent.colindex - self.colindex
                 dy = parent.rowindex - self.rowindex
 
-                self.no_flow[dy + 1, dx + 1] = 0  # 3x3 Matrix of ones, every parent gets a 0, no flow to a parent field
+                self.no_flow[dy + 1, dx + 1] = (
+                    0  # 3x3 Matrix of ones, every parent gets a 0, no flow to a parent field
+                )
 
                 maxweight = parent.z_delta
                 # Old Calculation
@@ -460,7 +465,7 @@ class Cell:
         _noDetrainmentEffectZdelta = self.noDetrainmentEffectZdelta
 
         # detrainment effect scaled to forest, 0 for non-forest
-        _rest = (self.maxAddedDetrainmentForest * self.FSI)
+        _rest = self.maxAddedDetrainmentForest * self.FSI
         # rise over run (should be negative slope)
         slope = (_rest - self.minAddedDetrainmentForest) / (0 - _noDetrainmentEffectZdelta)
         # y=mx+b, where zDelta is x

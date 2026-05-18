@@ -12,7 +12,6 @@ import gc
 import numpy as np
 import avaframe.in2Trans.rasterUtils as IOf
 import shapely
-import shapely.ops
 import geopandas as gpd
 
 # create local logger
@@ -208,10 +207,14 @@ def mergeRaster(inDirPath, fName, method="max"):
     # print extL
     nTiles = pickle.load(open(inDirPath / "nTiles", "rb"))
 
-    mergedRas = np.zeros((extL[0], extL[1]))
-    # create Raster with original size
-    if method != "sum":
-        mergedRas[:, :] = np.nan
+    if method in ["max", "min"]:
+        mergedRas = np.full((extL[0], extL[1]), np.nan)
+    elif method == "sum":
+        mergedRas = np.zeros((extL[0], extL[1]))
+    else:
+        message = f"Invalid function argument <method = '{method}'>. Supported values for 'method': ['min', 'max', 'sum']"
+        log.error(message)
+        raise ValueError(message)
 
     for i in range(nTiles[0] + 1):
         for j in range(nTiles[1] + 1):
@@ -324,6 +327,7 @@ def mergeDictToPolygon(inDirPath, fName, demHeader):
     mergedDict = mergeDict(inDirPath, fName)
     cellsize = demHeader["cellsize"]
     pathPolygons = {}
+    buffer = 1e-10
 
     for (row, col), praIds in mergedDict.items():
         # get a polygon around every cell contained in mergedDict
@@ -342,7 +346,12 @@ def mergeDictToPolygon(inDirPath, fName, demHeader):
 
     for pid, polys in pathPolygons.items():
         # merge all polygons belonging to a PRA ID
-        pathPolygons[pid] = shapely.ops.unary_union(polys)
+        unionPoly = shapely.union_all(polys)
+        bufferedPoly = unionPoly.buffer(buffer, cap_style="flat").buffer(-buffer, cap_style="square")
+        bufferedPoly = shapely.make_valid(bufferedPoly)
+        cleanedPoly = shapely.set_precision(bufferedPoly, 1e-3)
+        cleanedPoly = shapely.remove_repeated_points(cleanedPoly, tolerance=1e-3)
+        pathPolygons[pid] = cleanedPoly
 
     gdfPathPolygons = gpd.GeoDataFrame(
         {"PRA_id": list(pathPolygons.keys())},
