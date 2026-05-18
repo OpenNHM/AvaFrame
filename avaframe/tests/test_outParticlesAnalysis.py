@@ -6,6 +6,7 @@ import pandas as pd
 import pathlib
 import configparser
 import matplotlib.pyplot as plt
+import pytest
 
 # Local imports
 import avaframe.out3Plot.outParticlesAnalysis as oA
@@ -95,3 +96,22 @@ def test_velocityEnvelopeThalweg():
     assert np.array_equal(dictVelAltThalweg["medianVelocity"], velMagMean)
     assert np.array_equal(dictVelAltThalweg["maxSxyz"], sxyzMax)
     assert np.array_equal(dictVelAltThalweg["minSxyz"], sxyzMin)
+
+
+def test_checkSavingTimeStepParticles():
+    """check if time step exceeds limitValue"""
+
+    # setup input
+    timeStepInfo = [0.0, 1.999, 2.0, 4.0, 4.5]
+    limitValue = 2.0
+
+    oA.checkSavingTimeStepParticles(timeStepInfo, limitValue=limitValue)
+
+    timeStepInfo = [0.0, 2.0001, 2.4, 4.0, 4.5]
+
+    with pytest.raises(AssertionError) as e:
+        oA.checkSavingTimeStepParticles(timeStepInfo, limitValue=limitValue)
+    assert (
+        "aving time step of simulation particle Info exceeds two seconds - this can lead to errors in analysis"
+        in str(e.value)
+    )

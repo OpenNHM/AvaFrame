@@ -293,7 +293,6 @@ def test_reshapeParticlesDicts():
     assert np.array_equal(particlesTimeArrays['velMag'], test)
     assert np.array_equal(particlesTimeArrays['uAcc'], np.asarray([[4., 5., 6., 7.], [4., 5., 7., 7.], [40., 50., 60., 70.]]))
 
-
     # setup required input
     partDict1 = {'velMag': np.asarray([1.,2., 4., 5.]),'uX': np.asarray([10.,20., 40., 50.]),
         'uAcc': np.asarray([4., 5., 6., 7.]), 'ID': np.asarray([0, 1, 2, 3]), 't': 0., 'nPart': 4}
@@ -307,3 +306,155 @@ def test_reshapeParticlesDicts():
         # call function to be tested
         particlesTimeArrays = particleTools.reshapeParticlesDicts(particlesList, ['velMag', 'uAcc', 't', 'ID'])
     assert str(e.value) == ("Number of particles changed throughout simulation")
+
+
+def test_createAssetsRasterFromParticleLocations():
+    """test creating a raster indicating particle trajectories colorcoded with infra classes"""
+
+    # setup required input data
+    dem = {
+        "header": {"nrows": 8, "ncols": 10, "cellsize": 1, "xllcenter": 0, "yllcenter": 0},
+        "rasterData": np.ones((8, 10)),
+    }
+    uniqueAssets = np.asarray([2, 3])
+    assets = {"header": {"nrows": 8, "ncols": 10, "cellsize": 1, "xllcenter": 0, "yllcenter": 0}}
+    assetsRaster = np.zeros((8, 10)) * np.nan
+    assetsRaster[1, 6] = 2.0
+    assetsRaster[3, 4] = 3.0
+    assetsRaster[5, 6] = 3.0
+    assetsRaster[6, 5] = 2.0
+    assets["rasterData"] = assetsRaster
+    # create cell number
+    cellNo = np.zeros((dem["header"]["nrows"], dem["header"]["ncols"]))
+    for m in range(dem["header"]["nrows"]):
+        for k in range(dem["header"]["ncols"]):
+            cellNo[m, k] = k + m * dem["header"]["ncols"]
+
+    # fetch corresponding cell numbers for all infrastructure classes
+    assetsValues = {}
+    for i in uniqueAssets:
+        assetsArray = np.where(assets["rasterData"] == i, cellNo, np.nan)
+        assetsValues["value_%d" % i] = [int(k) for k in assetsArray.flatten() if np.isnan(k) == False]
+
+    particlesTimeArrays = {
+        "ID": np.asarray([[1, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]]),
+        "indXDEM": np.asarray(
+            [
+                [0, 4],
+                [1, 5],
+                [2, 6],
+                [3, 7],
+                [4, 8],
+                [5, 9],
+                [6, 9],
+            ]
+        ),
+        "indYDEM": np.asarray(
+            [
+                [7, 7],
+                [6, 6],
+                [5, 5],
+                [4, 4],
+                [3, 3],
+                [2, 2],
+                [1, 2],
+            ]
+        ),
+        "inCellDEM": np.asarray(
+            [
+                [cellNo[7, 0], cellNo[7, 4]],
+                [cellNo[6, 1], cellNo[6, 5]],
+                [cellNo[5, 2], cellNo[5, 6]],
+                [cellNo[4, 3], cellNo[4, 7]],
+                [cellNo[3, 4], cellNo[3, 8]],
+                [cellNo[2, 5], cellNo[2, 9]],
+                [cellNo[1, 6], cellNo[2, 9]],
+            ]
+        ),
+    }
+
+    # call function to be tested
+    particleAssets, particleTimeArrays = particleTools.createAssetsRasterFromParticleLocations(
+        particlesTimeArrays, dem, uniqueAssets, assetsValues
+    )
+
+    particleAssetsTest = np.zeros((8, 10)) * np.nan
+    particleAssetsTest[7, 0] = 3.0
+    particleAssetsTest[6, 1] = 3.0
+    particleAssetsTest[5, 2] = 3.0
+    particleAssetsTest[4, 3] = 3.0
+    particleAssetsTest[3, 4] = 3.0
+    particleAssetsTest[2, 5] = 2.0
+    particleAssetsTest[1, 6] = 2.0
+
+    particleAssetsTest[7, 4] = 3.0
+    particleAssetsTest[6, 5] = 3.0
+    particleAssetsTest[5, 6] = 3.0
+    particleAssetsTest[4, 7] = -1.0
+    particleAssetsTest[3, 8] = -1.0
+    particleAssetsTest[2, 9] = -1.0
+
+    assert particleAssets.shape == (8, 10)
+    assert np.array_equal(particleAssets, particleAssetsTest, equal_nan=True)
+
+
+def findUniqueCellIndices():
+    """test finding indices that are unique in particleTimeArrays indXDEM and indYDEM"""
+
+    # setup required input
+    indXDEM = np.asarray([[1, 2, 3], [4, 5, 6], [1, 2, 10], [4, 8, 9]])
+    indYDEM = np.asarray([[10, 20, 30], [40, 50, 60], [10, 20, 50], [40, 80, 90]])
+    particleTimeArrays = {"indXDEM": indXDEM, "indYDEM": indYDEM}
+
+    xyIndAllUnique = particleTools.findUniqueCellIndices(particleTimeArrays)
+
+    testArray1 = np.asarray(
+        [[1, 10], [2, 20], [3, 30], [4, 40], [5, 50], [6, 60], [10, 50], [8, 80], [9, 90]]
+    )
+    testArray = np.asarray(testArray1, dtype=int)
+
+    assert np.array_equal(xyIndAllUnique, testArray, equal_nan=True)
+
+
+def test_interpolateParticlesTrajectories():
+    """test if interpolation is done at desired distances and that start and end are kept"""
+
+    dem = {
+        "header": {"xllcenter": 0, "yllcenter": 0, "cellsize": 2, "nrows": 10, "ncols": 11},
+        "rasterData": np.array(
+            [
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+            ]
+        ),
+    }
+    particlesTimeArrays = {"x": np.asarray([[1, 2], [2, 3], [3, 4], [8, 9]])}
+    particlesTimeArrays["y"] = np.asarray([[1, 2], [2, 3], [3.7, 4], [8, 9]])
+    particlesTimeArrays["z"] = np.asarray([[40, 40], [30, 30], [20, 20], [0, 0]])
+    particlesTimeArrays["ID"] = np.asarray([[1, 2], [1, 2], [1, 2], [1, 2]])
+
+    pLong = particleTools.interpolateParticlesTrajectories(dem, particlesTimeArrays, 0.5, debugPlot=False)
+
+    assert np.array_equal(pLong["2_pTraj"]["x"], pLong["2_pTraj"]["y"])
+    assert (np.diff(pLong["2_pTraj"]["s"]) < (0.5 * dem["header"]["cellsize"])).any()
+    assert pLong["1_pTraj"]["x"][0] == particlesTimeArrays["x"][0, 0]
+    assert pLong["1_pTraj"]["x"][-1] == particlesTimeArrays["x"][-1, 0]
+    assert pLong["2_pTraj"]["y"][0] == particlesTimeArrays["y"][0, 1]
+    assert pLong["2_pTraj"]["y"][-1] == particlesTimeArrays["y"][-1, 1]
+    assert pLong["1_pTraj"]["y"][0] == particlesTimeArrays["y"][0, 0]
+    assert pLong["1_pTraj"]["y"][-1] == particlesTimeArrays["y"][-1, 0]
+    assert pLong["2_pTraj"]["x"][0] == particlesTimeArrays["x"][0, 1]
+    assert pLong["2_pTraj"]["x"][-1] == particlesTimeArrays["x"][-1, 1]
+
+    pLong2 = particleTools.interpolateParticlesTrajectories(dem, particlesTimeArrays, 1, debugPlot=False)
+
+    assert np.array_equal(pLong2["indXDEM"][:, 1], np.asarray([1, 2, 2, 3, 4, 4]))
+    assert np.array_equal(pLong2["indYDEM"][:, 1], np.asarray([1, 2, 2, 3, 4, 4]))

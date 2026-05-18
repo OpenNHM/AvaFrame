@@ -609,7 +609,12 @@ def test_checkExtentAndCellSize(tmp_path):
     # setup required inputs
     testDir = pathlib.Path(tmp_path, "test")
     cfg = configparser.ConfigParser()
-    cfg["GENERAL"] = {"resizeThreshold": 3.0, "meshCellSize": 1.0, "meshCellSizeThreshold": 0.0001}
+    cfg["GENERAL"] = {
+        "resizeThreshold": 3.0,
+        "meshCellSize": 1.0,
+        "meshCellSizeThreshold": 0.0001,
+        "remeshInterpMethod": "default",
+    }
     cfg["GENERAL"]["avalancheDir"] = str(testDir)
     cfg["EXPORTS"] = {"useCompression": "True"}
     inDir = testDir / "Inputs"
@@ -662,6 +667,14 @@ def test_checkExtentAndCellSize(tmp_path):
     assert remeshedFlag == "Yes"
     assert outFile.name == testFile.split("/")[1]
 
+    cfg["GENERAL"]["remeshInterpMethod"] = "bilinear"
+    with pytest.raises(NameError) as e:
+        assert dP.checkExtentAndCellSize(cfg, inputFile, dem, "mu")
+    assert 'Interpolation method "%s" not recognized' % (cfg["GENERAL"]["remeshInterpMethod"]) in str(
+        e.value
+    )
+
+    cfg["GENERAL"]["remeshInterpMethod"] = "default"
     inputFile2 = inDirR / "inputFile1.asc"
     headerInput2 = {
         "nrows": 4,
@@ -797,6 +810,70 @@ def test_checkExtentAndCellSize(tmp_path):
     # fileType="DEM" should allow NaNs
     testFile5, outFile5, remeshedFlag5 = dP.checkExtentAndCellSize(cfg, inputFile, dem, "DEM")
     assert remeshedFlag5 == "No"
+
+    # test nearest meshing
+    inDirR = pathlib.Path(tmp_path, "avaTestRemeshing")
+    fU.makeADir(inDirR)
+
+    # configuration settings
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "resizeThreshold": 3.0,
+        "meshCellSize": 2.0,
+        "meshCellSizeThreshold": 0.0001,
+        "remeshInterpMethod": "default",
+    }
+    cfg["GENERAL"]["avalancheDir"] = str(inDirR)
+    cfg["EXPORTS"] = {"useCompression": "True"}
+    cfg["GENERAL"]["remeshInterpMethod"] = "nearest"
+
+    # create DEM
+    demField = np.ones((10, 12))
+    dem = {
+        "header": {
+            "nrows": 10,
+            "ncols": 12,
+            "xllcenter": 1,
+            "yllcenter": 5,
+            "cellsize": 2,
+            "nodata_value": -9999,
+            "driver": "AAIGrid",
+        },
+        "rasterData": demField,
+    }
+    dem["header"]["transform"] = IOf.transformFromASCHeader(dem["header"])
+    dem["header"]["crs"] = rasterio.crs.CRS()
+    IOf.writeResultToRaster(dem["header"], demField, inDirR / "demTest", flip=False)
+
+    # create inputField
+    inputFile = inDirR / "inputFile.asc"
+    headerInput = {
+        "nrows": 5,
+        "ncols": 6,
+        "xllcenter": 1.1,
+        "yllcenter": 5.1,
+        "cellsize": 4,
+        "nodata_value": -9999,
+        "driver": "AAIGrid",
+    }
+
+    headerInput["transform"] = IOf.transformFromASCHeader(headerInput)
+    headerInput["crs"] = rasterio.crs.CRS()
+    inField = np.ones((5, 6))
+    inField[2, 4] = 10.0
+    IOf.writeResultToRaster(headerInput, inField, inputFile.parent / inputFile.stem, flip=False)
+
+    # remesh inputFile to match DEM extent and cellSize
+    outFilePath, _, _ = dP.checkExtentAndCellSize(cfg, inputFile, dem, "mu", nanInsideDEMCheck=False)
+    outFile = IOf.readRaster((inDirR / "Inputs" / outFilePath))
+    testRaster = np.ones((10, 12))
+    testRaster[4:6, 8:10] = 10.0
+
+    assert np.array_equal(testRaster, outFile["rasterData"])
+    assert outFile["header"]["nrows"] == 10
+    assert outFile["rasterData"].shape[1] == 12
+    assert outFile["header"]["xllcenter"] == 1.0
+    assert outFile["header"]["yllcenter"] == 5.0
 
 
 # Produced by AI (test):

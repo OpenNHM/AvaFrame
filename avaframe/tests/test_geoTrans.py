@@ -603,6 +603,7 @@ def test_remeshDEM(tmp_path):
         "meshCellSizeThreshold": "0.0001",
         "meshCellSize": "2.",
         "avalancheDir": str(avaDir),
+        "remeshInterpMethod": "default",
     }
 
     # call function
@@ -666,6 +667,47 @@ def test_remeshDEM(tmp_path):
     assert dataNew2["rasterData"].shape[0] == dataSol["header"]["nrows"]
     assert dataNew2["rasterData"].shape[1] == dataSol["header"]["ncols"]
     assert testRes2
+
+    cfg["GENERAL"]["remeshInterpMethod"] = "bilinear"
+    cfg["GENERAL"]["meshCellSize"] = "7."
+    with pytest.raises(NameError) as e:
+        assert geoTrans.remeshRaster(avaDEM1, cfg, legacy=True)
+    assert 'Interpolation method "%s" not recognized' % (cfg["GENERAL"]["remeshInterpMethod"]) in str(
+        e.value
+    )
+
+    # copy input data for remeshing
+    avaDir4 = pathlib.Path(tmp_path, "avaTestMesh")
+    inputDir1 = dirPath / ".." / "data" / "avaParabola"
+    inputDEM1 = inputDir1 / "Inputs" / "DEM_PF_Topo.asc"
+    fU.makeADir((avaDir4 / "Inputs"))
+    avaDEM4 = avaDir4 / "Inputs" / "DEM_PF_Topo.asc"
+    shutil.copy(inputDEM1, avaDEM4)
+
+    cfg["GENERAL"]["remeshInterpMethod"] = "cubic"
+    cfg["GENERAL"]["meshCellSize"] = "8."
+    cfg["GENERAL"]["avalancheDir"] = str(avaDir4)
+
+    testRes4 = geoTrans.remeshRaster(avaDEM4, cfg, legacy=True)
+    fullP2 = avaDir1 / "Inputs" / testRes4
+
+    dataNew4 = IOf.readRaster(fullP2)
+    dataSol = IOf.readRaster(inputDEM)
+
+    # compare solution to result from function
+    testRes44 = np.allclose(dataNew4["rasterData"], dataSol["rasterData"], atol=1.0e-6)
+
+    assert dataNew4["rasterData"].shape[0] == dataSol["header"]["nrows"]
+    assert dataNew4["rasterData"].shape[1] == dataSol["header"]["ncols"]
+    assert testRes44
+
+    cfg["GENERAL"]["remeshInterpMethod"] = "bilinear"
+    cfg["GENERAL"]["meshCellSize"] = "4.5"
+    with pytest.raises(NameError) as e:
+        assert geoTrans.remeshRaster(avaDEM1, cfg, legacy=False)
+    assert 'Interpolation method "%s" not recognized' % (cfg["GENERAL"]["remeshInterpMethod"]) in str(
+        e.value
+    )
 
 
 def test_isCounterClockWise():

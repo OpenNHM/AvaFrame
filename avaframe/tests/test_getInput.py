@@ -19,6 +19,7 @@ from avaframe.in3Utils import generateTopo
 import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.DFAtools as DFAtls
 from avaframe.com1DFA import com1DFA
+import avaframe.in2Trans.rasterUtils as rU
 import logging
 
 
@@ -1650,3 +1651,74 @@ def test_checkTimeDepRelease():
     with pytest.raises(ValueError) as e:
         getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
     assert ("The initial velocity provided in %s can not be negative." % (timeDepRelCsv)) in str(e.value)
+
+
+def test_preprocessAssets(tmp_path):
+    """test creating asset info"""
+
+    # setup required inputs
+
+    dem = {
+        "header": {
+            "xllcenter": 0,
+            "yllcenter": 0,
+            "cellsize": 2,
+            "nrows": 10,
+            "ncols": 11,
+            "driver": "AAIGrid",
+            "nodata_value": np.nan,
+            "crs": None,
+        },
+        "rasterData": np.array(
+            [
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+                [50, 40, 30, 20, 10, 0, 0, 0, 0, 0, 0],
+            ]
+        ),
+    }
+    transform = rU.transformFromASCHeader(dem["header"])
+    dem["header"]["transform"] = transform
+
+    avaTestDir = pathlib.Path(tmp_path, "avaTest")
+    assetsDir = avaTestDir / "Inputs" / "INFRA"
+    fU.makeADir(assetsDir)
+    assetsFile = assetsDir / "assets_ASSETS"
+    assetsArray = np.full((dem["header"]["nrows"], dem["header"]["ncols"]), np.nan)
+    assetsArray[0, 0] = 1.0
+    assetsArray[1, 0:2] = 2.0
+    assetsArray[2, 0] = 3.0
+    assetsArray[4, 0] = 0.0
+    rU.writeResultToRaster(dem["header"], assetsArray, assetsFile, flip=True)
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "avalancheDir": avaTestDir,
+        "meshCellSizeThreshold": "0.0001",
+        "resizeThreshold": "3.",
+        "remeshInterpMethod": "nearest",
+    }
+    cfg["EXPORTS"] = {"useCompression": "True"}
+    # call function to be tested
+    uniqueAssets, assets, assetsValues = getInput.preprocessAssets(avaTestDir, dem, cfg)
+
+    assert uniqueAssets == [1.0, 2.0, 3.0]
+    assert assets["header"]["xllcenter"] == dem["header"]["xllcenter"]
+    assert np.array_equal(assets["rasterData"], assetsArray, equal_nan=True)
+    assert assetsValues["value_1"] == [0]
+    assert assetsValues["value_2"] == [11, 12]
+    assert assetsValues["value_3"] == [22]
+
+    assetsArray[5, 0] = -1.0
+    rU.writeResultToRaster(dem["header"], assetsArray, assetsFile, flip=True)
+
+    with pytest.raises(AssertionError) as e:
+        getInput.preprocessAssets(avaTestDir, dem, cfg)
+    assert "In ASSETS file (assets_ASSETS.asc) negative values found - this is not allowed" in str(e.value)
