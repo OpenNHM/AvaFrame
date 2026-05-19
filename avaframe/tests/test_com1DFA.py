@@ -23,7 +23,7 @@ from avaframe.in2Trans.rasterUtils import transformFromASCHeader
 from avaframe.in3Utils import cfgUtils
 import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.DFAtools as DFAtls
-
+import avaframe.com1DFA.particleInitialisation as pI
 
 def test_prepareInputData(tmp_path):
     """test preparing input data"""
@@ -1520,58 +1520,7 @@ def test_initializeParticles():
     releaseLine["header"]["xllcenter"] = dem["originalHeader"]["xllcenter"]
     releaseLine["header"]["yllcenter"] = dem["originalHeader"]["yllcenter"]
 
-    dictKeys = [
-        "nPart",
-        "x",
-        "y",
-        "trajectoryLengthXY",
-        "trajectoryLengthXYCor",
-        "trajectoryLengthXYZ",
-        "z",
-        "m",
-        "dmDet",
-        "massPerPart",
-        "nPPK",
-        "mTot",
-        "h",
-        "ux",
-        "uy",
-        "uz",
-        "uAcc",
-        "stoppCriteria",
-        "kineticEne",
-        "trajectoryAngle",
-        "potentialEne",
-        "peakKinEne",
-        "peakMassFlowing",
-        "simName",
-        "xllcenter",
-        "yllcenter",
-        "ID",
-        "nID",
-        "parentID",
-        "t",
-        "inCellDEM",
-        "indXDEM",
-        "indYDEM",
-        "indPartInCell",
-        "partInCell",
-        "secondaryReleaseInfo",
-        "iterate",
-        "idFixed",
-        "peakForceSPH",
-        "forceSPHIni",
-        "totalEnthalpy",
-        "velocityMag",
-        "nExitedParticles",
-        "tPlot",
-        "dmEnt",
-        "stoppedParticles",
-        "massInitialized",
-        "massEntrained",
-        "massDetrained",
-        "massStopped",
-    ]
+    dictKeys = pI.fetchAvailableParticleProperties()
 
     # call function to be tested
     particles = com1DFA.initializeParticles(cfg["GENERAL"], releaseLine, dem)

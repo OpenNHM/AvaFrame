@@ -269,3 +269,68 @@ def createReleaseBuffer(cfg, inputSimLines):
         debPlot.plotBufferRelease(inputSimLines, xBuffered, yBuffered)
 
     return inputSimLines
+
+
+def fetchAvailableParticleProperties():
+    """ fetch all available particle properties
+
+    Returns
+    --------
+    particleProperties: list
+        list of all available particle properties
+    """
+
+    particleProperties = [
+        "nPart",
+        "x",
+        "y",
+        "trajectoryLengthXY",
+        "trajectoryLengthXYCor",
+        "trajectoryLengthXYZ",
+        "z",
+        "m",
+        "dmDet",
+        "massPerPart",
+        "nPPK",
+        "mTot",
+        "h",
+        "ux",
+        "uy",
+        "uz",
+        "uAcc",
+        "stoppCriteria",
+        "kineticEne",
+        "trajectoryAngle",
+        "potentialEne",
+        "peakKinEne",
+        "peakMassFlowing",
+        "simName",
+        "xllcenter",
+        "yllcenter",
+        "ID",
+        "nID",
+        "parentID",
+        "t",
+        "inCellDEM",
+        "indXDEM",
+        "indYDEM",
+        "indPartInCell",
+        "partInCell",
+        "secondaryReleaseInfo",
+        "iterate",
+        "idFixed",
+        "peakForceSPH",
+        "forceSPHIni",
+        "totalEnthalpy",
+        "velocityMag",
+        "nExitedParticles",
+        "tPlot",
+        "dmEnt",
+        "stoppedParticles",
+        "massInitialized",
+        "massEntrained",
+        "massDetrained",
+        "massStopped",
+    ]
+
+    return particleProperties
