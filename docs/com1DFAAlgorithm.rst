@@ -155,7 +155,7 @@ Other particles properties are also initialized here:
 
     - ``h`` - flow thickness [m]
 
-    - ``ux``, ``uy``, ``uz`` - velocity components [ms-1]
+    - ``ux``, ``uy``, ``uz``, ``velocityMag``- velocity components and magnitude [ms-1]
 
     - ``uAcc`` - approximation for particle acceleration between each computational time step (simply computed by (velocityMagnitude_t0 - velocityMagnitude_t1) / dt)
 
@@ -165,7 +165,7 @@ Other particles properties are also initialized here:
 
     - ``trajectoryLengthXYZ`` - traveled length of a particle accumulated over time in xyz
 
-    - ``travelAngle`` - travel angle computed using arctan((z0-z)/trajectoryLengthXY)
+    - ``trajectoryAngle`` - travel angle computed using arctan((z0-z)/trajectoryLengthXY)
 
     - ``ID, parentID`` - particle IDs and parentID required if splitting, merging
 
@@ -176,6 +176,10 @@ Other particles properties are also initialized here:
     - ``dmEnt`` - entrained mass of particle [kg]
 
     - ``stoppedParticles`` - dictionary with particles (containing x-, y-coordinates, mass and ID) that are stopped (velocity is zero) and deleted from the particles in each time step (only if ``adaptSfcStopped`` is set to ``1`` in the configuration file)
+
+    - additional properties used during computation or summary properties for all particles include: ``nPart``, ``massPerPart``, ``nPPK``, ``mTot``, ``stoppCriteria``, ``kineticEne``, ``potentialEne``, ``peakKinEne``, ``peakMassFlowing``, ``simName``, ``xllcenter``, ``yllcenter``, ``ID``, ``nID``, ``parentID``, ``t``, ``inCellDEM``,  ``indXDEM``, ``indYDEM``, ``indPartInCell``, ``partInCell``, ``secondaryReleaseInfo``,
+      ``iterate``, ``idFixed``, ``peakForceSPH``, ``forceSPHIni``, ``totalEnthalpy``, ``velocityMag``, ``nExitedParticles``, ``tPlot``, ``stoppedParticles``, ``massInitialized``, ``massEntrained``,
+      ``massDetrained``, ``massStopped``
 
 For more details, see :py:func:`com1DFA.com1DFA.initializeParticles`.
 

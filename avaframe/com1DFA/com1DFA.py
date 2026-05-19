@@ -2889,59 +2889,9 @@ def savePartToPickle(dictList, outDir, logName, cfg=""):
         if empty str all particle properties are saved, t (time info) always appended
     """
 
-    dictKeys = [
-        "nPart",
-        "x",
-        "y",
-        "trajectoryLengthXY",
-        "trajectoryLengthXYCor",
-        "trajectoryLengthXYZ",
-        "z",
-        "m",
-        "dmDet",
-        "massPerPart",
-        "nPPK",
-        "mTot",
-        "h",
-        "ux",
-        "uy",
-        "uz",
-        "uAcc",
-        "stoppCriteria",
-        "kineticEne",
-        "trajectoryAngle",
-        "potentialEne",
-        "peakKinEne",
-        "peakMassFlowing",
-        "simName",
-        "xllcenter",
-        "yllcenter",
-        "ID",
-        "nID",
-        "parentID",
-        "t",
-        "inCellDEM",
-        "indXDEM",
-        "indYDEM",
-        "indPartInCell",
-        "partInCell",
-        "secondaryReleaseInfo",
-        "iterate",
-        "idFixed",
-        "peakForceSPH",
-        "forceSPHIni",
-        "totalEnthalpy",
-        "velocityMag",
-        "nExitedParticles",
-        "tPlot",
-        "dmEnt",
-        "stoppedParticles",
-        "massInitialized",
-        "massEntrained",
-        "massDetrained",
-        "massStopped",
-    ]
-
+    # fetch all available particleProperties
+    dictKeys = pI.fetchAvailableParticleProperties()
+    # filter if desired properties are available
     propertiesFilter = _buildParticlePropertiesFilter(cfg, dictKeys)
 
     dicts = dictList if isinstance(dictList, list) else [dictList]
