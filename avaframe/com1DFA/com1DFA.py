@@ -467,10 +467,8 @@ def prepareReleaseEntrainment(cfg, rel, inputSimLines):
     badName = False
     if "_" in relName:
         badName = True
-        log.warning(
-            "Release area scenario file name includes an underscore \
-        the suffix _AF will be added for the simulation name"
-        )
+        log.warning("Release area scenario file name includes an underscore \
+        the suffix _AF will be added for the simulation name")
 
     # set release thickness
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
@@ -639,7 +637,7 @@ def prepareInputData(inputSimFiles, cfg):
     # get line from release area polygon
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
         releaseLine["type"] = "time dependent Release"
-        timeDepRelValues, _ = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
+        timeDepRelValues, _ = gI.getTimeDepRelCsv(cfg["INPUT"]["timeDepRelCsv"])
         releaseLine["thickness"] = [
             timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0].item()
         ] * len(releaseLine["Name"])
@@ -763,7 +761,7 @@ def prepareInputData(inputSimFiles, cfg):
         damLine = None
 
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
-        releaseLine = debF.prepareTimeDepRelLine(inputSimFiles, releaseLine, cfg)
+        releaseLine = debF.prepareTimeDepRelLine(releaseLine, cfg)
 
     inputSimLines = {
         "releaseLine": releaseLine,
@@ -3351,11 +3349,26 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
             inputSimFiles["entResInfo"]["secondaryRelRemeshed"] = remeshedSecRel
 
         if cfgSim["GENERAL"]["timeDependentRelease"] == "True":
-            cfgSim["INPUT"]["timeDepRelCsv"] = inputSimFiles["timeDepRelCsv"]
-            timeDepRelValues, _ = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
+            cfgSim["INPUT"]["timeDepRelCsv"] = pathlib.Path(
+                cfgSim["GENERAL"]["avalancheDir"],
+                "Inputs",
+                "REL",
+                (cfgSim["GENERAL"]["timeDependentReleaseScenarios"] + ".csv"),
+            )
+            if cfgSim["INPUT"]["timeDepRelCsv"].exists() is False:
+                message = (
+                    "time dependent release file: %s file in Inputs/REL with file ending .csv not found"
+                    % (cfgSim["GENERAL"]["timeDependentReleaseScenarios"])
+                )
+                log.error(message)
+                raise FileNotFoundError(message)
+
+            timeDepRelValues, _ = gI.getTimeDepRelCsv(cfgSim["INPUT"]["timeDepRelCsv"])
             cfgSim["INPUT"]["timeDepRelTimeStep"] = str(timeDepRelValues["timeStep"])
             cfgSim["INPUT"]["timeDepRelThickness"] = str(timeDepRelValues["thickness"])
             cfgSim["INPUT"]["timeDepRelVelocity"] = str(timeDepRelValues["velocity"])
+        else:
+            cfgSim["INPUT"]["timeDepRelCsv"] = ""
 
         if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
             # check if spatialVoellmy is chosen that friction fields have correct extent
@@ -3460,7 +3473,7 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                     cfgSim,
                     pathToDemFull,
                     inputSimFiles["secondaryRelFile"],
-                    timeDepRelFile=inputSimFiles["timeDepRelCsv"],
+                    timeDepRelFile=cfgSim["INPUT"]["timeDepRelCsv"],
                 )
             else:
                 relVolume = ""

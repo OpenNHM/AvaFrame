@@ -177,7 +177,7 @@ input file (shape file or raster file) or 2) through the :py:mod:`com1DFA` confi
 
     - if the flag `timeDependentRelease` is True, in various provided time steps flowing mass is initialized
       (`relThFromFile` is also set to True, currently the only option to read time dependent thickness is from csv file)
-    - additional to a .shp file (raster file does not work yet), a csv file is provided in the `REL` folder, that contains:
+    - additional to a .shp file (raster file does not work yet), at least one csv file is provided in the `REL` folder, that contains:
 
         - a header (first line)
         - the following columns with the respective column names:

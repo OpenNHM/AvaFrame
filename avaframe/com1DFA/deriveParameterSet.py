@@ -433,8 +433,15 @@ def checkThicknessSettings(cfg, thName, inputSimFiles):
             log.error(message)
             raise FileNotFoundError(message)
         if (
-                cfg["GENERAL"].getboolean("timeDependentRelease")
-                and cfg["GENERAL"].getboolean("relThFromFile") is False
+            cfg["GENERAL"].getboolean("timeDependentRelease")
+            and inputSimFiles["entResInfo"]["timeDepRelCsvAvailable"] == "No"
+        ):
+            message = "When release is time dependent, a csv file containing time dependent release parameters needs to be provided."
+            log.error(message)
+            raise FileNotFoundError(message)
+        if (
+            cfg["GENERAL"].getboolean("timeDependentRelease")
+            and cfg["GENERAL"].getboolean("relThFromFile") is False
         ):
             message = "When release is time dependent, relThFromFile needs to be set to True"
             log.error(message)

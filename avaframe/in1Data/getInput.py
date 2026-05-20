@@ -226,6 +226,10 @@ def getInputDataCom1DFA(avaDir):
         message = "Release area information - use either .shp or .asc/.tif files"
         log.error(message)
         raise AssertionError(message)
+    if len(relFiles) == 0:
+        message = "No release area is found - provide a .shp or .asc or .tif file"
+        log.error(message)
+        raise FileNotFoundError(message)
     else:
         log.info("Release area files are: %s" % [str(relFilestr) for relFilestr in relFiles])
     entResInfo["relThFileType"] = relFiles[0].suffix
@@ -297,9 +301,11 @@ def getInputDataCom1DFA(avaDir):
     entResInfo["resRemeshed"] = "No"
     entResInfo["bhdRemeshed"] = "No"
 
-    timeDepRelCsv, entResInfo["timeDepRelCsv"], _ = getAndCheckInputFiles(
-        inputDir, "REL", "Time dependent release parameters (csv)", fileExt="csv"
-    )
+    timeDepRelFiles = sorted(list(releaseDir.glob("*.csv")))
+    if len(timeDepRelFiles) > 0:
+        entResInfo["timeDepRelCsvAvailable"] = "Yes"
+    else:
+        entResInfo["timeDepRelCsvAvailable"] = "No"
 
     # return DEM, first item of release, entrainment and resistance areas
     inputSimFiles = {
@@ -315,7 +321,7 @@ def getInputDataCom1DFA(avaDir):
         "kFile": kFile,
         "tauCFile": tauCFile,
         "bhdFile": bhdFile,
-        "timeDepRelCsv": timeDepRelCsv,
+        "timeDepRelCsv": timeDepRelFiles,
     }
 
     for thFile in ["rel", "secondaryRel", "ent"]:
@@ -362,7 +368,7 @@ def getAndCheckInputFiles(inputDir, folder, inputType, fileExt="shp", fileSuffix
     """
     available = "No"
 
-    supportedFileFormats = [".shp", ".asc", ".tif", ".csv"]
+    supportedFileFormats = [".shp", ".asc", ".tif"]
 
     # Define the directory to search and the extensions
     if fileExt == "":
@@ -401,8 +407,7 @@ def getAndCheckInputFiles(inputDir, folder, inputType, fileExt="shp", fileSuffix
 
         if OutputFile.suffix not in supportedFileFormats:
             message = (
-                "Unsupported file format found for OutputFile %s; shp, asc, tif, csv are allowed"
-                % OutputFile
+                "Unsupported file format found for OutputFile %s; shp, asc, tif are allowed" % OutputFile
             )
             log.error(message)
             raise AssertionError(message)
@@ -498,12 +503,19 @@ def updateThicknessCfg(inputSimFiles, cfgInitial):
         thTypeList.append("entFile")
     if cfgInitial["GENERAL"].getboolean("secRelArea"):
         thTypeList.append("secondaryRelFile")
+    if cfgInitial["GENERAL"].getboolean("timeDependentRelease"):
+        thTypeList.append("timeDepRelFile")
 
     # initialize release scenario list
     releaseScenarioIni = cfgInitial["INPUT"]["releaseScenario"]
     if releaseScenarioIni == "":
         releaseScenarioList = inputSimFiles["releaseScenarioList"]
     else:
+        for scenario in cfgInitial["INPUT"]["releaseScenario"].split("|"):
+            if scenario not in inputSimFiles["releaseScenarioList"]:
+                message = "Chosen release scenario: %s not available" % scenario
+                log.error(message)
+                raise FileNotFoundError(message)
         releaseScenarioList = cfgInitial["INPUT"]["releaseScenario"].split("|")
 
     # add input data info to cfg object
@@ -539,18 +551,40 @@ def updateThicknessCfg(inputSimFiles, cfgInitial):
             )
         cfgInitial["INPUT"]["secondaryReleaseScenario"] = inputSimFiles["secondaryRelFile"].stem
 
+    # get time dependent release scenario
+    if inputSimFiles["timeDepRelCsv"] is not None and "timeDepRelFile" in thTypeList:
+        timeDepRelFileIni = cfgInitial["GENERAL"]["timeDependentReleaseScenarios"]
+        availableTimeDepRelScenarios = []
+        for file in inputSimFiles["timeDepRelCsv"]:
+            availableTimeDepRelScenarios.append(file.stem)
+
+        if timeDepRelFileIni == "":
+            # if no scenario is specified in the ini file, use all available csv files
+            timeDepRelScenarioList = availableTimeDepRelScenarios
+        else:
+            # use specified scenario
+            timeDepRelScenarioList = []
+            for timeDepScenario in cfgInitial["GENERAL"]["timeDependentReleaseScenarios"].split("|"):
+                timeDepRelScenarioList.append(pathlib.Path(timeDepScenario).stem)
+
+        timeDepRelScenariosCfg = cfgUtils.convertToCfgList(timeDepRelScenarioList)
+        if timeDepRelFileIni == "":
+            cfgInitial["GENERAL"]["timeDependentReleaseScenarios"] = timeDepRelScenariosCfg
+        # check if a csv file exists for the specified scenario(s)
+        for timeDepIniFileName in cfgInitial["GENERAL"]["timeDependentReleaseScenarios"].split("|"):
+            timeDepIniFileName = pathlib.Path(timeDepIniFileName).stem
+            if timeDepIniFileName not in availableTimeDepRelScenarios:
+                message = "Chosen time dependent release scenario: %s not available" % timeDepIniFileName
+                log.error(message)
+                raise FileNotFoundError(message)
+            else:
+                cfgInitial["GENERAL"]["timeDependentReleaseScenarios"] = timeDepRelScenariosCfg
+
     # create cfg string from release scenario list and add to cfg object
     releaseScenarioName = cfgUtils.convertToCfgList(releaseScenarioList)
     if cfgInitial["INPUT"]["releaseScenario"] == "":
         cfgInitial["INPUT"]["releaseScenario"] = releaseScenarioName
-    else:
-        for relIniFileName in cfgInitial["INPUT"]["releaseScenario"].split("|"):
-            if relIniFileName not in releaseScenarioList:
-                message = "Chosen release scenario: %s not available" % relIniFileName
-                log.error(message)
-                raise FileNotFoundError(message)
-        else:
-            log.info("Chosen release scenarios: %s" % cfgInitial["INPUT"]["releaseScenario"])
+    log.info("Chosen release scenarios: %s" % cfgInitial["INPUT"]["releaseScenario"])
 
     return cfgInitial
 
@@ -705,7 +739,7 @@ def fetchReleaseFile(inputSimFiles, releaseScenario, cfgSim, releaseList):
             releaseScenarioPath.parts[-2] + "/" + releaseScenarioPath.parts[-1]
         )
     elif (
-            cfgSim["GENERAL"]["relThFromFile"] == "True" and cfgSim["GENERAL"]["timeDependentRelease"] == "False"
+        cfgSim["GENERAL"]["relThFromFile"] == "True" and cfgSim["GENERAL"]["timeDependentRelease"] == "False"
     ):
         # shapefile with thickness attributes - handle thickness/id/ci95 values
         for scenario in releaseList:
@@ -1177,4 +1211,58 @@ def getTimeDepRelCsv(timeDepRelCsv):
         "thickness": timeDepRelDF["thickness"].to_numpy(dtype=np.float64),
         "velocity": timeDepRelDF["velocity"].to_numpy(dtype=np.float64),
     }
+    # check if some criterias are satisfied in the csv file
+    checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
     return timeDepRelValues, timeDepRelDF
+
+
+def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
+    """
+    check if time dependent release values satisfy the following requirements:
+    - release - timesteps are unique
+    - the release - timesteps are not too close (that the particle density becomes too high)
+    - provided release - thickness is larger than zero
+    - provided velocity is zero or larger.
+
+    Parameters
+    -----------
+    timeDepRelCsv: str
+        directory to csv table containing time dependent release values
+    timeDepRelValues: dict
+        contains time dependent release values: timestep, thickness, velocity
+    """
+    # check if timesteps are unique
+    timeStepUnique = np.unique(timeDepRelValues["timeStep"])
+    if timeStepUnique.ndim == 0:
+        if timeStepUnique != timeDepRelValues["timeStep"]:
+            message = "The provided time dependent release time steps in %s are not unique" % (timeDepRelCsv)
+            log.error(message)
+            raise ValueError(message)
+    elif len(timeStepUnique) != len(timeDepRelValues["timeStep"]):
+        message = "The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)
+        log.error(message)
+        raise ValueError(message)
+
+    # check if a timestep = 0 is provided
+    if 0 not in timeStepUnique:
+        message = (
+            "If release is time dependent, a thickness needs to be provided for  time step 0 s in %s"
+            % (timeDepRelCsv)
+        )
+        log.error(message)
+        raise ValueError(message)
+
+    # check that release thickness > 0
+    for th in timeDepRelValues["thickness"]:
+        if th <= 0:
+            message = "For every release time step a thickness > 0 needs to be provided in %s" % (
+                timeDepRelCsv
+            )
+            log.error(message)
+            raise ValueError(message)
+
+    for vel in timeDepRelValues["velocity"]:
+        if vel < 0:
+            message = "The initial velocity provided in %s can not be negative." % (timeDepRelCsv)
+            log.error(message)
+            raise ValueError(message)
