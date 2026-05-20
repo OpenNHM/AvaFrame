@@ -54,6 +54,7 @@ def test_prepareInputData(tmp_path):
     cfg["INPUT"] = {"DEM": "avaAlr.tif"}
     cfg["INPUT"]["relThFile"] = ""
     cfg["INPUT"]["entThFile"] = ""
+    cfg["INPUT"]["timeDepRelCsv"] = ""
 
     # call function to be tested
     demOri, inputSimLines = com1DFA.prepareInputData(inputSimFiles, cfg)
@@ -231,6 +232,7 @@ def test_prepareInputData(tmp_path):
     }
     cfg["INPUT"] = {"DEM": "testDEM.asc"}
     cfg["INPUT"]["relThFile"] = str(inputSimFiles["relThFile"])
+    cfg["INPUT"]["timeDepRelCsv"] = ""
 
     demOri, inputSimLines = com1DFA.prepareInputData(inputSimFiles, cfg)
 
@@ -278,6 +280,7 @@ def test_prepareInputData(tmp_path):
     cfg["INPUT"] = {"DEM": "testDEM.asc"}
     cfg["INPUT"]["relThFile"] = ""
     cfg["INPUT"]["secondaryRelThFile"] = str(inputSimFiles["secondaryRelThFile"])
+    cfg["INPUT"]["timeDepRelCsv"] = ""
 
     demOri, inputSimLines = com1DFA.prepareInputData(inputSimFiles, cfg)
 
@@ -322,6 +325,7 @@ def test_prepareInputData(tmp_path):
     }
     cfg["INPUT"] = {"DEM": "testDEM.asc"}
     cfg["INPUT"]["relThFile"] = str(inputSimFiles["relThFile"])
+    cfg["INPUT"]["timeDepRelCsv"] = ""
 
     # with pytest.raises(AssertionError) as e:
     #     assert com1DFA.prepareInputData(inputSimFiles, cfg)
@@ -348,6 +352,7 @@ def test_prepareInputData(tmp_path):
     }
     cfg["INPUT"] = {"DEM": "avaAlr.tif"}
     cfg["INPUT"]["relThFile"] = ""
+    cfg["INPUT"]["timeDepRelCsv"] = ""
 
     with pytest.raises(AssertionError) as e:
         assert com1DFA.prepareInputData(inputSimFiles, cfg)
@@ -380,6 +385,7 @@ def test_prepareInputData(tmp_path):
     cfg["INPUT"]["relThFile"] = ""
     cfg["INPUT"]["entThFile"] = ""
     cfg["INPUT"]["releaseScenario"] = "release1PF"
+    cfg["INPUT"]["timeDepRelCsv"] = str(avaDir / "Inputs" / "REL" / "release1PF.csv")
 
     # call function to be tested
     demOri, inputSimLines = com1DFA.prepareInputData(inputSimFiles, cfg)
@@ -1837,7 +1843,7 @@ def test_savePartToPickle(tmp_path):
     particlesRead7 = pickle.load(open(picklePath7, "rb"))
 
     for pProp in particlesRead7:
-        assert pProp in ['ux', 'uy', 'uz', 'iCell', 'z', 'x', 'y', 'm', 'h', 't']
+        assert pProp in ["ux", "uy", "uz", "iCell", "z", "x", "y", "m", "h", "t"]
 
 
 def test_exportFields(tmp_path):
@@ -2096,6 +2102,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "dam": "True",
         "explicitFriction": 0,
         "timeDependentRelease": "False",
+        "timeDependentReleaseScenarios": "",
     }
     standardCfg["INPUT"] = {
         "entThThickness": "1.",
@@ -2103,6 +2110,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "entThCi95": "None",
         "releaseScenario": "",
         "relThFile": "",
+        "timeDepRelCsv": "",
     }
 
     testDir = pathlib.Path(__file__).parents[0]
@@ -2170,6 +2178,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "dam": "True",
         "explicitFriction": 0,
         "timeDependentRelease": "False",
+        "timeDependentReleaseScenarios": "",
     }
 
     testCfg["INPUT"] = {
@@ -2177,6 +2186,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "entThId": "0",
         "entThCi95": "None",
         "releaseScenario": "relAlr",
+        "timeDepRelCsv": "",
     }
     testCfg["INPUT"]["DEM"] = "avaAlr.tif"
     testCfg["INPUT"]["relThFile"] = ""
@@ -2281,6 +2291,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "dam": "True",
         "explicitFriction": 0,
         "timeDependentRelease": "False",
+        "timeDependentReleaseScenarios": "",
     }
     testCfg2["INPUT"] = {
         "entThThickness": "1.",
@@ -2288,6 +2299,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "entThCi95": "None",
         "releaseScenario": "relAlr",
         "DAM": str(pathlib.Path("DAM", relPath.name)),
+        "timeDepRelCsv": "",
     }
     testCfg2["INPUT"]["DEM"] = "avaAlr.tif"
     testCfg2["INPUT"]["relThFile"] = ""
@@ -2366,6 +2378,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "entThCi95": "None",
         "releaseScenario": "",
         "relThFile": "",
+        "timeDepRelCsv": "",
     }
 
     testDir = pathlib.Path(__file__).parents[0]
@@ -2377,6 +2390,8 @@ def test_prepareVarSimDict(tmp_path, caplog):
 
     standardCfg["INPUT"]["DEM"] = "DEM_PF_Topo.asc"
     standardCfg["GENERAL"]["avalancheDir"] = str(avaDir)
+    standardCfg["GENERAL"]["timeDependentReleaseScenarios"] = "release1PF"
+
     relPath = pathlib.Path(avaDir, "Inputs", "REL", "release1PF.shp")
     inputSimFiles = {
         "relFiles": [relPath],
@@ -2432,6 +2447,7 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "dam": "False",
         "explicitFriction": 0,
         "timeDependentRelease": "True",
+        "timeDependentReleaseScenarios": "release1PF",
     }
 
     testCfg["INPUT"] = {

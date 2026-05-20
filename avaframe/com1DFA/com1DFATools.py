@@ -20,7 +20,6 @@ from avaframe.in1Data import getInput as gI
 from avaframe.in3Utils import cfgUtils
 from avaframe.in2Trans import rasterUtils as IOf
 
-
 # create local logger
 # change log level in calling module to DEBUG to see log messages
 log = logging.getLogger(__name__)

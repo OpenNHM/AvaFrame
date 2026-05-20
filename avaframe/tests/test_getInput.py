@@ -309,6 +309,7 @@ def test_updateThicknessCfg(tmp_path):
     cfg["GENERAL"]["relThFromFile"] = "True"
     cfg["GENERAL"]["simTypeList"] = "null|ent"
     cfg["GENERAL"]["secRelAra"] = "False"
+    cfg["GENERAL"]["timeDependentRelease"] = "False"
     cfg["INPUT"] = {"releaseScenario": ""}
 
     demFile = avaTestDirInputs / "DEM_HS_Topo.asc"
@@ -332,6 +333,7 @@ def test_updateThicknessCfg(tmp_path):
         "releaseScenarioList": ["release1HS", "release2HS"],
         "seondaryRelThFile": None,
         "entThFile": None,
+        "timeDepRelCsv": None,
     }
 
     inputSimFiles["release1HS"] = {"thickness": ["1.0"], "id": ["0"], "ci95": ["None", "None"]}
@@ -357,6 +359,30 @@ def test_updateThicknessCfg(tmp_path):
     assert cfg["INPUT"]["entrainmentScenario"] == "entrainment1HS"
     assert cfg["INPUT"]["entThId"] == "0"
     assert cfg["INPUT"]["entThThickness"] == "0.3"
+
+    # test with time dependent release option
+
+    cfg["GENERAL"]["timeDependentRelease"] = "True"
+    cfg["GENERAL"]["timeDependentReleaseScenarios"] = ""
+    inputSimFiles["timeDepRelCsv"] = [
+        avaTestDirInputs / "REL" / "relTest1.csv",
+        avaTestDirInputs / "REL" / "relTest2.csv",
+    ]
+
+    cfg = getInput.updateThicknessCfg(inputSimFiles, cfg)
+
+    assert cfg["GENERAL"]["timeDependentReleaseScenarios"] == "relTest1|relTest2"
+
+    cfg["GENERAL"]["timeDependentRelease"] = "True"
+    cfg["GENERAL"]["timeDependentReleaseScenarios"] = "relTest1.csv"
+    inputSimFiles["timeDepRelCsv"] = [
+        avaTestDirInputs / "REL" / "relTest1.csv",
+        avaTestDirInputs / "REL" / "relTest2.csv",
+    ]
+
+    cfg = getInput.updateThicknessCfg(inputSimFiles, cfg)
+
+    assert cfg["GENERAL"]["timeDependentReleaseScenarios"] == "relTest1"
 
 
 def test_selectReleaseFile(tmp_path):
@@ -1344,6 +1370,7 @@ def test_updateThicknessCfg_with_specified_scenarios(tmp_path):
         },
         "relThFile": None,
         "releaseScenarioList": ["release1HS", "release2HS"],
+        "timeDepRelCsv": None,
     }
 
     inputSimFiles["release1HS"] = {"thickness": ["1.0"], "id": ["0"], "ci95": ["None"]}
@@ -1400,6 +1427,7 @@ def test_updateThicknessCfg_with_secondary_release_raster(tmp_path):
         },
         "relThFile": None,
         "releaseScenarioList": ["release1HS"],
+        "timeDepRelCsv": None,
     }
 
     inputSimFiles["release1HS"] = {"thickness": ["1.0"], "id": ["0"], "ci95": ["None"]}
@@ -1556,11 +1584,69 @@ def test_getTimeDepRelCsv():
     testDir = pathlib.Path(__file__).parents[0]
     timeDepRelCsv = testDir / "data" / "testTimeDepRel" / "rel.csv"
 
-    timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
-    assert np.all(timeDepRelValues["timeStep"] == np.array([0, 20, 50]))
-    assert np.all(timeDepRelValues["thickness"] == np.array([3, 1, 0]))
+    with pytest.raises(ValueError):
+        timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
 
     timeDepRelCsv = testDir / "data" / "testTimeDepRel" / "rel_notSorted.csv"
     timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
     assert np.all(timeDepRelValues["timeStep"] == np.array([0, 20, 50]))
     assert np.all(timeDepRelValues["thickness"] == np.array([3, 1, 1]))
+
+
+def test_checkTimeDepRelease():
+    timeDepRelValues = {
+        "timeStep": np.array([0, 10, 20, 30, 35]),
+        "thickness": np.array([1, 1, 1, 1, 1]),
+        "velocity": np.array([10, 10, 10, 10, 10]),
+    }
+    timeDepRelCsv = "path2TimeDepRel.csv"
+    # no error should occur
+    getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+
+    timeDepRelValues["timeStep"] = np.array([20, 10, 0, 30, 35])
+    getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+
+    # timesteps are not unique
+    timeDepRelValues["timeStep"] = np.array([0, 10, 10, 30, 35])
+
+    with pytest.raises(ValueError) as e:
+        getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)) in str(
+        e.value
+    )
+
+    timeDepRelValues["timeStep"] = np.array([0, 0])
+    with pytest.raises(ValueError) as e:
+        getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)) in str(
+        e.value
+    )
+
+    # no timestep 0
+    timeDepRelValues["timeStep"] = np.array([20, 15, 10, 30, 35])
+
+    with pytest.raises(ValueError) as e:
+        getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert (
+        "If release is time dependent, a thickness needs to be provided for  time step 0 s in %s"
+        % (timeDepRelCsv)
+    ) in str(e.value)
+
+    # thickness needs to be > 0
+    timeDepRelValues["timeStep"] = np.array([20, 10, 0, 30, 35])
+    timeDepRelValues["thickness"] = np.array([1, 0, 1, 1, 1])
+    with pytest.raises(ValueError) as e:
+        getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("For every release time step a thickness > 0") in str(e.value)
+
+    timeDepRelValues["thickness"] = np.array([1, 1, -1, 1, 1])
+    with pytest.raises(ValueError) as e:
+        getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("For every release time step a thickness > 0") in str(e.value)
+
+    # velocity needs to be >= 0
+    timeDepRelValues["thickness"] = np.array([1, 1, 1, 1, 1])
+    timeDepRelValues["velocity"] = np.array([10, 10, 10, -10, 10])
+    with pytest.raises(ValueError) as e:
+        getInput.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
+    assert ("The initial velocity provided in %s can not be negative." % (timeDepRelCsv)) in str(e.value)

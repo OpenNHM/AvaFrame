@@ -150,65 +150,6 @@ def test_addReleaseParticles():
         debF.addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0)
 
 
-def test_checkTimeDepRelease():
-    timeDepRelValues = {
-        "timeStep": np.array([0, 10, 20, 30, 35]),
-        "thickness": np.array([1, 1, 1, 1, 1]),
-        "velocity": np.array([10, 10, 10, 10, 10]),
-    }
-    timeDepRelCsv = "path2TimeDepRel.csv"
-    # no error should occur
-    debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-
-    timeDepRelValues["timeStep"] = np.array([20, 10, 0, 30, 35])
-    debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-
-    # timesteps are not unique
-    timeDepRelValues["timeStep"] = np.array([0, 10, 10, 30, 35])
-
-    with pytest.raises(ValueError) as e:
-        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-    assert ("The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)) in str(
-        e.value
-    )
-
-    timeDepRelValues["timeStep"] = np.array([0, 0])
-    with pytest.raises(ValueError) as e:
-        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-    assert ("The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)) in str(
-        e.value
-    )
-
-    # no timestep 0
-    timeDepRelValues["timeStep"] = np.array([20, 15, 10, 30, 35])
-
-    with pytest.raises(ValueError) as e:
-        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-    assert (
-        "If release is time dependent, a thickness needs to be provided for  time step 0 s in %s"
-        % (timeDepRelCsv)
-    ) in str(e.value)
-
-    # thickness needs to be > 0
-    timeDepRelValues["timeStep"] = np.array([20, 10, 0, 30, 35])
-    timeDepRelValues["thickness"] = np.array([1, 0, 1, 1, 1])
-    with pytest.raises(ValueError) as e:
-        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-    assert ("For every release time step a thickness > 0") in str(e.value)
-
-    timeDepRelValues["thickness"] = np.array([1, 1, -1, 1, 1])
-    with pytest.raises(ValueError) as e:
-        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-    assert ("For every release time step a thickness > 0") in str(e.value)
-
-    # velocity needs to be >= 0
-    timeDepRelValues["thickness"] = np.array([1, 1, 1, 1, 1])
-    timeDepRelValues["velocity"] = np.array([10, 10, 10, -10, 10])
-    with pytest.raises(ValueError) as e:
-        debF.checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
-    assert ("The initial velocity provided in %s can not be negative." % (timeDepRelCsv)) in str(e.value)
-
-
 """
 Test does not word because: When calling pytest, executing DFAfunctionsCython.upfateFieldsC() raises an error ("Fatal Python error: Aborted")
 (see issue #1002?)

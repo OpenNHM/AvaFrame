@@ -145,59 +145,7 @@ def addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, d
     return particles, zPartArray0
 
 
-def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
-    """
-    check if time dependent release values satisfy the following requirements:
-    - release - timesteps are unique
-    - the release - timesteps are not too close (that the particle density becomes too high)
-    - provided release - thickness is larger than zero
-    - provided velocity is zero or larger.
-
-    Parameters
-    -----------
-    timeDepRelCsv: str
-        directory to csv table containing time dependent release values
-    timeDepRelValues: dict
-        contains time dependent release values: timestep, thickness, velocity
-    """
-    # check if timesteps are unique
-    timeStepUnique = np.unique(timeDepRelValues["timeStep"])
-    if timeStepUnique.ndim == 0:
-        if timeStepUnique != timeDepRelValues["timeStep"]:
-            message = "The provided time dependent release time steps in %s are not unique" % (timeDepRelCsv)
-            log.error(message)
-            raise ValueError(message)
-    elif len(timeStepUnique) != len(timeDepRelValues["timeStep"]):
-        message = "The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)
-        log.error(message)
-        raise ValueError(message)
-
-    # check if a timestep = 0 is provided
-    if 0 not in timeStepUnique:
-        message = (
-            "If release is time dependent, a thickness needs to be provided for  time step 0 s in %s"
-            % (timeDepRelCsv)
-        )
-        log.error(message)
-        raise ValueError(message)
-
-    # check that release thickness > 0
-    for th in timeDepRelValues["thickness"]:
-        if th <= 0:
-            message = "For every release time step a thickness > 0 needs to be provided in %s" % (
-                timeDepRelCsv
-            )
-            log.error(message)
-            raise ValueError(message)
-
-    for vel in timeDepRelValues["velocity"]:
-        if vel < 0:
-            message = "The initial velocity provided in %s can not be negative." % (timeDepRelCsv)
-            log.error(message)
-            raise ValueError(message)
-
-
-def prepareTimeDepRelLine(inputSimFiles, releaseLine, cfg):
+def prepareTimeDepRelLine(releaseLine, cfg):
     """
     read time dependent release values and return them as a dictionary containing:
     - timestep
@@ -207,9 +155,6 @@ def prepareTimeDepRelLine(inputSimFiles, releaseLine, cfg):
 
     Parameters
     ----------
-    inputSimFiles : dict
-        dictionary containing
-        - timeDepRelCsv: str, path to time dependent release values (csv-)file
     releaseLine: dict
         contains information of release line
     cfg: configparser object
@@ -224,14 +169,12 @@ def prepareTimeDepRelLine(inputSimFiles, releaseLine, cfg):
     """
 
     try:
-        releaseLine["values"], timeDepRelValuesDF = gI.getTimeDepRelCsv(inputSimFiles["timeDepRelCsv"])
+        releaseLine["values"], timeDepRelValuesDF = gI.getTimeDepRelCsv(cfg["INPUT"]["timeDepRelCsv"])
         releaseLine["thicknessSource"] = ["csv file"]
     except:
-        message = "No time dependent release csv file found"
+        message = "Provide a valid csv file containing time dependent release values"
         log.error(message)
         raise FileNotFoundError(message)
-    # check if some criterias are satisfied in the csv file
-    checkTimeDepRelease(releaseLine["values"], inputSimFiles["timeDepRelCsv"])
     # write the time dependent values into configurationFiles folder
     cfgUtils.writeReleaseCsvFile(cfg, timeDepRelValuesDF)
 
