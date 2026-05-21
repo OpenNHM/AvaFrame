@@ -912,9 +912,9 @@ def convertDF2numerics(simDF):
         simDFTest = simDF[name].str.replace(".", "", regex=False)
         # allow for - sign too
         simDFTest = simDFTest.replace("-", "", regex=False)
-        # check for str(np.nan) as these cannot be converted to numerics by pd.to_numeric
+        # check for str(np.nan) or str(None) as these cannot be converted to numerics by pd.to_numeric
         # but as friction model parameters are set to nans this is required here
-        if simDFTest.dropna().astype(str).eq("nan").any():
+        if simDFTest.dropna().astype(str).str.lower().isin(["nan", "none"]).any():
             simDF = setStrnanToNan(simDF, simDFTest, name)
         # also include columns where nan is in first row - so check for any row
         if simDFTest.str.isdigit().any() and (name != "tSteps"):
@@ -945,10 +945,10 @@ def setStrnanToNan(simDF, simDFTest, name):
     Returns
     --------
     simDF: pandas dataframe
-        updated pandas dataframe with np.nan values where string nan was
+        updated pandas dataframe with np.nan values where string nan or none was
     """
 
-    nanIndex = simDFTest.str.match("nan", flags=re.IGNORECASE)
+    nanIndex = simDFTest.str.match("nan|none", flags=re.IGNORECASE)
     simIndex = simDF.index.values
     # loop over each row and use iloc to avoid duplicate index issues
     for index, nanInd in enumerate(nanIndex):
