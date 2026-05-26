@@ -6,6 +6,9 @@ Raster (ascii and tif) file reader and handler
 import logging
 import rasterio
 import numpy as np
+import re
+import subprocess
+import pathlib
 
 # create local logger
 log = logging.getLogger(__name__)
@@ -227,3 +230,90 @@ def getRasterFileTypeFromHeader(header):
         raise AssertionError("Unsupported driver for DEM %s" % header["driver"])
 
     return fileType
+
+
+def _extractTime(filename):
+    match = re.search(r"_t([\d.]+)\.", filename.name)
+    return float(match.group(1)) if match else float("inf")
+
+
+def convertRasterToNcFile(inputDir, infileExt, infileSuffix, outputDir, outFileName="", crs=None):
+    """convert .asc or .tif raster file to netCDF file,
+    if the rasters have timesteps in the name, they are sorted and numerated that they work with ParaView
+
+    Parameters
+    ----------
+    inputDir : pathlib object or str
+        path to folder containing the raster files
+    infileExt: str, list
+        file extension e.g. asc, tif
+    infileSuffix: str
+        file name part
+    outputDir : pathlib object or str
+        path to folder where netCDF files will be stored
+    outFileName: str
+        name of output netCDF file (if "", the same name of input raster file is used)
+    crs: str
+        overwrite crs
+    """
+    inputDir = pathlib.Path(inputDir)
+    outputDir = pathlib.Path(outputDir)
+
+    outputDir.mkdir(exist_ok=True)
+
+    if infileSuffix != "":
+        inputFiles = [file for file in inputDir.glob(f"*{infileSuffix}*.{infileExt}")]
+    else:
+        inputFiles = [file for file in inputDir.glob(f"*.{infileExt}")]
+
+    inputFiles.sort(
+        key=_extractTime,
+    )
+
+    numberConverted = 0
+    for i, filename in enumerate(inputFiles):
+        if outFileName == "":
+            cleanName = re.sub(r"_t[\d.]+", "", filename.stem)
+            outputFileName = f"{cleanName}_{i:04d}.nc"
+        else:
+            outputFileName = f"{outFileName}_{i:04d}.nc"
+
+        try:
+            if crs is None:
+                subprocess.run(
+                    [
+                        "gdal_translate",
+                        "-of",
+                        "netCDF",
+                        inputDir / filename.name,
+                        outputDir / outputFileName,
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            else:
+                subprocess.run(
+                    [
+                        "gdal_translate",
+                        "-of",
+                        "netCDF",
+                        "-a_srs",
+                        crs,
+                        inputDir / filename.name,
+                        outputDir / outputFileName,
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            log.info("%s is converted into %s and saved in %s" % (filename, outputFileName, outputDir))
+            numberConverted += 1
+        except subprocess.CalledProcessError as e:
+            message = "%s could not be converted: %s." % (filename, e.stderr)
+            log.info(message)
+
+    log.info(
+        "%s raster files (from %s available files) are converted and saved in %s"
+        % (numberConverted, len(inputFiles), outputDir)
+    )
