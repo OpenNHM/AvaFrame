@@ -1,9 +1,15 @@
 """Tests for com9MoTVoellmy module"""
 
-import pytest
+import configparser
+import logging
 import pathlib
+import shutil
 from unittest.mock import patch
+
+import pytest
+
 from avaframe.com9MoTVoellmy import com9MoTVoellmy
+from avaframe.in3Utils import cfgUtils
 
 
 def test_com9MoTVoellmyTask_windows(tmp_path):
@@ -88,8 +94,6 @@ def test_com9MoTVoellmyTask_macOS_raises_error(tmp_path):
 
 def test_com9MoTVoellmyTask_verifyLogging(tmp_path, caplog):
     """Test that com9MoTVoellmyTask logs the simulation run"""
-    import logging
-
     rcfFile = tmp_path / "test_config.rcf"
     rcfFile.write_text("test config")
 
@@ -139,8 +143,6 @@ def test_com9MoTVoellmyTask_rcfFilePathHandling(tmp_path):
 
 def test_com9MoTVoellmyPostprocess_directoryCreation(tmp_path):
     """Test that postprocess creates necessary output directories"""
-    import configparser
-
     avalancheDir = tmp_path / "avaTest"
     avalancheDir.mkdir()
 
@@ -177,8 +179,6 @@ def test_com9MoTVoellmyPostprocess_directoryCreation(tmp_path):
 
 def test_com9MoTVoellmyPostprocess_filesCopied(tmp_path):
     """Test that postprocess copies all expected files"""
-    import configparser
-
     avalancheDir = tmp_path / "avaTest"
     avalancheDir.mkdir()
 
@@ -227,8 +227,6 @@ def test_com9MoTVoellmyPostprocess_filesCopied(tmp_path):
 
 def test_com9MoTVoellmyPostprocess_directoriesCopied(tmp_path):
     """Test that postprocess copies timestep directories"""
-    import configparser
-
     avalancheDir = tmp_path / "avaTest"
     avalancheDir.mkdir()
 
@@ -262,8 +260,6 @@ def test_com9MoTVoellmyPostprocess_directoriesCopied(tmp_path):
 
 def test_com9MoTVoellmyPostprocess_plotsGenerated(tmp_path):
     """Test that postprocess generates plots"""
-    import configparser
-
     avalancheDir = tmp_path / "avaTest"
     avalancheDir.mkdir()
 
@@ -294,8 +290,6 @@ def test_com9MoTVoellmyPostprocess_plotsGenerated(tmp_path):
 
 def test_com9MoTVoellmyPostprocess_multipleSimulations(tmp_path):
     """Test postprocess with multiple simulations"""
-    import configparser
-
     avalancheDir = tmp_path / "avaTest"
     avalancheDir.mkdir()
 
@@ -329,3 +323,51 @@ def test_com9MoTVoellmyPostprocess_multipleSimulations(tmp_path):
 
         # Verify copyMoTDirs called correct number of times: 2 dirs * 3 sims = 6
         assert mockCopyDirs.call_count == 6
+
+
+def test_com9MoTVoellmyIntegrationRun(tmp_path, caplog):
+    """Integration test: run com9MoTVoellmy with avaKot (null) and verify output files"""
+    testDir = pathlib.Path(__file__).parents[0]
+    avaSrc = testDir / ".." / "data" / "avaKot"
+    avaDir = tmp_path / "avaKot"
+    shutil.copytree(avaSrc / "Inputs", avaDir / "Inputs")
+
+    binPath = pathlib.Path(com9MoTVoellmy.__file__).parent / "MoT-Voellmy_linux.exe"
+    if not binPath.exists():
+        pytest.skip("MoT-Voellmy binary not found -- run `pixi run compilemot`")
+
+    cfgMain = configparser.ConfigParser()
+    cfgMain["MAIN"] = {"avalancheDir": str(avaDir), "nCPU": "auto", "CPUPercent": "90"}
+    cfgMain["FLAGS"] = {"showPlot": "False", "savePlot": "True"}
+
+    cfgCom9 = cfgUtils.getModuleConfig(com9MoTVoellmy)
+    cfgCom9["GENERAL"]["simTypeList"] = "null"
+
+    with caplog.at_level(logging.INFO):
+        com9MoTVoellmy.com9MoTVoellmyMain(cfgMain, cfgInfo=cfgCom9)
+
+    # Verify no errors during run (only main process log is captured)
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert len(errors) == 0, f"Errors in log: {[e.message for e in errors]}"
+
+    # Verify parallel computation ran (logged in main process)
+    assert any(
+        "Overall" in r.message and "computation took" in r.message
+        for r in caplog.records
+    ), "No parallel computation summary found"
+
+    # Verify log says simulations were performed
+    assert any(
+        "The following simulations will be performed" in r.message
+        for r in caplog.records
+    )
+
+    # Verify output files exist
+    peakDir = avaDir / "Outputs" / "com9MoTVoellmy" / "peakFiles"
+    assert peakDir.exists()
+    ascFiles = sorted(peakDir.glob("*.asc"))
+    assert len(ascFiles) >= 3, f"Expected >= 3 asc files, got {len(ascFiles)}: {ascFiles}"
+
+    cfgDir = avaDir / "Outputs" / "com9MoTVoellmy" / "configurationFiles"
+    rcfFiles = sorted(cfgDir.glob("*.rcf"))
+    assert len(rcfFiles) >= 1, f"No RCF files found in {cfgDir}"
