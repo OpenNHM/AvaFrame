@@ -103,7 +103,12 @@ def _compile(sourcePath):
             print(f"Compilation failed:\n{result.stderr}", file=sys.stderr)
             return False
     except FileNotFoundError:
-        print("gcc not found. Install gcc or set MOT_VOELLMY_SOURCE to skip download.", file=sys.stderr)
+        print(
+            f"gcc not found. Install gcc (e.g. MinGW on Windows) or download "
+            f"the precompiled binary from https://github.com/norwegian-geotechnical-institute/"
+            f"MoT-Voellmy and copy it to the com9MoTVoellmy directory as {outName}.",
+            file=sys.stderr,
+        )
         return False
 
     # Make executable on Unix
