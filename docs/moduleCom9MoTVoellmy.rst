@@ -73,6 +73,32 @@ plots, and configuration files.
 MoT Voellmy via the script variant
 ----------------------------------
 
+Binary
+^^^^^^
+
+The MoT-Voellmy binary is compiled automatically during ``pip install`` and in released
+wheelsm, no manual steps needed. The build process fetches the latest C source from the
+`upstream repository <https://github.com/norwegian-geotechnical-institute/MoT-Voellmy>`_
+and compiles it with ``gcc``.
+
+To compile manually (e.g. after updating the upstream source):
+
+  .. code-block:: bash
+
+     pixi run compilemot
+
+To compile from a local C source file instead of downloading from GitHub:
+
+  .. code-block:: bash
+
+     pixi run compilemot /path/to/MoT-Voellmy.c
+
+If ``gcc`` is not available, download the precompiled binary from the upstream repository
+and copy it to ``avaframe/com9MoTVoellmy/``. On Windows, install MinGW to use ``gcc``.
+
+The expected binary names are ``MoT-Voellmy_linux.exe``, ``MoT-Voellmy_win.exe``, or
+``MoT-Voellmy_mac.exe`` depending on your platform.
+
 To run
 ^^^^^
 

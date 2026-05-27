@@ -44,6 +44,11 @@ avaframe/com1DFA/*.so
 
 /.pixi/
 
+# MoT-Voellmy compiled binaries and downloaded sources
+avaframe/com9MoTVoellmy/MoT-Voellmy_linux.exe
+avaframe/com9MoTVoellmy/MoT-Voellmy_win.exe
+avaframe/com9MoTVoellmy/MoT-Voellmy.*.c
+
 # auxilliary geodata .xml files (created by GIS software packages)
 *.aux.xml
 

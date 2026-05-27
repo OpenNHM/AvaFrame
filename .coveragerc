@@ -8,3 +8,4 @@ omit = */test_*
        */__init__.py
        */run*
        */out3Plot/out*
+       */com9MoTVoellmy/_buildMoTVoellmy.py

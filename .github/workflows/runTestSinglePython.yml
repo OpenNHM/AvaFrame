@@ -28,6 +28,7 @@ jobs:
           cache: false
       - name: Pixi run pytest
         run: |
+          pixi run compilemot
           pixi run pytest -ra --cov --cov-report=xml --cov-report lcov:cov.info --cov-config=.coveragerc
       - uses: qltysh/qlty-action/coverage@main
         with:

@@ -1,5 +1,6 @@
 # Deploy to pypi for all plattforms
 
+
 name: Build and upload to PyPI
 
 on:
@@ -29,6 +30,13 @@ jobs:
         env:
           CIBW_PLATFORM: ${{ matrix.platform || 'auto' }}
           # CIBW_BUILD_FRONTEND: "build[uv]"
+          CIBW_BEFORE_BUILD_LINUX: >
+            python {package}/com9MoTVoellmy/_buildMoTVoellmy.py
+          CIBW_BEFORE_BUILD_WINDOWS: >
+            choco install mingw -y &&
+            python {package}/com9MoTVoellmy/_buildMoTVoellmy.py
+          CIBW_BEFORE_BUILD_MACOS: >
+            python {package}/com9MoTVoellmy/_buildMoTVoellmy.py
 
       - uses: actions/upload-artifact@v7
         with:
@@ -51,12 +59,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install numpy cython build
-#      - name: Compile cython code
-#        run: |
-#          python setup.py build_ext --inplace
-#      - name: Install avaframe
-#        run: |
-#          pip install .
+      - name: Compile MoT-Voellmy binaries
+        run: |
+          python avaframe/com9MoTVoellmy/_buildMoTVoellmy.py
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+          C_FILE=$(ls avaframe/com9MoTVoellmy/MoT-Voellmy.*.c 2>/dev/null | head -1)
+          if [ -n "$C_FILE" ]; then
+            x86_64-w64-mingw32-gcc -Wall -pedantic -o avaframe/com9MoTVoellmy/MoT-Voellmy_win.exe "$C_FILE" -lm
+          fi
       - name: create source distribution
         run: python -m build
 #      - name: Build sdist

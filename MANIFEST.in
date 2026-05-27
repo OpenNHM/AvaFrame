@@ -3,6 +3,7 @@ include avaframe/version.py
 include avaframe/in3Utils/logging.conf
 include avaframe/com1DFA/*.pyx
 include avaframe/com9MoTVoellmy/MoT-Voellmy*.exe
+include avaframe/com9MoTVoellmy/_buildMoTVoellmy.py
 recursive-include avaframe *Cfg.ini
 global-exclude local_*Cfg.ini
 prune benchmarks
