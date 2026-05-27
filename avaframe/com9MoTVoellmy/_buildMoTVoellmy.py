@@ -3,9 +3,8 @@
 Usage:
     python _buildMoTVoellmy.py [path/to/source.c]
 
-If a path is provided, that C source file is used. Otherwise, the script tries:
-1. MOT_VOELLMY_SOURCE environment variable
-2. GitHub API to discover and download the latest source from the upstream repo
+If a path is provided, that C source file is used. Otherwise, the script
+discovers and downloads the latest source from the upstream GitHub repo.
 
 On success, the compiled binary is written to this directory alongside the script.
 On failure, the script exits with a non-zero code (for pixi task / CI).
@@ -124,8 +123,8 @@ def buildMoTVoellmy(sourcePath=None):
     """Compile MoT-Voellmy binary.
 
     Args:
-        sourcePath: Optional path to a local .c file. If None, tries
-                    MOT_VOELLMY_SOURCE env var, then GitHub download.
+        sourcePath: Optional path to a local .c file. If None, downloads
+                    the latest source from the upstream GitHub repo.
 
     Returns:
         True if compilation succeeded, False otherwise.
@@ -137,15 +136,7 @@ def buildMoTVoellmy(sourcePath=None):
             return False
         return _compile(sourcePath)
 
-    # 2. Environment variable
-    envSource = os.environ.get("MOT_VOELLMY_SOURCE")
-    if envSource:
-        if not os.path.isfile(envSource):
-            print(f"MOT_VOELLMY_SOURCE file not found: {envSource}", file=sys.stderr)
-            return False
-        return _compile(envSource)
-
-    # 3. GitHub download
+    # 2. GitHub download
     result = _findGithubSource()
     if result is None:
         return False
