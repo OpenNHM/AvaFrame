@@ -1,7 +1,28 @@
+import sys
+import os
+
 from setuptools import setup, Extension
 import numpy
 
 from Cython.Build import cythonize
+
+# Compile MoT-Voellmy binary at build time (best-effort).
+# Insert the module directory into sys.path so we can import it.
+_mot_dir = os.path.join(os.path.dirname(__file__), "avaframe", "com9MoTVoellmy")
+_mot_script = os.path.join(_mot_dir, "_buildMoTVoellmy.py")
+if os.path.isfile(_mot_script):
+    sys.path.insert(0, _mot_dir)
+    try:
+        from _buildMoTVoellmy import buildMoTVoellmy
+
+        if not buildMoTVoellmy():
+            print("Warning: MoT-Voellmy compilation failed. "
+                  "com9MoTVoellmy will not be functional.")
+    except ImportError:
+        print("Warning: Could not import MoT-Voellmy build script. "
+              "com9MoTVoellmy will not be functional.")
+    finally:
+        sys.path.pop(0)
 
 # Define extension modules conditionally
 # ext_modules = []
