@@ -125,6 +125,7 @@ avaframe = "*"
 build = "python setup.py build_ext --inplace"
 clean = "python -c \"import pathlib; [f.unlink() for f in pathlib.Path('avaframe').rglob('*.so')]; [f.unlink() for f in pathlib.Path('avaframe').rglob('*.c')]\""
 rebuild = { depends-on = ["clean", "build"] }
+compilemot = "python avaframe/com9MoTVoellmy/_buildMoTVoellmy.py"
 
 #Feature qgis
 [tool.pixi.feature.qgis.dependencies]
