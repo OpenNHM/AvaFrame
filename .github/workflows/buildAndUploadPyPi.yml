@@ -37,6 +37,7 @@ jobs:
             python {package}/avaframe/com9MoTVoellmy/_buildMoTVoellmy.py
           CIBW_BEFORE_BUILD_MACOS: >
             python {package}/avaframe/com9MoTVoellmy/_buildMoTVoellmy.py
+          CIBW_ENVIRONMENT: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/upload-artifact@v7
         with:
