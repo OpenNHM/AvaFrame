@@ -112,8 +112,8 @@ def _compile(sourcePath):
         return False
 
     # Make executable on Unix
+    outPath = os.path.join(outputDir, outName)
     if system != "Windows":
-        outPath = os.path.join(outputDir, outName)
         os.chmod(outPath, 0o755)
 
     print(f"Compiled {outPath}")
