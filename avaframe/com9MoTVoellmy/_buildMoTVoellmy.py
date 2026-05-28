@@ -83,7 +83,7 @@ def _compile(sourcePath):
 
     if system == "Linux":
         outName = "MoT-Voellmy_linux.exe"
-        cmd = ["gcc", "-Wall", "-pedantic", "-static", "-o", outName, sourcePath, "-lm"]
+        cmd = ["gcc", "-Wall", "-pedantic", "-o", outName, sourcePath, "-lm"]
     elif system == "Windows":
         outName = "MoT-Voellmy_win.exe"
         cmd = ["gcc", "-Wall", "-pedantic", "-o", outName, sourcePath, "-lm"]
