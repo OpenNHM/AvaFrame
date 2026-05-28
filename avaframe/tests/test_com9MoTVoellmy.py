@@ -75,8 +75,8 @@ def test_com9MoTVoellmyTask_linux(tmp_path):
         assert result == command
 
 
-def test_com9MoTVoellmyTask_macOS_raises_error(tmp_path):
-    """Test that com9MoTVoellmyTask raises OSError on macOS"""
+def test_com9MoTVoellmyTask_macOS_uses_mac_binary(tmp_path):
+    """Test that com9MoTVoellmyTask uses the macOS binary on Darwin"""
     rcfFile = tmp_path / "test_config.rcf"
     rcfFile.write_text("test config")
 
@@ -86,10 +86,10 @@ def test_com9MoTVoellmyTask_macOS_raises_error(tmp_path):
         patch("os.chdir"),
         patch("os.path.dirname"),
         patch("os.path.abspath"),
+        patch("avaframe.com9MoTVoellmy.com9MoTVoellmy.mT.runAndCheckMoT") as mock_run,
     ):
-        # Verify OSError is raised for macOS
-        with pytest.raises(OSError, match="MoT-Voellmy does not support MacOS"):
-            com9MoTVoellmy.com9MoTVoellmyTask(rcfFile)
+        command = com9MoTVoellmy.com9MoTVoellmyTask(rcfFile)
+        assert command[0] == "./MoT-Voellmy_mac.exe"
 
 
 def test_com9MoTVoellmyTask_verifyLogging(tmp_path, caplog):

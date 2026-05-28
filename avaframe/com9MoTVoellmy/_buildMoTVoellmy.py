@@ -83,13 +83,14 @@ def _compile(sourcePath):
 
     if system == "Linux":
         outName = "MoT-Voellmy_linux.exe"
-        cmd = ["gcc", "-Wall", "-pedantic", "-static", "-o", outName, sourcePath, "-lm"]
+        cmd = ["gcc", "-Wall", "-pedantic", "-o", outName, sourcePath, "-lm"]
     elif system == "Windows":
         outName = "MoT-Voellmy_win.exe"
         cmd = ["gcc", "-Wall", "-pedantic", "-o", outName, sourcePath, "-lm"]
     elif system == "Darwin":
         outName = "MoT-Voellmy_mac.exe"
-        cmd = ["gcc", "-Wall", "-pedantic", "-o", outName, sourcePath, "-lm"]
+        cmd = ["gcc", "-Wall", "-pedantic", "-arch", "arm64", "-arch", "x86_64",
+               "-o", outName, sourcePath, "-lm"]
     else:
         print(f"Unknown platform: {system}", file=sys.stderr)
         return False
@@ -111,8 +112,8 @@ def _compile(sourcePath):
         return False
 
     # Make executable on Unix
+    outPath = os.path.join(outputDir, outName)
     if system != "Windows":
-        outPath = os.path.join(outputDir, outName)
         os.chmod(outPath, 0o755)
 
     print(f"Compiled {outPath}")
