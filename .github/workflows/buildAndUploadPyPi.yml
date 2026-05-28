@@ -31,12 +31,13 @@ jobs:
           CIBW_PLATFORM: ${{ matrix.platform || 'auto' }}
           # CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_BEFORE_BUILD_LINUX: >
-            python {package}/com9MoTVoellmy/_buildMoTVoellmy.py
+            python {package}/avaframe/com9MoTVoellmy/_buildMoTVoellmy.py
           CIBW_BEFORE_BUILD_WINDOWS: >
             choco install mingw -y &&
-            python {package}/com9MoTVoellmy/_buildMoTVoellmy.py
+            python {package}/avaframe/com9MoTVoellmy/_buildMoTVoellmy.py
           CIBW_BEFORE_BUILD_MACOS: >
-            python {package}/com9MoTVoellmy/_buildMoTVoellmy.py
+            python {package}/avaframe/com9MoTVoellmy/_buildMoTVoellmy.py
+          CIBW_ENVIRONMENT: GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/upload-artifact@v7
         with:
