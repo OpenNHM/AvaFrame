@@ -20,24 +20,52 @@ import sys
 import urllib.request
 
 upstreamRepo = "norwegian-geotechnical-institute/MoT-Voellmy"
-upstreamApi = f"https://api.github.com/repos/{upstreamRepo}/contents/"
+upstreamApi = f"https://api.github.com/repos/{upstreamRepo}"
+upstreamContents = f"{upstreamApi}/contents/"
 sourcePattern = re.compile(r"^MoT-Voellmy\..*\.c$")
 
 outputDir = os.path.dirname(os.path.abspath(__file__))
 
 
-def _findGithubSource():
-    """Query GitHub contents API and return the download_url of the .c file.
-
-    Returns None if no matching file is found or the API request fails.
-    """
+def _getReleaseTag():
+    """Return the tag name of the latest GitHub release, or None."""
     headers = {}
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
     try:
-        req = urllib.request.Request(upstreamApi, headers=headers)
+        url = f"{upstreamApi}/releases/latest"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            import json
+
+            data = json.loads(resp.read().decode())
+            tag = data.get("tag_name")
+            if tag:
+                print(f"Latest upstream release: {tag}")
+            return tag
+    except Exception as e:
+        print(f"Failed to query GitHub releases: {e}", file=sys.stderr)
+        return None
+
+
+def _findGithubSource():
+    """Query the latest GitHub release for the .c source file.
+
+    Returns (download_url, filename) or None if not found.
+    """
+    headers = {}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    tag = _getReleaseTag()
+    ref = tag if tag else "main"
+
+    try:
+        url = f"{upstreamContents}?ref={ref}"
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=30) as resp:
             import json
 
