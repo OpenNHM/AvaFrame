@@ -89,7 +89,8 @@ def _compile(sourcePath):
         cmd = ["gcc", "-Wall", "-pedantic", "-o", outName, sourcePath, "-lm"]
     elif system == "Darwin":
         outName = "MoT-Voellmy_mac.exe"
-        cmd = ["gcc", "-Wall", "-pedantic", "-o", outName, sourcePath, "-lm"]
+        cmd = ["gcc", "-Wall", "-pedantic", "-arch", "arm64", "-arch", "x86_64",
+               "-o", outName, sourcePath, "-lm"]
     else:
         print(f"Unknown platform: {system}", file=sys.stderr)
         return False
