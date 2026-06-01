@@ -114,6 +114,27 @@ For multifile modules (directories) use `__init__.py` and add docstring there
 
 
 
+On the usage of LLMs (AI)
+-------------------------
+
+AvaFrame accepts contributions that are assisted by Large Language Models (LLMs) or other AI tools.
+We follow the `levels of AI assistance <https://www.visidata.org/blog/2026/ai>`_ as described by Saul Pwanson:
+
+- **Level 0**: Human did not use AI at all
+- **Level 1**: Human asked chatbot for ideas (no copy-paste, no LLM autocomplete)
+- **Level 2**: Human coded with minor assists (e.g., boilerplate, regex, or magic incantations)
+- **Level 3**: Human coded, bots assisted non-trivially (e.g., algorithms of moderate complexity)
+- **Level 4**: Human coded, bots helped significantly (e.g., direct file creation/edits, especially for docs/tests)
+- **Level 5**: Bots coded, human understands completely (human reviewed every line with full attention)
+- **Level 6**: Bots coded, human understands mostly (human deferred some code judgement to bots)
+- **Level 7**: Human specced, bots coded (human focused on tests, process, and spec)
+- **Level 8**: Bots planned, human approved (human acted as executive, minimal validation)
+- **Level 9**: Human fired-and-forgot (bots acted autonomously on this issue)
+- **Level 10**: Rogue bots, zero human attention (uninvited autonomous bots)
+
+We accept contributions up to **Level 5**, provided the results are correct and align with AvaFrame's standards.
+**Level 6** is accepted for initial (!) setup of pytests.
+
 Our suggested git workflow
 --------------------------
 
