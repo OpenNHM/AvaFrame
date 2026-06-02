@@ -200,8 +200,8 @@ The mass and momentum equations described in :ref:`theoryCom1DFA:Governing Equat
 in time using an operator splitting method. The different forces involved are sequentially added to update the velocity
 (see :ref:`DFAnumerics:Adding forces`).
 Position is then updated using a centered Euler scheme.
-The time step can either be fixed or dynamically computed using the Courant–Friedrichs–Lewy (CFL) condition
-(in the second case one must set ``cflTimeStepping`` to ``True`` and set the desired CFL coefficient).
+The time step can either be fixed or computed to be consistent with the SPH kernel size (see
+``sphKernelRadiusTimeStepping`` in the com1DFA configuration).
 
 Go back to :ref:`com1DFAAlgorithm:Algorithm graph`
 
