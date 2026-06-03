@@ -10,6 +10,7 @@ import pickle
 import os
 import rasterio
 import geopandas as gpd
+
 from avaframe.com4FlowPy import flowClass
 import avaframe.com4FlowPy.flowCore as flowCore
 import avaframe.com4FlowPy.splitAndMerge as SPAM
@@ -252,13 +253,13 @@ def createTestRaster(pathTestFolder, rasterName):
     return header
 
 
-def test_tileRaster():
-    pathTestFolder = pathlib.Path("avaframe/tests/data/testCom4")
+def test_tileRaster(tmp_path):
+    pathTestFolder = tmp_path / "data" / "testCom4"
     rasterName = "testRaster"
     ext = ".tif"
 
     tileName = "testTile"
-    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+    pathTempFolder = pathTestFolder / "tmp"
     xDim = 4
     yDim = 4
     U = 1
@@ -295,13 +296,13 @@ def test_tileRaster():
     assert ext21 == ((2 * xDim - 4 * U, 3 * xDim - 4 * U), (yDim - 2 * U, 2 * yDim - 2 * U))
 
 
-def test_mergeDict():
-    pathTestFolder = pathlib.Path("avaframe/tests/data/testCom4")
+def test_mergeDict(tmp_path):
+    pathTestFolder = tmp_path / "data" / "testCom4"
     rasterName = "testRaster"
     ext = ".tif"
     pathRaster = pathTestFolder / (rasterName + ext)
     tileName = "testTile"
-    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+    pathTempFolder = pathTestFolder / "tmp"
     xDim = 4
     yDim = 4
     U = 1
@@ -408,11 +409,24 @@ def test_mergeDict():
         assert np.all(mergedDict[k] == mergedDictRef[k])
 
 
-def test_mergeDictToRaster():
-    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+def test_mergeDictToRaster(tmp_path):
+    pathTestFolder = tmp_path / "data" / "testCom4"
+    rasterName = "testRaster"
+    ext = ".tif"
+    pathRaster = pathTestFolder / (rasterName + ext)
     tileName = "testTile"
+    pathTempFolder = pathTestFolder / "tmp"
+    xDim = 4
+    yDim = 4
+    U = 1
+    if os.path.exists(pathTempFolder) is False:
+        os.makedirs(pathTempFolder)
+
+    createTestRaster(pathTestFolder, rasterName)
+
     dictName = "testDict"
 
+    SPAM.tileRaster(pathRaster, tileName, pathTempFolder, xDim, yDim, U)
     nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
 
     for i in range(nTiles[0] + 1):
@@ -426,7 +440,7 @@ def test_mergeDictToRaster():
 
     mergedRaster = SPAM.mergeDictToRaster(pathTempFolder, dictName)
 
-    testData = IOf.readRaster(pathlib.Path("avaframe/tests/data/testCom4/testRaster.tif"))
+    testData = IOf.readRaster(pathTestFolder / "testRaster.tif")
     testRaster = testData["rasterData"]
     # due to no overlap:
     testRaster[testRaster > 0] = 1
@@ -453,14 +467,16 @@ def test_mergeDictToRaster():
     assert np.all(mergedRaster == testRaster)
 
 
-def test_mergeDictToPolygon():
-    _testDIR = pathlib.Path(__file__).parent 
-    pathTestFolder = _testDIR /  "data" / "testCom4"
+def test_mergeDictToPolygon(tmp_path):
+    _testDIR = pathlib.Path(__file__).parent
+    pathRefData = _testDIR / "data" / "testCom4"
+
+    pathTestFolder = tmp_path / "data" / "testCom4"
     rasterName = "testRaster"
     ext = ".tif"
     pathRaster = pathTestFolder / (rasterName + ext)
     tileName = "testTile"
-    pathTempFolder = pathlib.Path("avaframe/tests/data/testCom4/tmp")
+    pathTempFolder = pathTestFolder / "tmp"
     xDim = 4
     yDim = 4
     U = 1
@@ -484,7 +500,8 @@ def test_mergeDictToPolygon():
             saveDict.close()
 
     gdfPathPolygons = SPAM.mergeDictToPolygon(pathTempFolder, dictName, rasterHeader)
-    refPolygons = gpd.read_file(pathTestFolder / "refPolygon.geojson")
+
+    refPolygons = gpd.read_file(pathRefData / "refPolygon.geojson")
 
     assert len(gdfPathPolygons) == 3
     assert np.all(gdfPathPolygons["PRA_id"] == refPolygons["PRA_id"])
@@ -505,7 +522,7 @@ def test_mergeDictToPolygon():
             saveDict.close()
 
     gdfPathPolygons = SPAM.mergeDictToPolygon(pathTempFolder, dictName, rasterHeader)
-    refPolygons = gpd.read_file(pathTestFolder / "refPolygon_manipulated.geojson")
+    refPolygons = gpd.read_file(pathRefData / "refPolygon_manipulated.geojson")
 
     assert len(gdfPathPolygons) == 3
     assert np.all(gdfPathPolygons["PRA_id"] == refPolygons["PRA_id"])
@@ -517,7 +534,8 @@ if __name__ == "__main__":
     test_reverseTopology()
     test_backTracking()
     test_calculation()
-    test_tileRaster()
-    test_mergeDict()
-    test_mergeDictToRaster()
-    test_mergeDictToPolygon()
+    tmpDir = pathlib.Path(__file__).parent / "data" / "testCom4"
+    test_tileRaster(tmpDir)
+    test_mergeDict(tmpDir)
+    test_mergeDictToRaster(tmpDir)
+    test_mergeDictToPolygon(tmpDir)
