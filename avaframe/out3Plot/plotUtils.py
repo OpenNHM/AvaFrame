@@ -216,6 +216,18 @@ colorsSfcC = [
 ]
 cmapSfcChange = copy.copy(cmapCrameri.nuuk.reversed())
 
+levEntrDepth = list(fU.splitIniValueToArraySteps(cfgPlotUtils["entrDepthLevels"]))
+colorsEntrDepth = [
+    "#fefeb2",
+    "#d2d184",
+    "#bab98d",
+    "#a0a598",
+    "#6f878d",
+    "#386982",
+    "#05598c",
+]
+cmapEntrDepth = copy.copy(cmapCrameri.nuuk.reversed())
+
 # colormap for timeInfo
 levtimeInfo = list(fU.splitIniValueToArraySteps(cfgPlotUtils["timeInfoColorLevels"]))
 # lipari reversed color map
@@ -264,6 +276,12 @@ cmapEnergy = {"cmap": cmapE, "colors": colorsE, "levels": levE}
 
 cmapSfcChange = {"cmap": cmapSfcChange, "colors": colorsSfcC, "levels": levSfcC}
 
+cmapEntrDepth = {
+    "cmap": cmapEntrDepth,
+    "colors": colorsEntrDepth,
+    "levels": levEntrDepth,
+}
+
 cmapTime = {"cmap": cmaptimeInfo, "colors": colorstimInfo, "levels": levtimeInfo}
 
 # for zdelta
@@ -298,6 +316,7 @@ colorMaps = {
     "dmDet": cmapDmDet,
     "demAdapted": cmapGreys,
     "sfcChange": cmapSfcChange,
+    "entrDepth": cmapEntrDepth,
     "timeInfo": cmapTime,
 }
 

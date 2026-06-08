@@ -38,6 +38,7 @@ import avaframe.com1DFA.DFAfunctionsCython as DFAfunC
 import avaframe.com1DFA.DFAToolsCython as DFAtllsC
 import avaframe.com1DFA.damCom1DFA as damCom1DFA
 import avaframe.in2Trans.rasterUtils as IOf
+import avaframe.in2Trans.transformFields as transField
 import avaframe.in3Utils.fileHandlerUtils as fU
 from avaframe.in3Utils import cfgUtils
 import avaframe.out3Plot.outDebugPlots as debPlot
@@ -552,7 +553,7 @@ def setThickness(cfg, lineTh, typeTh):
     if cfg["GENERAL"].getboolean(thFlag):
         if cfg["INPUT"]["thFromIni"] != "" and typeTh in cfg["INPUT"]["thFromIni"]:
             lineTh["thicknessSource"] = ["ini file"] * len(lineTh["thickness"])
-        elif cfg["GENERAL"].getboolean("timeDependentRelease"):
+        elif cfg["GENERAL"].getboolean("timeDependentRelease") and typeTh == "relTh":
             lineTh["thicknessSource"] = ["csv file"] * len(lineTh["thickness"])
         else:
             lineTh["thicknessSource"] = ["shp file"] * len(lineTh["thickness"])
@@ -561,7 +562,7 @@ def setThickness(cfg, lineTh, typeTh):
 
     # set thickness value info read from ini file that has been updated from shp or ini previously
     for count, id in enumerate(lineTh["id"]):
-        if cfg["GENERAL"].getboolean("timeDependentRelease"):
+        if cfg["GENERAL"].getboolean("timeDependentRelease") and typeTh == "relTh":
             lineTh["thickness"][count] = float(lineTh["thickness"][count].item())
 
         elif cfg["GENERAL"].getboolean(thFlag):
@@ -1314,7 +1315,7 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     # initialize entrainment and resistance
     # get info of simType and whether or not to initialize resistance and entrainment
     simTypeActual = cfgGen["simTypeActual"]
-    entrMassRaster, entrEnthRaster, reportAreaInfo = initializeMassEnt(
+    entrMassRaster, entrEnthRaster, entrDepthRaster, reportAreaInfo = initializeMassEnt(
         dem,
         simTypeActual,
         inputSimLines["entLine"],
@@ -1326,6 +1327,12 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     # check if entrainment and release overlap
     entrMassRaster = geoTrans.checkOverlap(entrMassRaster, relRaster, "Entrainment", "Release", crop=True)
     entrEnthRaster = geoTrans.checkOverlap(entrEnthRaster, relRaster, "Entrainment", "Release", crop=True)
+
+    if cfg["GENERAL"].getboolean("entrainableDeposition"):
+        demNotErodableRaster = dem["rasterData"] - entrDepthRaster
+    else:
+        demNotErodableRaster = dem["rasterData"]
+
     # check for overlap with the secondary release area
     if secondaryReleaseInfo["flagSecondaryRelease"] == "Yes":
         for secIndex, secRelRaster in enumerate(secondaryReleaseInfo["rasterData"]):
@@ -1385,6 +1392,8 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     # surfacic entrainment mass available (unit kg/m²)
     fields["entrMassRaster"] = entrMassRaster
     fields["entrEnthRaster"] = entrEnthRaster
+    fields["entrDepth"] = entrDepthRaster
+    fields["demNotErodableRaster"] = demNotErodableRaster
     entreainableMass = np.nansum(fields["entrMassRaster"] * dem["areaRaster"])
     log.info("Mass available for entrainment: %.2f kg" % (entreainableMass))
 
@@ -1963,9 +1972,14 @@ def initializeMassEnt(dem, simTypeActual, entLine, reportAreaInfo, thresholdPoin
     -------
     entrMassRaster : 2D numpy array
         raster of available mass for entrainment
+    entrEnthRaster: 2D numpy array
+        raster of available entrainment enthalpie
+    entrDepthDict["rasterData"]: 2D numpy array
+        raster of available depth for entrainment
     reportAreaInfo: dict
         simulation area information dictionary completed with entrainment area info
     """
+
     # read dem header
     header = dem["originalHeader"]
     ncols = header["ncols"]
@@ -1976,26 +1990,29 @@ def initializeMassEnt(dem, simTypeActual, entLine, reportAreaInfo, thresholdPoin
         log.info("Entrainment area features: %s" % (entLine["Name"]))
         if entLine["initializedFrom"] == "shapefile":
             entLine = geoTrans.prepareArea(entLine, dem, thresholdPointInPoly, thList=entLine["thickness"])
-        entrMassRaster = entLine["rasterData"]
+        entrThicknessRaster = entLine["rasterData"]
         # ToDo: not used in samos but implemented
         # tempRaster = cfg['GENERAL'].getfloat('entTempRef') + (dem['rasterData'] - cfg['GENERAL'].getfloat('entMinZ'))
         # * cfg['GENERAL'].getfloat('entTempGrad')
         # entrEnthRaster = np.where(tempRaster < 0, tempRaster*cfg['GENERAL'].getfloat('cpIce'),
         #                           tempRaster*cfg['GENERAL'].getfloat('cpWtr')/cfg['GENERAL'].getfloat('hFusion'))
         entrEnthRaster = np.where(
-            entrMassRaster > 0,
+            entrThicknessRaster > 0,
             cfg["GENERAL"].getfloat("entTempRef") * cfg["GENERAL"].getfloat("cpIce"),
             0,
         )
         reportAreaInfo["entrainment"] = "Yes"
     else:
-        entrMassRaster = np.zeros((nrows, ncols))
+        entrThicknessRaster = np.zeros((nrows, ncols))
         entrEnthRaster = np.zeros((nrows, ncols))
         reportAreaInfo["entrainment"] = "No"
 
-    entrMassRaster = entrMassRaster * cfg["GENERAL"].getfloat("rhoEnt")
+    entrMassRaster = entrThicknessRaster * cfg["GENERAL"].getfloat("rhoEnt")
+    # convert entrainable thickness into entrainable depth
+    entrThDict = {"rasterData": entrThicknessRaster, "header": dem["header"]}
+    entrDepthDict, _, _ = transField.convertDepthThickness(entrThDict, dem, typeOfInput="thickness")
 
-    return entrMassRaster, entrEnthRaster, reportAreaInfo
+    return entrMassRaster, entrEnthRaster, entrDepthDict["rasterData"], reportAreaInfo
 
 
 def initializeResistance(cfg, dem, simTypeActual, resLine, reportAreaInfo, thresholdPointInPoly):
@@ -3499,6 +3516,20 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                 cfgSim["INPUT"]["entThFile"] = pathToEnt
                 inputSimFiles["entResInfo"]["entRemeshed"] = remeshedEnt
             cfgSim["INPUT"]["entrainmentScenario"] = str(pathlib.Path("ENT", inputSimFiles["entFile"].name))
+            if cfgSim["GENERAL"]["entrainableDeposition"] == "True" and (
+                cfgSim["GENERAL"]["adaptSfcEntrainment"] == "0"
+                or (
+                    cfgSim["GENERAL"]["adaptSfcStopped"] == "0"
+                    and cfgSim["GENERAL"]["adaptSfcDetrainment"] == "0"
+                )
+            ):
+                # set entrainable Deposition to False if entrainment or adapt Sfc are switched off
+                message = f"When entrainable deposition is True, adaptSfcEntrainment and adaptSfcDeposition (or adaptSfcDetrainment) need to be 1."
+                log.error(message)
+                raise ValueError(message)
+        else:
+            cfgSim["GENERAL"]["entrainableDeposition"] = "False"
+            log.info("Deposition is not entrainable when it's not an ent sim type.")
 
         # add info about resistance file path to the cfg
         if "res" in row._asdict()["simTypeList"] and inputSimFiles["resFile"] is not None:
@@ -3907,7 +3938,15 @@ def adaptDEM(dem, fields, cfg):
     dem: dict
         dictionary with info on DEM data
     fields : dict
-        fields dictionary
+        fields dictionary containing:
+            FTDet (flow thickness change due to detrainment >= 0)
+            FTStop (flow thickness change due to stopping >= 0)
+            FTEnt (flow thickness change due to entrainment <= 0)
+            mStop (stopped mass <=0)
+            sfcChangeTotal (so far changed surface)
+            entrDepth (entrainable depth that is on top of the not erodable topography)
+            entrMassRaster (entrainable mass)
+            demNotErodableRaster (topography that is not erodable)
     cfg: dict
         configuration settings
 
@@ -3916,16 +3955,22 @@ def adaptDEM(dem, fields, cfg):
     dem: dict
         dictionary with info on DEM data containing adapted topography
     fields : dict
-        fields dictionary containing adapted DEM
+        fields dictionary containing adapted DEM, adapted entrainable mass and depth raster
     """
 
     ZDEM = dem["rasterData"].copy()
-    FTDet = fields["FTDet"]
-    FTStop = fields["FTStop"]
-    FTEnt = fields["FTEnt"]
+    FTDet = fields["FTDet"]  # >= 0
+    FTStop = fields["FTStop"]  # >= 0
+    FTEnt = fields["FTEnt"]  # <= 0
+    mStop = fields["mStop"]  # <= 0
+
     sfcChangeTotal = fields["sfcChangeTotal"]
     sfcChange = np.zeros_like(FTDet)
     ZDEMadapt = ZDEM
+
+    depthStop = np.zeros_like(ZDEM)
+    depthDet = np.zeros_like(ZDEM)
+    depthEnt = np.zeros_like(ZDEM)
 
     _, _, NzNormed = DFAtls.normalize(dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy())
 
@@ -3944,6 +3989,14 @@ def adaptDEM(dem, fields, cfg):
         depthEnt = FTEnt / NzNormed
         ZDEMadapt += depthEnt
         sfcChange += depthEnt
+    if cfg.getboolean("entrainableDeposition"):
+        hErodable = fields["entrDepth"]
+        hErodable += depthStop
+        hErodable += depthDet
+        hErodable += depthEnt
+        ZDEMadapt = fields["demNotErodableRaster"] + hErodable
+        fields["entrDepth"] = hErodable
+        fields["entrMassRaster"] -= mStop
 
     dem["rasterData"] = ZDEMadapt
     fields["demAdapted"] = ZDEMadapt

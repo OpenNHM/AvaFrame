@@ -154,6 +154,7 @@ def checkResType(fullCfg, section, key, value):
             "sfcChange",
             "demAdapted",
             "timeInfo",
+            "entrDepth",
         ]
         message = "The parameter % s is not a valid resType. It will not be saved"
         newResType = []
@@ -285,7 +286,7 @@ def getThicknessValue(cfg, inputSimFiles, fName, thType):
 
     # if thickness should be read from shape file
     if cfg["GENERAL"].getboolean(thFlag):
-        if cfg["GENERAL"].getboolean("timeDependentRelease"):
+        if cfg["GENERAL"].getboolean("timeDependentRelease") and thType == "relTh":
             cfg["INPUT"]["relThInfo"] = "timeDependent"
         # if at least one but not all features in a shapefile have a thickness value - error
         elif ("None" in thicknessList) and thType != "entTh":
@@ -902,8 +903,11 @@ def appendThicknessToCfg(cfg):
             for count, id in enumerate(idList):
                 thNameId = thType + id
                 if thNameId in cfg["GENERAL"].keys():
-                    log.info("Thickness value for %s already set in initial config file, \
-                              read from there not from shp file" % thNameId)
+                    log.info(
+                        "Thickness value for %s already set in initial config file, \
+                              read from there not from shp file"
+                        % thNameId
+                    )
                 else:
                     cfgGen[thNameId] = str(float(thicknessList[count]))
 

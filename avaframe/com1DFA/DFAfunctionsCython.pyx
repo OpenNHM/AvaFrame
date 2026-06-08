@@ -1393,6 +1393,8 @@ def updateFieldsC(cfg, particles, dem, fields):
             PKE[j, i] = kineticEnergy[j, i]
 
       # thickness change due to detrainment, stopping and entrainment
+      # MassDetBilinear, MassStopBilinear <= 0, MassEntBilinear >= 0,
+      # FTDetBilinear, FTStopBilinear >= 0, FTEntBilinear <= 0
       FTDetBilinear[j, i] = - MassDetBilinear[j, i] / (areaRaster[j, i] * rho)  # / m * FTBilinear[j, i]
       FTStopBilinear[j, i] = - MassStopBilinear[j, i] / (areaRaster[j, i] * rho)  # / m * FTBilinear[j, i] 
       FTEntBilinear[j, i] = - MassEntBilinear[j, i] / (areaRaster[j, i] * rhoEnt)
@@ -1409,6 +1411,7 @@ def updateFieldsC(cfg, particles, dem, fields):
   fields['FTStop'] = np.asarray(FTStopBilinear).copy()
   fields['FTDet'] = np.asarray(FTDetBilinear).copy()
   fields['FTEnt'] = np.asarray(FTEntBilinear).copy()
+  fields['mStop'] = np.asarray(MassStopBilinear).copy()
 
   if computeP:
     fields['ppr'] = np.asarray(PP).copy()
