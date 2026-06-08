@@ -1,5 +1,4 @@
-""" Opperations and transformations of rasters and lines
-"""
+"""Opperations and transformations of rasters and lines"""
 
 import logging
 import math
@@ -445,7 +444,7 @@ def remeshRaster(rasterFile, cfgSim, typeIndicator="DEM", onlySearch=False, lega
     fU.makeADir(pathToRaster)
 
     outFile = pathToRaster / (
-            "%s_remeshed%s%.2f" % (rasterFile.stem, typeIndicator, remeshedRaster["header"]["cellsize"])
+        "%s_remeshed%s%.2f" % (rasterFile.stem, typeIndicator, remeshedRaster["header"]["cellsize"])
     )
 
     writtenFile = rU.writeResultToRaster(
@@ -497,8 +496,8 @@ def searchRemeshedRaster(rasterName, cfgSim, typeIndicator="DEM"):
         for rasterF in rasterFiles:
             headerRaster = rU.readRasterHeader(rasterF)
             if (
-                    abs(meshCellSize - headerRaster["cellsize"]) < meshCellSizeThreshold
-                    and rasterName in rasterF.stem
+                abs(meshCellSize - headerRaster["cellsize"]) < meshCellSizeThreshold
+                and rasterName in rasterF.stem
             ):
                 log.info(
                     "Remeshed Raster found: %s cellSize: %.5f" % (rasterF.name, headerRaster["cellsize"])
@@ -535,8 +534,8 @@ def computeS(avaPath):
     ycoord = avaPath["y"]
     n = np.size(xcoord)
     # compute s
-    dxs = xcoord[1:n] - xcoord[0: n - 1]
-    dys = ycoord[1:n] - ycoord[0: n - 1]
+    dxs = xcoord[1:n] - xcoord[0 : n - 1]
+    dys = ycoord[1:n] - ycoord[0 : n - 1]
     # deduce the distance in s direction
     ds2 = dxs * dxs + dys * dys
     ds = np.sqrt(ds2)
@@ -1786,30 +1785,30 @@ def getNormalMesh(dem, num=4):
         # filling the inside of the matrix
         # normal calculation with 4 triangles
         # (Zl - Zr) / csz
-        Nx[1: n - 1, 1: m - 1] = (z[1: n - 1, 0: m - 2] - z[1: n - 1, 2:m]) / csz
+        Nx[1 : n - 1, 1 : m - 1] = (z[1 : n - 1, 0 : m - 2] - z[1 : n - 1, 2:m]) / csz
         # (Zd - Zu) * csz
-        Ny[1: n - 1, 1: m - 1] = (z[0: n - 2, 1: m - 1] - z[2:n, 1: m - 1]) / csz
+        Ny[1 : n - 1, 1 : m - 1] = (z[0 : n - 2, 1 : m - 1] - z[2:n, 1 : m - 1]) / csz
         Nz = 2 * Nz
         # filling the first col of the matrix
         # -2*(Zr - Zp) / csz
-        Nx[1: n - 1, 0] = -2 * (z[1: n - 1, 1] - z[1: n - 1, 0]) / csz
+        Nx[1 : n - 1, 0] = -2 * (z[1 : n - 1, 1] - z[1 : n - 1, 0]) / csz
         # (Zd - Zu) / csz
-        Ny[1: n - 1, 0] = (z[0: n - 2, 0] - z[2:n, 0]) / csz
+        Ny[1 : n - 1, 0] = (z[0 : n - 2, 0] - z[2:n, 0]) / csz
         # filling the last col of the matrix
         # 2*(Zl - Zp) / csz
-        Nx[1: n - 1, m - 1] = 2 * (z[1: n - 1, m - 2] - z[1: n - 1, m - 1]) / csz
+        Nx[1 : n - 1, m - 1] = 2 * (z[1 : n - 1, m - 2] - z[1 : n - 1, m - 1]) / csz
         # (Zd - Zu) / csz
-        Ny[1: n - 1, m - 1] = (z[0: n - 2, m - 1] - z[2:n, m - 1]) / csz
+        Ny[1 : n - 1, m - 1] = (z[0 : n - 2, m - 1] - z[2:n, m - 1]) / csz
         # filling the first row of the matrix
         # (Zl - Zr) / csz
-        Nx[0, 1: m - 1] = (z[0, 0: m - 2] - z[0, 2:m]) / csz
+        Nx[0, 1 : m - 1] = (z[0, 0 : m - 2] - z[0, 2:m]) / csz
         # -2*(Zu - Zp) / csz
-        Ny[0, 1: m - 1] = -2 * (z[1, 1: m - 1] - z[0, 1: m - 1]) / csz
+        Ny[0, 1 : m - 1] = -2 * (z[1, 1 : m - 1] - z[0, 1 : m - 1]) / csz
         # filling the last row of the matrix
         # (Zl - Zr) / csz
-        Nx[n - 1, 1: m - 1] = (z[n - 1, 0: m - 2] - z[n - 1, 2:m]) / csz
+        Nx[n - 1, 1 : m - 1] = (z[n - 1, 0 : m - 2] - z[n - 1, 2:m]) / csz
         # 2*(Zd - Zp) / csz
-        Ny[n - 1, 1: m - 1] = 2 * (z[n - 2, 1: m - 1] - z[n - 1, 1: m - 1]) / csz
+        Ny[n - 1, 1 : m - 1] = 2 * (z[n - 2, 1 : m - 1] - z[n - 1, 1 : m - 1]) / csz
         # filling the corners of the matrix
         Nx[0, 0] = -(z[0, 1] - z[0, 0]) / csz
         Ny[0, 0] = -(z[1, 0] - z[0, 0]) / csz
@@ -1828,56 +1827,54 @@ def getNormalMesh(dem, num=4):
         # filling the inside of the matrix
         # normal calculation with 6 triangles
         # (2*(Zl - Zr) - Zur + Zdl + Zu - Zd) / csz
-        Nx[1: n - 1, 1: m - 1] = (
-                                         2 * (z[1: n - 1, 0: m - 2] - z[1: n - 1, 2:m])
-                                         - z[2:n, 2:m]
-                                         + z[0: n - 2, 0: m - 2]
-                                         + z[2:n, 1: m - 1]
-                                         - z[0: n - 2, 1: m - 1]
-                                 ) / csz
+        Nx[1 : n - 1, 1 : m - 1] = (
+            2 * (z[1 : n - 1, 0 : m - 2] - z[1 : n - 1, 2:m])
+            - z[2:n, 2:m]
+            + z[0 : n - 2, 0 : m - 2]
+            + z[2:n, 1 : m - 1]
+            - z[0 : n - 2, 1 : m - 1]
+        ) / csz
         # (2*(Zd - Zu) - Zur + Zdl - Zl + Zr) / csz
-        Ny[1: n - 1, 1: m - 1] = (
-                                         2 * (z[0: n - 2, 1: m - 1] - z[2:n, 1: m - 1])
-                                         - z[2:n, 2:m]
-                                         + z[0: n - 2, 0: m - 2]
-                                         - z[1: n - 1, 0: m - 2]
-                                         + z[1: n - 1, 2:m]
-                                 ) / csz
+        Ny[1 : n - 1, 1 : m - 1] = (
+            2 * (z[0 : n - 2, 1 : m - 1] - z[2:n, 1 : m - 1])
+            - z[2:n, 2:m]
+            + z[0 : n - 2, 0 : m - 2]
+            - z[1 : n - 1, 0 : m - 2]
+            + z[1 : n - 1, 2:m]
+        ) / csz
         Nz = 6 * Nz
         # filling the first col of the matrix
         # (- 2*(Zr - Zp) + Zu - Zur ) / csz
-        Nx[1: n - 1, 0] = (-2 * (z[1: n - 1, 1] - z[1: n - 1, 0]) + z[2:n, 0] - z[2:n, 1]) / csz
+        Nx[1 : n - 1, 0] = (-2 * (z[1 : n - 1, 1] - z[1 : n - 1, 0]) + z[2:n, 0] - z[2:n, 1]) / csz
         # (Zd - Zu + Zr - Zur) / csz
-        Ny[1: n - 1, 0] = (z[0: n - 2, 0] - z[2:n, 0] + z[1: n - 1, 1] - z[2:n, 1]) / csz
-        Nz[1: n - 1, 0] = 3
+        Ny[1 : n - 1, 0] = (z[0 : n - 2, 0] - z[2:n, 0] + z[1 : n - 1, 1] - z[2:n, 1]) / csz
+        Nz[1 : n - 1, 0] = 3
         # filling the last col of the matrix
         # (2*(Zl - Zp) + Zdl - Zd) / csz
-        Nx[1: n - 1, m - 1] = (
-                                      2 * (z[1: n - 1, m - 2] - z[1: n - 1, m - 1]) + z[0: n - 2, m - 2] - z[0: n - 2,
-                                                                                                           m - 1]
-                              ) / csz
+        Nx[1 : n - 1, m - 1] = (
+            2 * (z[1 : n - 1, m - 2] - z[1 : n - 1, m - 1]) + z[0 : n - 2, m - 2] - z[0 : n - 2, m - 1]
+        ) / csz
         # (Zd - Zu + Zdl - Zl) / csz
-        Ny[1: n - 1, m - 1] = (
-                                      z[0: n - 2, m - 1] - z[2:n, m - 1] + z[0: n - 2, m - 2] - z[1: n - 1, m - 2]
-                              ) / csz
-        Nz[1: n - 1, m - 1] = 3
+        Ny[1 : n - 1, m - 1] = (
+            z[0 : n - 2, m - 1] - z[2:n, m - 1] + z[0 : n - 2, m - 2] - z[1 : n - 1, m - 2]
+        ) / csz
+        Nz[1 : n - 1, m - 1] = 3
         # filling the first row of the matrix
         # (Zl - Zr + Zu - Zur) / csz
-        Nx[0, 1: m - 1] = (z[0, 0: m - 2] - z[0, 2:m] + z[1, 1: m - 1] - z[1, 2:m]) / csz
+        Nx[0, 1 : m - 1] = (z[0, 0 : m - 2] - z[0, 2:m] + z[1, 1 : m - 1] - z[1, 2:m]) / csz
         # (-2*(Zu - Zp) + Zr - Zur) / csz
-        Ny[0, 1: m - 1] = (-2 * (z[1, 1: m - 1] - z[0, 1: m - 1]) + z[0, 2:m] - z[1, 2:m]) / csz
-        Nz[0, 1: m - 1] = 3
+        Ny[0, 1 : m - 1] = (-2 * (z[1, 1 : m - 1] - z[0, 1 : m - 1]) + z[0, 2:m] - z[1, 2:m]) / csz
+        Nz[0, 1 : m - 1] = 3
         # filling the last row of the matrix
         # (Zl - Zr + Zdl - Zd) / csz
-        Nx[n - 1, 1: m - 1] = (
-                                      z[n - 1, 0: m - 2] - z[n - 1, 2:m] + z[n - 2, 0: m - 2] - z[n - 2, 1: m - 1]
-                              ) / csz
+        Nx[n - 1, 1 : m - 1] = (
+            z[n - 1, 0 : m - 2] - z[n - 1, 2:m] + z[n - 2, 0 : m - 2] - z[n - 2, 1 : m - 1]
+        ) / csz
         # (2*(Zd - Zp) + Zdl - Zl) / csz
-        Ny[n - 1, 1: m - 1] = (
-                                      2 * (z[n - 2, 1: m - 1] - z[n - 1, 1: m - 1]) + z[n - 2, 0: m - 2] - z[n - 1,
-                                                                                                           0: m - 2]
-                              ) / csz
-        Nz[n - 1, 1: m - 1] = 3
+        Ny[n - 1, 1 : m - 1] = (
+            2 * (z[n - 2, 1 : m - 1] - z[n - 1, 1 : m - 1]) + z[n - 2, 0 : m - 2] - z[n - 1, 0 : m - 2]
+        ) / csz
+        Nz[n - 1, 1 : m - 1] = 3
         # filling the corners of the matrix
         Nx[0, 0] = (z[1, 0] - z[1, 1] - (z[0, 1] - z[0, 0])) / csz
         Ny[0, 0] = (z[0, 1] - z[1, 1] - (z[1, 0] - z[0, 0])) / csz
@@ -1896,74 +1893,74 @@ def getNormalMesh(dem, num=4):
         # filling the inside of the matrix
         # normal calculation with 8 triangles
         # (2*(Zl - Zr) + Zul - Zur + Zdl - Zdr) / csz
-        Nx[1: n - 1, 1: m - 1] = (
-                                         2 * (z[1: n - 1, 0: m - 2] - z[1: n - 1, 2:m])
-                                         + z[2:n, 0: m - 2]
-                                         - z[2:n, 2:m]
-                                         + z[0: n - 2, 0: m - 2]
-                                         - z[0: n - 2, 2:m]
-                                 ) / csz
+        Nx[1 : n - 1, 1 : m - 1] = (
+            2 * (z[1 : n - 1, 0 : m - 2] - z[1 : n - 1, 2:m])
+            + z[2:n, 0 : m - 2]
+            - z[2:n, 2:m]
+            + z[0 : n - 2, 0 : m - 2]
+            - z[0 : n - 2, 2:m]
+        ) / csz
         # (2*(Zd - Zu) - Zul - Zur + Zdl + Zdr) / csz
-        Ny[1: n - 1, 1: m - 1] = (
-                                         2 * (z[0: n - 2, 1: m - 1] - z[2:n, 1: m - 1])
-                                         - z[2:n, 0: m - 2]
-                                         - z[2:n, 2:m]
-                                         + z[0: n - 2, 0: m - 2]
-                                         + z[0: n - 2, 2:m]
-                                 ) / csz
+        Ny[1 : n - 1, 1 : m - 1] = (
+            2 * (z[0 : n - 2, 1 : m - 1] - z[2:n, 1 : m - 1])
+            - z[2:n, 0 : m - 2]
+            - z[2:n, 2:m]
+            + z[0 : n - 2, 0 : m - 2]
+            + z[0 : n - 2, 2:m]
+        ) / csz
         Nz = 8 * Nz
         # filling the first col of the matrix
         # (- 2*(Zr - Zp) + Zu - Zur + Zd - Zdr) / csz
-        Nx[1: n - 1, 0] = (
-                                  -2 * (z[1: n - 1, 1] - z[1: n - 1, 0])
-                                  + z[2:n, 0]
-                                  - z[2:n, 1]
-                                  + z[0: n - 2, 0]
-                                  - z[0: n - 2, 1]
-                          ) / csz
+        Nx[1 : n - 1, 0] = (
+            -2 * (z[1 : n - 1, 1] - z[1 : n - 1, 0])
+            + z[2:n, 0]
+            - z[2:n, 1]
+            + z[0 : n - 2, 0]
+            - z[0 : n - 2, 1]
+        ) / csz
         # (Zd - Zu + Zdr - Zur) / csz
-        Ny[1: n - 1, 0] = (z[0: n - 2, 0] - z[2:n, 0] + z[0: n - 2, 1] - z[2:n, 1]) / csz
-        Nz[1: n - 1, 0] = 4
+        Ny[1 : n - 1, 0] = (z[0 : n - 2, 0] - z[2:n, 0] + z[0 : n - 2, 1] - z[2:n, 1]) / csz
+        Nz[1 : n - 1, 0] = 4
         # filling the last col of the matrix
         # (2*(Zl - Zp) + Zdl - Zd + Zul - Zu) / csz
-        Nx[1: n - 1, m - 1] = (
-                                      2 * (z[1: n - 1, m - 2] - z[1: n - 1, m - 1])
-                                      + z[0: n - 2, m - 2]
-                                      - z[0: n - 2, m - 1]
-                                      + z[2:n, m - 2]
-                                      - z[2:n, m - 1]
-                              ) / csz
+        Nx[1 : n - 1, m - 1] = (
+            2 * (z[1 : n - 1, m - 2] - z[1 : n - 1, m - 1])
+            + z[0 : n - 2, m - 2]
+            - z[0 : n - 2, m - 1]
+            + z[2:n, m - 2]
+            - z[2:n, m - 1]
+        ) / csz
         # (Zd - Zu + Zdl - Zul) / csz
-        Ny[1: n - 1, m - 1] = (
-                                      z[0: n - 2, m - 1] - z[2:n, m - 1] + z[0: n - 2, m - 2] - z[2:n, m - 2]
-                              ) / csz
-        Nz[1: n - 1, m - 1] = 4
+        Ny[1 : n - 1, m - 1] = (
+            z[0 : n - 2, m - 1] - z[2:n, m - 1] + z[0 : n - 2, m - 2] - z[2:n, m - 2]
+        ) / csz
+        Nz[1 : n - 1, m - 1] = 4
         # filling the first row of the matrix
         # (Zl - Zr + Zul - Zur) / csz
-        Nx[0, 1: m - 1] = (z[0, 0: m - 2] - z[0, 2:m] + z[1, 0: m - 2] - z[1, 2:m]) / csz
+        Nx[0, 1 : m - 1] = (z[0, 0 : m - 2] - z[0, 2:m] + z[1, 0 : m - 2] - z[1, 2:m]) / csz
         # (-2*(Zu - Zp) + Zr - Zur + Zl - Zul) / csz
-        Ny[0, 1: m - 1] = (
-                                  -2 * (z[1, 1: m - 1] - z[0, 1: m - 1])
-                                  + z[0, 2:m]
-                                  - z[1, 2:m]
-                                  + z[0, 0: m - 2]
-                                  - z[1, 0: m - 2]
-                          ) / csz
-        Nz[0, 1: m - 1] = 4
+        Ny[0, 1 : m - 1] = (
+            -2 * (z[1, 1 : m - 1] - z[0, 1 : m - 1])
+            + z[0, 2:m]
+            - z[1, 2:m]
+            + z[0, 0 : m - 2]
+            - z[1, 0 : m - 2]
+        ) / csz
+        Nz[0, 1 : m - 1] = 4
         # filling the last row of the matrix
         # (Zl - Zr + Zdl - Zdr) / csz
-        Nx[n - 1, 1: m - 1] = (
-                                      z[n - 1, 0: m - 2] - z[n - 1, 2:m] + z[n - 2, 0: m - 2] - z[n - 2, 2:m]
-                              ) / csz
+        Nx[n - 1, 1 : m - 1] = (
+            z[n - 1, 0 : m - 2] - z[n - 1, 2:m] + z[n - 2, 0 : m - 2] - z[n - 2, 2:m]
+        ) / csz
         # (2*(Zd - Zp) + Zdl - Zl + Zdr - Zr) / csz
-        Ny[n - 1, 1: m - 1] = (
-                                      2 * (z[n - 2, 1: m - 1] - z[n - 1, 1: m - 1])
-                                      + z[n - 2, 0: m - 2]
-                                      - z[n - 1, 0: m - 2]
-                                      + z[n - 2, 2:m]
-                                      - z[n - 1, 2:m]
-                              ) / csz
-        Nz[n - 1, 1: m - 1] = 4
+        Ny[n - 1, 1 : m - 1] = (
+            2 * (z[n - 2, 1 : m - 1] - z[n - 1, 1 : m - 1])
+            + z[n - 2, 0 : m - 2]
+            - z[n - 1, 0 : m - 2]
+            + z[n - 2, 2:m]
+            - z[n - 1, 2:m]
+        ) / csz
+        Nz[n - 1, 1 : m - 1] = 4
         # filling the corners of the matrix
         Nx[0, 0] = (z[1, 0] - z[1, 1] - (z[0, 1] - z[0, 0])) / csz
         Ny[0, 0] = (z[0, 1] - z[1, 1] - (z[1, 0] - z[0, 0])) / csz
@@ -1986,19 +1983,19 @@ def getNormalMesh(dem, num=4):
         n2, m2 = np.shape(z2)
 
         Nx = (
-                -((z2[0: n2 - 1, 1:m2] - z2[1:n2, 0: m2 - 1]) + (z2[1:n2, 1:m2] - z2[0: n2 - 1, 0: m2 - 1]))
-                * csz
+            -((z2[0 : n2 - 1, 1:m2] - z2[1:n2, 0 : m2 - 1]) + (z2[1:n2, 1:m2] - z2[0 : n2 - 1, 0 : m2 - 1]))
+            * csz
         )
         Ny = (
-                -((z2[1:n2, 1:m2] - z2[0: n2 - 1, 0: m2 - 1]) - (z2[0: n2 - 1, 1:m2] - z2[1:n2, 0: m2 - 1]))
-                * csz
+            -((z2[1:n2, 1:m2] - z2[0 : n2 - 1, 0 : m2 - 1]) - (z2[0 : n2 - 1, 1:m2] - z2[1:n2, 0 : m2 - 1]))
+            * csz
         )
         Nz = 2 * Nz * csz * csz
 
         # Nx = - (z2[0:n2-1, 1:m2] - z2[0:n2-1, 0:m2-1]) / csz
         # Ny = - (z2[1:n2, 0:m2-1] - z2[0:n2-1, 0:m2-1]) / csz
-        Ny[n - 1, 0: m - 1] = -Ny[n - 1, 0: m - 1]
-        Nx[0: n - 1, m - 1] = -Nx[0: n - 1, m - 1]
+        Ny[n - 1, 0 : m - 1] = -Ny[n - 1, 0 : m - 1]
+        Nx[0 : n - 1, m - 1] = -Nx[0 : n - 1, m - 1]
         Ny[n - 1, m - 1] = -Ny[n - 1, m - 1]
         Nx[n - 1, m - 1] = -Nx[n - 1, m - 1]
         # TODO, Try to replicate samosAT notmal computation
@@ -2132,4 +2129,3 @@ def checkDBOverlap(DBXl, DBXr, DBYl, DBYr):
     if not DBrLine.is_simple or not DBlLine.is_simple:
         message = "Domain transformation for given path_aimec - curvature of provided line leads to folding"
         log.warning(message)
-

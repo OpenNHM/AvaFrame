@@ -25,6 +25,7 @@ import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.DFAtools as DFAtls
 import avaframe.com1DFA.particleInitialisation as pI
 
+
 def test_prepareInputData(tmp_path):
     """test preparing input data"""
 
@@ -862,7 +863,7 @@ def test_initializeMassEnt():
     thresholdPointInPoly = 0.001
 
     # call function to be tested
-    entrMassRaster, entrEnthRaster, reportAreaInfo = com1DFA.initializeMassEnt(
+    entrMassRaster, entrEnthRaster, entrDepthRaster, reportAreaInfo = com1DFA.initializeMassEnt(
         dem,
         simTypeActual,
         entLine,
@@ -885,7 +886,7 @@ def test_initializeMassEnt():
 
     # call function to be tested
     simTypeActual = "res"
-    entrMassRaster, entrEnthRaster, reportAreaInfo = com1DFA.initializeMassEnt(
+    entrMassRaster, entrEnthRaster, entrDepthRaster, reportAreaInfo = com1DFA.initializeMassEnt(
         dem,
         simTypeActual,
         entLine,
@@ -2025,7 +2026,7 @@ def test_initializeFields():
     #    print("compute TA", fields["computeTA"])
     #    print("compute P", fields["computeP"])
 
-    assert len(fields) == 24
+    assert len(fields) == 25
     assert fields["computeTA"] is False
     assert fields["computeKE"] is False
     assert fields["computeP"]
@@ -2060,7 +2061,7 @@ def test_initializeFields():
     }
     # call function to be tested
     particles, fields = com1DFA.initializeFields(cfg, dem, particles, "")
-    assert len(fields) == 24
+    assert len(fields) == 25
     assert fields["computeTA"]
     assert fields["computeKE"]
     assert fields["computeP"] is False
@@ -2103,6 +2104,8 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "explicitFriction": 0,
         "timeDependentRelease": "False",
         "timeDependentReleaseScenarios": "",
+        "adaptSfcEntrainment": "0",
+        "entrainableDeposition": "False",
     }
     standardCfg["INPUT"] = {
         "entThThickness": "1.",
@@ -2179,6 +2182,8 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "explicitFriction": 0,
         "timeDependentRelease": "False",
         "timeDependentReleaseScenarios": "",
+        "adaptSfcEntrainment": "0",
+        "entrainableDeposition": "False",
     }
 
     testCfg["INPUT"] = {
@@ -2292,6 +2297,8 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "explicitFriction": 0,
         "timeDependentRelease": "False",
         "timeDependentReleaseScenarios": "",
+        "adaptSfcEntrainment": "0",
+        "entrainableDeposition": "False",
     }
     testCfg2["INPUT"] = {
         "entThThickness": "1.",
@@ -2371,6 +2378,8 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "rho": "200.0",
         "explicitFriction": 0,
         "timeDependentRelease": "True",
+        "adaptSfcEntrainment": "0",
+        "entrainableDeposition": "False",
     }
     standardCfg["INPUT"] = {
         "entThThickness": "1.",
@@ -2448,6 +2457,8 @@ def test_prepareVarSimDict(tmp_path, caplog):
         "explicitFriction": 0,
         "timeDependentRelease": "True",
         "timeDependentReleaseScenarios": "release1PF",
+        "adaptSfcEntrainment": "0",
+        "entrainableDeposition": "False",
     }
 
     testCfg["INPUT"] = {
@@ -2472,6 +2483,18 @@ def test_prepareVarSimDict(tmp_path, caplog):
             "cfgSim": testCfg,
         }
     }
+
+    for key in testDict[simName1]:
+        #        print(simDict)
+        #        print(simDict[simName1][key])
+        assert simDict[simName1][key] == testDict[simName1][key]
+
+    for section in testCfg.sections():
+        for key in testCfg[section]:
+            assert simDict[simName1]["cfgSim"][section][key] == testCfg[section][key]
+
+    standardCfg["GENERAL"]["entrainableDeposition"] = "True"
+    simDict = com1DFA.prepareVarSimDict(standardCfg, inputSimFiles, variationDict)
 
     for key in testDict[simName1]:
         #        print(simDict)
@@ -3163,6 +3186,7 @@ def test_adaptDEM():
         "adaptSfcStopped": 0,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 0,
+        "entrainableDeposition": "False",
     }
 
     header = {
@@ -3196,6 +3220,9 @@ def test_adaptDEM():
         "demAdapted": data,
         "sfcChangeTotal": np.zeros_like(data),
         "sfcChange": np.zeros_like(data),
+        "mStop": np.zeros_like(data),
+        "entrDepth": np.zeros_like(data),
+        "entrMassRaster": np.zeros_like(data),
     }
 
     dem = geoTrans.getNormalMesh(dem, num=cfg["GENERAL"].getfloat("methodMeshNormal"))
@@ -3218,6 +3245,7 @@ def test_adaptDEM():
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 1,
         "adaptSfcEntrainment": 1,
+        "entrainableDeposition": "False",
     }
 
     # all rasters for depth changes are zero
@@ -3255,6 +3283,7 @@ def test_adaptDEM():
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 1,
+        "entrainableDeposition": "False",
     }
 
     fieldsInput = fields.copy()
@@ -3272,6 +3301,7 @@ def test_adaptDEM():
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 1,
         "adaptSfcEntrainment": 1,
+        "entrainableDeposition": "False",
     }
 
     fields["FTEnt"] -= 1
@@ -3318,6 +3348,65 @@ def test_adaptDEM():
     assert np.any(dem["areaRaster"] != demAdapted["areaRaster"])
     assert np.all(fieldsAdapted["sfcChange"] == fields["FTDet"] / NzNormed)
     assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "methodMeshNormal": 1,
+        "adaptSfcStopped": 1,
+        "adaptSfcDetrainment": 0,
+        "adaptSfcEntrainment": 1,
+        "entrainableDeposition": "True",
+    }
+
+    fields["FTEnt"] = np.zeros_like(fields["FTDet"])
+    fields["FTStop"] = np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+        ],
+        dtype=float,
+    )
+    fields["mStop"] = np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [-10, -10, -10, -10, -10],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+        ],
+        dtype=float,
+    )
+    fields["entrDepth"] = np.zeros_like(fields["FTDet"])
+    fields["entrMassRaster"] = np.zeros_like(fields["FTDet"])
+    fields["demNotErodableRaster"] = dem["rasterData"].copy()
+    fieldsInput = fields.copy()
+    demInput = dem.copy()
+    demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
+
+    assert np.all(
+        demAdapted["rasterData"]
+        == np.array(
+            [
+                [1.0, 2.0, 3.0, 4.0, 5.0],
+                [1.0, 2.0, 3.0, 4.0, 5.0],
+                [1.0, 2.0, 3.0, 4.0, 5.0] + 1 / NzNormed[2],
+                [1.0, 2.0, 3.0, 4.0, 5.0],
+                [1.0, 2.0, 3.0, 4.0, 5.0],
+            ]
+        )
+    )
+    assert np.any(demAdapted["Nx"] != dem["Nx"])
+    assert np.any(demAdapted["Ny"] != dem["Ny"])
+    assert np.all(demAdapted["Nz"] == dem["Nz"])
+    assert np.any(dem["areaRaster"] != demAdapted["areaRaster"])
+    assert np.all(fieldsAdapted["sfcChange"] == fields["FTDet"] / NzNormed)
+    assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
+    assert np.all(fieldsAdapted["demNotErodableRaster"] == fields["demNotErodableRaster"])
+    assert np.all(fieldsAdapted["entrDepth"] == fields["FTStop"] / NzNormed)
+    assert np.all(fieldsAdapted["entrMassRaster"] == -fields["mStop"])
 
 
 def test_tSteps_output_behavior(tmp_path, caplog):
