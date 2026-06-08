@@ -2533,6 +2533,7 @@ def test_initializeSimulation(tmp_path):
     demHeader["nodata_value"] = -9999
     demHeader["nrows"] = 12
     demHeader["ncols"] = 12
+    demHeader["driver"] = "AAIGrid"
     demData = np.ones((12, 12))
     demOri = {"header": demHeader, "rasterData": demData}
 
@@ -2779,6 +2780,120 @@ def test_initializeSimulation(tmp_path):
     assert np.any(fields4["pfv"] != 0)
     assert np.isin(np.round(fields4["pfv"]), [0.0, 10.0]).all()
     assert np.all(particles4["ux"] == 0.0)
+
+    # test resistance initialization with rasters export
+    cfg = configparser.ConfigParser()
+    cfg["REPORT"] = {}
+    cfg["GENERAL"] = {
+        "methodMeshNormal": "1",
+        "thresholdPointInPoly": "0.001",
+        "useRelThFromIni": "False",
+        "resType": "ppr|pft|pfv",
+        "relTh": "1.0",
+        "useEntThFromIni": "False",
+        "meshCellSizeThreshold": "0.0001",
+        "meshCellSize": "1.",
+        "simTypeActual": "entres",
+        "rhoEnt": "100.",
+        "entTh": "0.3",
+        "rho": "200.",
+        "gravAcc": "9.81",
+        "massPerParticleDeterminationMethod": "MPPDH",
+        "interpOption": "2",
+        "sphKernelRadius": "1",
+        "deltaTh": "0.25",
+        "seed": "12345",
+        "initPartDistType": "uniform",
+        "thresholdPointInPoly": "0.001",
+        "avalancheDir": "data/avaTest",
+        "cRes": "0.003",
+        "initialiseParticlesFromFile": "False",
+        "entTempRef": "-10.",
+        "cpIce": "2050.",
+        "TIni": "-10.",
+        "ResistanceModel": "default",
+        "cResH": "0.003",
+        "detK": "0.05",
+        "detrainment": "False",
+        "restitutionCoefficient": 1,
+        "nIterDam": 1,
+    }
+    cfg["EXPORTS"] = {"exportRasters": "True"}
+
+    # create dem with full header fields needed for raster export
+    demHeaderRes = demHeader.copy()
+    demHeaderRes["transform"] = transformFromASCHeader(demHeaderRes)
+    demHeaderRes["crs"] = rasterio.crs.CRS.from_epsg(31287)
+    demOriRes = {"header": demHeaderRes, "rasterData": demData}
+
+    resRasterData = np.zeros((12, 12))
+    resRasterData[5:8, 2:4] = 1
+
+    # write a real raster file so plotReleaseScenarioView can read it
+    resRasterPath = tmp_path / "resRasterTest"
+    IOf.writeResultToRaster(demHeaderRes, resRasterData, resRasterPath, flip=False)
+
+    resLine = {
+        "fileName": str(resRasterPath) + ".asc",
+        "Name": ["testRes"],
+        "initializedFrom": "raster",
+        "rasterData": resRasterData,
+    }
+
+    releaseLine = {
+        "x": np.asarray([6.9, 8.5, 8.5, 6.9, 6.9]),
+        "y": np.asarray([7.9, 7.9, 9.5, 9.5, 7.9]),
+        "Start": np.asarray([0]),
+        "Length": np.asarray([5]),
+        "Name": [""],
+        "thickness": [1.0],
+        "thicknessSource": ["ini File"],
+        "type": "release",
+        "file": relFileTest,
+        "initializedFrom": "shapefile",
+    }
+
+    inputSimLines = {
+        "releaseLine": releaseLine,
+        "entResInfo": {"flagSecondaryRelease": "No", "entThFileType": "shp file"},
+        "entLine": {
+            "fileName": (avaDir / "ENT" / "entAlr.shp"),
+            "Name": ["testEnt"],
+            "Start": np.asarray([0.0]),
+            "thickness": [0.3, 0.3],
+            "thicknessSource": ["shp file", "shp file"],
+            "Length": np.asarray([5]),
+            "x": np.asarray([4, 5.0, 5.0, 4.0, 4.0]),
+            "type": "entrainment",
+            "y": np.asarray([4.0, 4.0, 5.0, 5.0, 4.0]),
+            "initializedFrom": "shapefile",
+        },
+        "secondaryReleaseLine": None,
+        "resLine": resLine,
+        "relThFile": "",
+        "entThFile": "",
+        "relThField": "",
+        "damLine": None,
+        "muFile": None,
+        "xiFile": None,
+    }
+    logName = "simLog"
+
+    particles5, fields5, dem5, reportAreaInfo5 = com1DFA.initializeSimulation(
+        cfg, outDir, demOriRes, inputSimLines, logName
+    )
+
+    assert reportAreaInfo5["resistance"] == "Yes"
+    assert "cResRasterTrack" in fields5
+    assert "detRasterTrack" in fields5
+    assert np.array_equal(fields5["cResRaster"], fields5["cResRasterTrack"])
+    assert np.array_equal(fields5["detRaster"], fields5["detRasterTrack"])
+
+    # check that raster files are created with logName in filename
+    rastersDir = outDir / "internalRasters"
+    assert (rastersDir / ("releaseRaster_%s.asc" % logName)).is_file()
+    assert (rastersDir / ("resistanceRaster_%s.asc" % logName)).is_file()
+    assert (rastersDir / ("entrainmentRaster_%s.asc" % logName)).is_file()
 
 
 def test_runCom1DFA(tmp_path, caplog):
