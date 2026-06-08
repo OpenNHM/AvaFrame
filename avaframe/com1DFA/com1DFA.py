@@ -1225,19 +1225,19 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     inputSimLines["releaseLine"]["header"] = dem["originalHeader"]
     # export release area raster to file
     if cfg["EXPORTS"].getboolean("exportRasters"):
-        outDir = pathlib.Path(cfgGen["avalancheDir"], "Outputs", "internalRasters")
-        fU.makeADir(outDir)
+        outDirRasters = outDir / "internalRasters"
+        fU.makeADir(outDirRasters)
         useCompression = cfg["EXPORTS"].getboolean("useCompression")
         IOf.writeResultToRaster(
             dem["originalHeader"],
             relRaster,
-            (outDir / "releaseRaster"),
+            (outDirRasters / ("releaseRaster_%s" % logName)),
             flip=True,
             useCompression=useCompression,
         )
         log.info(
             "Release area raster derived from %s saved to %s"
-            % (releaseLine["initializedFrom"], str(outDir / "releaseRaster"))
+            % (releaseLine["initializedFrom"], str(outDirRasters / ("releaseRaster_%s" % logName)))
         )
     particles = initializeParticles(
         cfgGen,
@@ -1325,12 +1325,13 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
             )
             # export secondary release raster used for computations (after cutting potential overlap with release)
             if cfg["EXPORTS"].getboolean("exportRasters"):
-                outDir = pathlib.Path(cfg["GENERAL"]["avalancheDir"], "Outputs", "internalRasters")
+                outDirRasters = outDir / "internalRasters"
+                fU.makeADir(outDirRasters)
                 useCompression = cfg["EXPORTS"].getboolean("useCompression")
                 IOf.writeResultToRaster(
                     dem["originalHeader"],
                     secRelRaster,
-                    (outDir / ("secondaryReleaseRaster_%d" % secIndex)),
+                    (outDirRasters / ("secondaryReleaseRaster_%d_%s" % (secIndex, logName))),
                     flip=True,
                     useCompression=useCompression,
                 )
@@ -1338,17 +1339,18 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
                     "SecondaryRelease area raster derived from %s saved to %s"
                     % (
                         inputSimLines["entResInfo"]["secondaryRelThFileType"],
-                        str(outDir / ("secondaryReleaseRaster_%d" % secIndex)),
+                        str(outDirRasters / ("secondaryReleaseRaster_%d_%s" % (secIndex, logName))),
                     )
                 )
     # export entrainment raster used for computations (after cutting potential overlap with release or secondary release)
     if cfg["EXPORTS"].getboolean("exportRasters"):
-        outDir = pathlib.Path(cfg["GENERAL"]["avalancheDir"], "Outputs", "internalRasters")
+        outDirRasters = outDir / "internalRasters"
+        fU.makeADir(outDirRasters)
         useCompression = cfg["EXPORTS"].getboolean("useCompression")
         IOf.writeResultToRaster(
             dem["originalHeader"],
             entrMassRaster / cfg["GENERAL"].getfloat("rhoEnt"),
-            (outDir / "entrainmentRaster"),
+            (outDirRasters / ("entrainmentRaster_%s" % logName)),
             flip=True,
             useCompression=useCompression,
         )
@@ -1356,7 +1358,7 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
             "Entrainment area raster derived from %s saved to %s"
             % (
                 inputSimLines["entResInfo"]["entThFileType"],
-                str(outDir / "entrainmentRaster"),
+                str(outDirRasters / ("entrainmentRaster_%s" % logName)),
             )
         )
 
@@ -1377,8 +1379,27 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     )
     fields["cResRaster"] = cResRaster
     fields["detRaster"] = detRaster
-    fields["cResRasterOrig"] = cResRaster
-    fields["detRasterOrig"] = detRaster
+    fields["cResRasterTrack"] = cResRaster
+    fields["detRasterTrack"] = detRaster
+    # export resistance raster used for computations
+    if (cfgGen["simTypeActual"] in ["entres", "res"]) and cfg["EXPORTS"].getboolean("exportRasters"):
+        outDirRasters = outDir / "internalRasters"
+        fU.makeADir(outDirRasters)
+        useCompression = cfg["EXPORTS"].getboolean("useCompression")
+        IOf.writeResultToRaster(
+            dem["originalHeader"],
+            fields["cResRaster"],
+            (outDirRasters / ("resistanceRaster_%s" % logName)),
+            flip=True,
+            useCompression=useCompression,
+        )
+        log.info(
+            "Resistance area raster derived from %s saved to %s"
+            % (
+                inputSimLines["resLine"]["fileName"],
+                str(outDirRasters / ("resistanceRaster_%s" % logName)),
+            )
+        )
 
     for fric in ["mu", "xi"]:
         if (inputSimLines[fric + "File"] == None) or (
@@ -2446,6 +2467,22 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         log.warning(
             "%d particles have been removed during simulation because they exited the domain"
             % particles["nExitedParticles"]
+        )
+
+    # save final cRes raster
+    if (cfgGen["simTypeActual"] in ["entres", "res"]) and cfg["EXPORTS"].getboolean("exportRasters"):
+        outDirRes = outDir / "internalRasters"
+        fU.makeADir(outDirRes)
+        IOf.writeResultToRaster(
+            dem["originalHeader"],
+            fields["cResRasterTrack"],
+            (outDirRes / ("cResRaster_Final_%s" % cuSimName)),
+            flip=True,
+            useCompression=cfg["EXPORTS"].getboolean("useCompression"),
+        )
+        log.info(
+            "Resistance area raster (final state) saved to %s"
+            % (str(outDirRes / ("cResFinal_%s" % cuSimName)))
         )
 
     return Tsave, infoDict, contourDictXY

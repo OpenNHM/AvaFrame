@@ -99,8 +99,8 @@ def test_updateResCoeffFields(tmp_path):
     FT = np.zeros((4, 10))
 
     fields = {
-        "cResRasterOrig": cResRasterOrig,
-        "detRasterOrig": detRasterOrig,
+        "cResRasterTrack": cResRasterOrig,
+        "detRasterTrack": detRasterOrig,
         "FV": FV,
         "FT": FT,
     }
@@ -129,8 +129,8 @@ def test_updateResCoeffFields(tmp_path):
     FV[1, 3] = 41
     FT[1, 1] = 11
     fields = {
-        "cResRasterOrig": cResRasterOrig,
-        "detRasterOrig": detRasterOrig,
+        "cResRasterTrack": cResRasterOrig,
+        "detRasterTrack": detRasterOrig,
         "FV": FV,
         "FT": FT,
     }

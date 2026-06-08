@@ -9,6 +9,7 @@ import logging
 import math
 import pathlib
 import numpy as np
+import copy as cp
 
 from deepdiff import DeepDiff
 
@@ -366,7 +367,7 @@ def updateResCoeffFields(fields, cfg):
     Parameters
     ------------
     fields: dict
-        dictionary with cResRasterOrig, cResRaster and detRasterOrig, detRaster fields
+        dictionary with cResRasterTrack, cResRaster and detRasterTrack, detRaster fields
     cfg: configparser object
         configuration of com1DFA, thresholds
 
@@ -377,8 +378,8 @@ def updateResCoeffFields(fields, cfg):
     """
 
     # fetch cRes and detK raster and thresholds for FV and FT
-    cResOrig = fields["cResRasterOrig"].copy()
-    detOrig = fields["detRasterOrig"].copy()
+    cResOrig = cp.deepcopy(fields["cResRasterTrack"])
+    detOrig = cp.deepcopy(fields["detRasterTrack"])
     vMin = cfg.getfloat("forestVMin")
     thMin = cfg.getfloat("forestThMin")
     vMax = cfg.getfloat("forestVMax")
@@ -400,8 +401,8 @@ def updateResCoeffFields(fields, cfg):
     if lTh > 0:
         cResOrig = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, cResOrig)
         detOrig = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, detOrig)
-        fields["cResRasterOrig"] = cResOrig
-        fields["detRasterOrig"] = detOrig
+        fields["cResRasterTrack"] = cResOrig
+        fields["detRasterTrack"] = detOrig
         log.debug(
             "Resistance area removed %d cells because FV or FT exceeded %.2f ms-1, %.2f m"
             % (lTh, vMax, thMax)
