@@ -119,10 +119,24 @@ There are two options available to extend the mass-averaged path profile in the 
    distance between a point in the release and the first point of the mass-averaged
    path profile.
 
-We also extend the path at the bottom, to have some buffer in the runout area. This is done by finding the direction of
-the path given by the last few points within the path in the x,y domain (all points at a distance ``nCellsMinExtend`` *
-cellSize < distance < ``nCellsMaxExtend`` * cellSize)) and extending in this direction by a given factor
-(``factBottomExt``) of the total length of the path :math:`s`.
+We also extend the path at the bottom, to have some buffer in the runout area. Two options exist
+(``extBottomOption``):
+
+* ``extBottomOption = 0`` (default): find the direction of
+  the path given by the last few points within the path in the x,y domain (all points at a distance ``nCellsMinExtend`` *
+  cellSize < distance < ``nCellsMaxExtend`` * cellSize)) and extend in this direction by a given factor
+  (``factBottomExt``) of the total length of the path :math:`s`.
+
+* ``extBottomOption = 1``: extend the path to the front of the deposit. Since the mass-averaged path
+  ends short of the deposit once the front decelerates, this option first locates the front as the
+  flow-thickness-weighted centroid of the flow cells lying in the lowest ``lowFrontFraction`` of the
+  flow elevation range (flow cells are those above ``ftThreshold`` in the peak flow thickness field),
+  and then connects the end of the mass-averaged path to the front with a least-cost path (Dijkstra)
+  over the DEM. The cost of a step is its horizontal length, penalized by the positive elevation gain
+  (``upSlopePenalty``) and by the distance from the flow footprint (``flowDistPenalty``), so the
+  extension descends along the deposit. With this option the path ends at the simulated deposit front
+  instead of at a fixed relative distance. If the front cannot be located or reached, the path falls
+  back to the fixed-length extension of option 0.
 
 Resampling
 ==========
