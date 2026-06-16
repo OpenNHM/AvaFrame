@@ -58,8 +58,8 @@ def generateMuXsiRasters(avaDir, cfg):
     demCrs = demHeader["crs"]
     demShape = (demHeader["nrows"], demHeader["ncols"])
 
-    defaultMu = float(cfg["DEFAULTS"]["default_mu"])
-    defaultXsi = float(cfg["DEFAULTS"]["default_xsi"])
+    defaultMu = cfg["DEFAULTS"].getfloat("default_mu")
+    defaultXsi = cfg["DEFAULTS"].getfloat("default_xsi")
 
     # Rasterize mu
     log.info("Rasterizing mu shapefile: %s", muShpPath)
@@ -91,6 +91,8 @@ def generateMuXsiRasters(avaDir, cfg):
 
 def _rasterizeShapefile(shpPath, defaultValue, fieldName, demShape, demTransform):
     """Rasterize a polygon shapefile attribute field onto a DEM-matching grid.
+
+    All cells not covered by any polygon are filled with defaultValue.
 
     Parameters
     ----------
