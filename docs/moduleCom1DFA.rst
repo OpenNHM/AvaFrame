@@ -107,6 +107,7 @@ at least two results are generated: the *null* variant and the variant with entr
   - only one file per parameter allowed
   - if ``meshCellSize`` is different from simulation ``meshCellSize`` fields will be remeshed
   - only used if ``frictionModel`` is set to ``spatialVoellmy``
+  - to generate these rasters from polygon shapefiles, see :ref:`moduleIn3Utils:Spatial Voellmy inputs`
 
 * **one ``_cropshape.shp`` shape file (in Inputs/POLYGONS)**
 
