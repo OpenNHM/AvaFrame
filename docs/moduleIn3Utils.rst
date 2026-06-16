@@ -10,6 +10,37 @@ comparison or interpolation on rasters, lines, points...
 Further information about the available functions can be found in :py:mod:`in3Utils.geoTrans`
 
 
+Spatial Voellmy inputs
+======================
+
+The :py:mod:`in3Utils.spatialVoellmyInputs` module generates raster files
+for the Voellmy friction parameters :math:`\mu` and :math:`\xi` from polygon
+shapefiles. This is required when using the ``spatialVoellmy`` friction model
+in com1DFA (see :ref:`moduleCom1DFA:Input`).
+
+Provide polygon shapefiles with ``mu`` and ``xsi`` attribute fields in
+``Inputs/POLYGONS/``, with file names ending in ``_mu.shp`` and ``_xsi.shp``.
+The DEM must be placed in ``Inputs/``. The generated rasters are written to
+``Inputs/RASTERS/`` with the same file format as the DEM.
+
+Default values for areas not covered by the polygon shapefiles are set in
+``avaframe/in3Utils/spatialVoellmyInputsCfg.ini``.
+
+
+To run
+------
+
+* first go to ``AvaFrame/avaframe``
+* copy ``in3Utils/spatialVoellmyInputsCfg.ini`` to
+  ``in3Utils/local_spatialVoellmyInputsCfg.ini`` and set desired
+  ``default_mu`` and ``default_xsi`` values (if not, the default values
+  are used)
+* ensure the DEM and shapefiles are in the avalanche directory as
+  described above
+* run::
+
+    python3 runScripts/runSpatialVoellmyInputs.py
+
 
 Generate Topography
 ===================
