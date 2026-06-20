@@ -83,14 +83,22 @@ def generatePathAndSplitpoint(avalancheDir, cfgDFAPath, cfgMain, runDFAModule):
             log.error(message)
             raise FileExistsError(message)
 
+    # the peak flow thickness fields are only needed when the path is extended to the deposit
+    # front; parse the peak files once here instead of re-reading them for every simulation
+    extendToFront = cfgDFAPath['PATH'].getint('extBottomOption', fallback=0) == 1
+    peakFilesDF = None
+    if extendToFront:
+        peakFilesDir = pathlib.Path(avalancheDir, 'Outputs', 'com1DFA', 'peakFiles')
+        peakFilesDF = fU.makeSimDF(peakFilesDir, avaDir=avalancheDir)
+
     for simName, simDFrow in simDF.iterrows():
         log.info('Computing avalanche path from simulation: %s', simName)
         pathFromPart = cfgDFAPath['PATH'].getboolean('pathFromPart')
         resampleDistance = cfgDFAPath['PATH'].getfloat('nCellsResample') * dem['header']['cellsize']
         # peak flow thickness field, only needed when extending the path to the deposit front
         fieldFT = None
-        if cfgDFAPath['PATH'].getint('extBottomOption', fallback=0) == 1:
-            fieldFT = readPeakFT(avalancheDir, simName)
+        if extendToFront:
+            fieldFT = readPeakFT(peakFilesDF, simName)
         # get the mass average path
         avaProfileMass, particlesIni = generateMassAveragePath(avalancheDir, pathFromPart, simName, dem,
                                                                addVelocityInfo=cfgDFAPath['PATH'].getboolean('addVelocityInfo'))
@@ -314,17 +322,15 @@ def getMassAvgPathFromFields(fieldsList, fieldHeader, dem):
     return avaProfileMass
 
 
-def readPeakFT(avalancheDir, simName, comModule='com1DFA'):
-    """ read the peak flow thickness field (pft) of one simulation
+def readPeakFT(peakFilesDF, simName):
+    """ get the peak flow thickness field (pft) of one simulation from the peak file dataframe
 
     Parameters
     -----------
-    avalancheDir: str or pathlib path
-        avalanche directory
+    peakFilesDF: pandas DataFrame
+        peak files of all simulations (from fU.makeSimDF), parsed once for the whole run
     simName: str
         simulation name
-    comModule: str
-        computational module name (subdirectory of Outputs)
 
     Returns
     --------
@@ -332,14 +338,12 @@ def readPeakFT(avalancheDir, simName, comModule='com1DFA'):
         peak flow thickness raster (same grid as the simulation dem),
         None if no pft peak field is available for this simulation
     """
-    inputDir = pathlib.Path(avalancheDir, 'Outputs', comModule, 'peakFiles')
-    peakFilesDF = fU.makeSimDF(inputDir, avaDir=avalancheDir)
     # the simulation can be identified by its full name or by its hash (the index of the
     # configuration dataframe iterated in generatePathAndSplitpoint is the hash)
     isSim = (peakFilesDF['simName'] == simName) | (peakFilesDF['simID'] == simName)
     index = peakFilesDF.index[isSim & (peakFilesDF['resType'] == 'pft')]
     if len(index) == 0:
-        log.warning('No pft peak field found for simulation %s in %s' % (simName, inputDir))
+        log.warning('No pft peak field found for simulation %s' % simName)
         return None
     return IOf.readRaster(peakFilesDF.loc[index[0], 'files'])['rasterData']
 
@@ -686,6 +690,8 @@ def findFlowFront(fieldFT, demRaster, ftThreshold, lowFrontFraction):
     elev = demRaster[rows, cols]
     lowBand = elev <= elev.min() + lowFrontFraction * (elev.max() - elev.min())
     weight = fieldFT[rows, cols] * lowBand
+    # weight.sum() is always positive: the lowest flow cell is in lowBand and, being a flow
+    # cell, carries fieldFT > ftThreshold >= 0, so no divide-by-zero guard is needed
     frontRow = int(round(np.sum(rows * weight) / weight.sum()))
     frontCol = int(round(np.sum(cols * weight) / weight.sum()))
     if not flow[frontRow, frontCol]:
