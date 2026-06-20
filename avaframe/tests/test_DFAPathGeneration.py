@@ -7,6 +7,7 @@ import pytest
 # Local imports
 import avaframe.ana5Utils.DFAPathGeneration as DFAPathGeneration
 import avaframe.in3Utils.geoTrans as gT
+import avaframe.in3Utils.fileHandlerUtils as fU
 
 
 def test_appendAverageStd():
@@ -249,14 +250,16 @@ def test_readPeakFT(tmp_path):
     content = ('ncols 3\nnrows 2\nxllcenter 0.\nyllcenter 0.\ncellsize 5.\nNODATA_value -9999\n'
                '1. 2. 3.\n4. 5. 6.\n')
     (peakDir / 'relA_0123456789_C_M_null_dfa_pft.asc').write_text(content)
+    # the peak files are parsed once and the dataframe is passed to readPeakFT
+    peakFilesDF = fU.makeSimDF(peakDir, avaDir=tmp_path)
     # the simulation is found by its hash (the index of the configuration dataframe)
-    fieldFT = DFAPathGeneration.readPeakFT(tmp_path, '0123456789')
+    fieldFT = DFAPathGeneration.readPeakFT(peakFilesDF, '0123456789')
     assert fieldFT.shape == (2, 3)
     # and by its full simulation name
-    fieldFT = DFAPathGeneration.readPeakFT(tmp_path, 'relA_0123456789_C_M_null_dfa')
+    fieldFT = DFAPathGeneration.readPeakFT(peakFilesDF, 'relA_0123456789_C_M_null_dfa')
     assert fieldFT.shape == (2, 3)
     # no pft available for the simulation: returns None
-    assert DFAPathGeneration.readPeakFT(tmp_path, 'someOtherSim') is None
+    assert DFAPathGeneration.readPeakFT(peakFilesDF, 'someOtherSim') is None
 
 
 def test_resamplePath():
