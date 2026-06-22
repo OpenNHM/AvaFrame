@@ -108,6 +108,26 @@ def com1DFAPreprocess(cfgMain, cfgInfo, module=com1DFA):
         avalancheDir, cfgStart["GENERAL"].getboolean("cleanRemeshedRasters"), module
     )
 
+    # if module is mot based - tif is currently not supported as format for input data
+    # TODO:remove when tif to asc conversion for mot is implement
+    if module.__name__.split(".")[-1].lower() in ["com8motpsa", "com9motvoellmy"]:
+        testInputType = [
+            (
+                True
+                if (inputSimFilesAll[iType] and iType not in ["relFiles", "relThFiles"])
+                and ("File" in iType and ".tif" in inputSimFilesAll[iType].suffix)
+                else False
+            )
+            for iType in inputSimFilesAll
+        ]
+        testInputType = testInputType + [
+            True if ".tif" in relFile.suffix else False for relFile in inputSimFilesAll["relFiles"]
+        ]
+        if any(testInputType):
+            message = ".tif files currently not supported for %s" % module
+            log.error(message)
+            raise ValueError(message)
+
     # create dictionary with one key for each simulation that shall be performed
     simDict = dP.createSimDict(avalancheDir, module, cfgStart, inputSimFilesAll, simNameExisting)
 
