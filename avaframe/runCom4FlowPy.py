@@ -26,7 +26,7 @@ import avaframe.in2Trans.rasterUtils as IOf
 import avaframe.in3Utils.geoTrans as gT
 
 
-def main(avalancheDir=""):
+def main(avalancheDir="", cfg=None):
     """this is a wrapper around com4FlowPy.py that handles the following tasks:
     * reading inputs from (local_)avaframeCfg.ini and (local_)com4FlowPyCfg.ini
     * constructing cfgPath and cfgSetup dictionaries for passing to com4FlowPy.com4FlowPyMain()
@@ -39,7 +39,8 @@ def main(avalancheDir=""):
     logName = "runcom4FlowPy"
     # Read main Config and com4FlowPy config from files
     cfgMain = cfgUtils.getGeneralConfig()
-    cfg = cfgUtils.getModuleConfig(com4FlowPy)
+    if cfg is None:
+        cfg = cfgUtils.getModuleConfig(com4FlowPy)
 
     # check and handle outputFiles list provided in (local_)com4FlowPyCfg.ini
     cfg["PATHS"]["outputFiles"] = checkOutputFilesFormat(cfg["PATHS"]["outputFiles"])
