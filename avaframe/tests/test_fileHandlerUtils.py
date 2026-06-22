@@ -9,10 +9,13 @@
 import numpy as np
 import os
 from avaframe.in3Utils import fileHandlerUtils as fU
+import avaframe.in2Trans.rasterUtils as rasterUtils
 import pytest
 import shutil
 import pathlib
 import configparser
+import rasterio
+import json
 
 
 def test_makeADir(tmp_path):
@@ -529,3 +532,209 @@ def test_makeSimDF_layerColumn_singleLayer(tmp_path):
 
     assert "layer" in dataDF.columns
     assert all(v == "" for v in dataDF["layer"].tolist())
+
+
+def test_checkResultFolderFilesExist(tmp_path):
+    """ test make directory """
+
+    avaName = 'testRes'
+    resDir = pathlib.Path(tmp_path) / avaName
+    folderExist, filesExist = fU.checkResultFolderFilesExist(resDir)
+
+    assert folderExist is False
+    assert filesExist is False
+
+    fU.makeADir(resDir)
+    folderExist, filesExist = fU.checkResultFolderFilesExist(resDir)
+    assert folderExist
+    assert filesExist is False
+
+    fU.makeADir(resDir)
+    folderExist, filesExist = fU.checkResultFolderFilesExist(resDir, outputnames=["zdelta"])
+    assert folderExist
+    assert filesExist is False
+
+    # create a result file
+    # first create test raster and save in test folder
+    rasterName = "resultTest_123_zdelta"
+    testRaster = np.zeros((10, 10))
+
+    cellsize = 10
+    nrows, ncols = testRaster.shape
+
+    header = {
+        "cellsize": cellsize,
+        "nrows": nrows,
+        "ncols": ncols,
+        "xllcenter": 0,
+        "yllcenter": 0,
+        "nodata_value": -9999,
+        "driver": "GTiff",
+        "crs": "EPSG:4326",
+    }
+    # convert lower-left center to upper-left corner
+    x_ul = header["xllcenter"] - cellsize / 2
+    y_ul = header["yllcenter"] + nrows * cellsize - cellsize / 2
+
+    transform = rasterio.transform.from_origin(x_ul, y_ul, cellsize, cellsize)
+    header["transform"] = transform
+
+    rasterUtils.writeResultToRaster(header, testRaster, resDir / rasterName, useCompression=True, flip=True)
+
+    folderExist, filesExist = fU.checkResultFolderFilesExist(resDir, outputnames=["zdelta"])
+    assert folderExist
+    assert filesExist
+
+    folderExist, filesExist = fU.checkResultFolderFilesExist(resDir, outputnames=["zdelta", "flux"])
+    assert folderExist
+    assert filesExist is False
+
+    rasterName = "resultTest_456_flux"
+    rasterUtils.writeResultToRaster(header, testRaster, resDir / rasterName, useCompression=True, flip=True)
+
+    folderExist, filesExist = fU.checkResultFolderFilesExist(resDir, outputnames=["zdelta", "flux"])
+    assert folderExist
+    assert filesExist
+
+
+def test_searchCom4ResDir(tmp_path):
+    """ test searchCom4ResDir function for locating com4FlowPy Result Directories"""
+    simHash = "abc123"
+    outputPath = pathlib.Path(tmp_path) / "Outputs"
+
+    # no folder exists yet
+    resFolder = fU.searchCom4ResDir(outputPath, simHash)
+    assert resFolder is None
+
+    # create folder directly in outputPath
+    directResFolder = outputPath / f"res_{simHash}"
+    fU.makeADir(directResFolder)
+    resFolder = fU.searchCom4ResDir(outputPath, simHash)
+    assert resFolder == directResFolder
+
+    # remove it and create in peakFiles subfolder instead
+    shutil.rmtree(directResFolder)
+    peakResFolder = outputPath / "peakFiles" / f"res_{simHash}"
+    fU.makeADir(peakResFolder)
+    resFolder = fU.searchCom4ResDir(outputPath, simHash)
+    assert resFolder == peakResFolder
+
+    # different simHash should not be found
+    resFolder = fU.searchCom4ResDir(outputPath, "otherHash")
+    assert resFolder is None
+
+
+def test_deleteCom4Results(tmp_path):
+    """ test deleting com4FlowPy results folder and json file """
+    outputPath = pathlib.Path(tmp_path) / "Outputs"
+    simHash = "abc123"
+
+    jsonFile = outputPath / f"{simHash}.json"
+    resFolder = outputPath / f"res_{simHash}"
+    fU.makeADir(resFolder)
+    with open(jsonFile, "w") as f:
+        json.dump({"simHash": simHash}, f)
+    (resFolder / "dummy.txt").write_text("dummy")
+
+    assert jsonFile.is_file()
+    assert resFolder.is_dir()
+
+    # deleting a non-existing simHash should not raise and not touch existing files
+    fU.deleteCom4Results(outputPath, "otherHash")
+    assert jsonFile.is_file()
+    assert resFolder.is_dir()
+
+    # deleting existing simHash removes both json and folder
+    fU.deleteCom4Results(outputPath, simHash)
+    assert not jsonFile.exists()
+    assert not resFolder.exists()
+
+    # calling again should not raise even though nothing is left to delete
+    fU.deleteCom4Results(outputPath, simHash)
+    assert not jsonFile.exists()
+    assert not resFolder.exists()
+
+    """ test deleting com4FlowPy results folder located in peakFiles subfolder """
+    outputPath = pathlib.Path(tmp_path) / "Outputs"
+    simHash = "peak123"
+
+    jsonFile = outputPath / f"{simHash}.json"
+    resFolder = outputPath / "peakFiles" / f"res_{simHash}"
+    fU.makeADir(resFolder)
+    with open(jsonFile, "w") as f:
+        json.dump({"simHash": simHash}, f)
+
+    assert jsonFile.is_file()
+    assert resFolder.is_dir()
+
+    fU.deleteCom4Results(outputPath, "otherHash")
+    assert jsonFile.is_file()
+    assert resFolder.is_dir()
+
+    fU.deleteCom4Results(outputPath, simHash)
+    assert not jsonFile.exists()
+    assert not resFolder.exists()
+
+    fU.deleteCom4Results(outputPath, simHash)
+    assert not jsonFile.exists()
+    assert not resFolder.exists()
+
+
+def test_backupCom4Results(tmp_path):
+    """ test backing up com4FlowPy results folder and json file """
+    outputPath = pathlib.Path(tmp_path) / "Outputs"
+    backupPath = outputPath / "backup"
+    simHash = "abc123"
+
+    jsonFile = outputPath / f"{simHash}.json"
+    resFolder = outputPath / f"res_{simHash}"
+    fU.makeADir(resFolder)
+    with open(jsonFile, "w") as f:
+        json.dump({"simHash": simHash}, f)
+    (resFolder / "dummy.txt").write_text("dummy")
+
+    assert jsonFile.exists()
+    assert resFolder.exists()
+
+    fU.backupCom4Results(outputPath, simHash)
+
+    # originals should be gone
+    assert not jsonFile.exists()
+    assert not resFolder.exists()
+
+    # backups should exist
+    backupJson = backupPath / f"{simHash}.json"
+    backupFolder = backupPath / f"res_{simHash}"
+    assert backupJson.is_file()
+    assert backupFolder.is_dir()
+    assert (backupFolder / "dummy.txt").is_file()
+
+    """ test that backing up twice does not overwrite previous backup """
+
+    jsonFile = outputPath / f"{simHash}.json"
+    resFolder = outputPath / f"res_{simHash}"
+    fU.makeADir(resFolder)
+    with open(jsonFile, "w") as f:
+        json.dump({"simHash": simHash}, f)
+    (resFolder / "dummy.txt").write_text("dummy")
+
+    fU.backupCom4Results(outputPath, simHash)
+    assert not (outputPath / f"{simHash}.json").exists()
+    assert not (outputPath / f"res_{simHash}").exists()
+
+    # both original and "(1)" suffixed backups should exist
+    assert (backupPath / f"{simHash}.json").is_file()
+    assert (backupPath / f"res_{simHash}").is_dir()
+    assert (backupPath / f"{simHash}(1).json").is_file()
+    assert (backupPath / f"res_{simHash}(1)").is_dir()
+
+    """ test backing up when no results exist yet does not raise """
+    outputPath = pathlib.Path(tmp_path)
+    simHash = "doesNotExist"
+
+    fU.backupCom4Results(outputPath, simHash)
+
+    backupPath = outputPath / "backup"
+    assert backupPath.is_dir()
+    assert not (backupPath / f"{simHash}.json").exists()
+    assert not (backupPath / f"res_{simHash}").exists()

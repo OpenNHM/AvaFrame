@@ -5,10 +5,10 @@ Run script for module com4FlowPy
 # Load modules
 import pathlib
 import os
-import sys
 from datetime import datetime
 import logging
 import json
+import shutil
 
 # Local imports
 import avaframe.in3Utils.initializeProject as initProj
@@ -26,7 +26,7 @@ import avaframe.in2Trans.rasterUtils as IOf
 import avaframe.in3Utils.geoTrans as gT
 
 
-def main(avalancheDir=""):
+def main(avalancheDir="", cfg=None):
     """this is a wrapper around com4FlowPy.py that handles the following tasks:
     * reading inputs from (local_)avaframeCfg.ini and (local_)com4FlowPyCfg.ini
     * constructing cfgPath and cfgSetup dictionaries for passing to com4FlowPy.com4FlowPyMain()
@@ -34,18 +34,34 @@ def main(avalancheDir=""):
 
     NOTE-TODO:
         * This function needs clean-up!
+
+    Parameters
+    ------------
+    avalancheDir: str
+        path to avalanche directory that is simulated (if "", the path of the (local_)avaframeCfg.ini is used)
+    cfg: configparser object
+        settings for the simulation (if None, (local_)com4FlowPyCfg.ini is used)
+
+    Returns
+    -------------
+    outputDict: dict
+        information about simulation:
+            "uid": id of simulation
+            "simulationPerformed": boolean - 'True' if the simulation terminated succesfully
+            "resultOverwritten": boolean - 'True' if results are overwritten
+            "message": explanation to simulation status
     """
     # log file name; leave empty to use default runLog.log
     logName = "runcom4FlowPy"
     # Read main Config and com4FlowPy config from files
     cfgMain = cfgUtils.getGeneralConfig()
-    cfg = cfgUtils.getModuleConfig(com4FlowPy)
+    if cfg is None:
+        cfg = cfgUtils.getModuleConfig(com4FlowPy)
 
     # check and handle outputFiles list provided in (local_)com4FlowPyCfg.ini
     cfg["PATHS"]["outputFiles"] = checkOutputFilesFormat(cfg["PATHS"]["outputFiles"])
-
+    cfg["PATHS"]["overwriteResults"] = checkOverwriteRes(cfg["PATHS"]["overwriteResults"])
     cfgSetup = cfg["GENERAL"]
-    cfgFlags = cfg["FLAGS"]
     cfgCustomPaths = cfg["PATHS"]
 
     # if customPaths == False --> use AvaFrame Folder structure
@@ -88,18 +104,49 @@ def main(avalancheDir=""):
 
         cfgPath["resDir"] = cfgPath["outDir"] / "peakFiles" / "res_{}".format(uid)  # (timeString)
         # check if simulation with same uid already has results folder
-        if os.path.isdir(cfgPath["resDir"]):
+
+        resFolderExist, resFilesExist = fU.checkResultFolderFilesExist(
+            cfgPath["resDir"], cfgCustomPaths["outputFiles"].split("|")
+        )
+
+        if cfgCustomPaths["overwriteResults"] == "default" and resFilesExist:
             log.info("folder with same name already exists - aborting")
             log.info(
                 "simulation results folder with same .ini parameters already exists: simulation {}".format(
                     uid
                 )
             )
-            sys.exit(1)
+            return {
+                "uid": uid,
+                "simulationPerformed": False,
+                "resultOverwritten": False,
+                "message": "Simulation not performed! - results for exact same configuration already exist."
+            }
+        elif cfgCustomPaths["overwriteResults"] == "default" and resFolderExist:
+            # delete existing result folder
+            fU.deleteCom4Results(cfgPath["outDir"], uid)
+            resultOverwritten = True
+            message = f"simulation completed, Leftover files from aborted run with same {uid} overwritten."
+
+        elif cfgCustomPaths["overwriteResults"] == "reRunAndOverwrite" and resFolderExist:
+            # it does not matter if the files exist, the existing results folder is deleted
+            fU.deleteCom4Results(cfgPath["outDir"], uid)
+            resultOverwritten = True
+            message = "simulation completed, existing results overwritten."
+
+        elif cfgCustomPaths["overwriteResults"] == "reRunAndBackup" and resFolderExist:
+            # move results folder and json file to backup folder
+            fU.backupCom4Results(cfgPath["outDir"], uid)
+            resultOverwritten = True
+            message = "simulation completed, existing results backed up."
+
         else:
-            fU.makeADir(cfgPath["resDir"])
-            cfgPath["tempDir"] = cfgPath["workDir"] / "temp"
-            fU.makeADir(cfgPath["tempDir"])
+            resultOverwritten = False
+            message = "simulation completed, no previous results found."
+
+        fU.makeADir(cfgPath["resDir"])
+        cfgPath["tempDir"] = cfgPath["workDir"] / "temp"
+        fU.makeADir(cfgPath["tempDir"])
 
         # writing config to .json file
         successToJSON = writeCfgJSON(cfg, uid, cfgPath["outDir"])
@@ -119,6 +166,12 @@ def main(avalancheDir=""):
         cfgPath["useCompression"] = cfgCustomPaths.getboolean("useCompression")
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
+        return {
+            "uid": uid,
+            "simulationPerformed": True,
+            "resultOverwritten": resultOverwritten,
+            "message": message,
+        }
 
     # if customPaths == True --> check
     elif cfgCustomPaths["useCustomPaths"] == "True":
@@ -139,22 +192,63 @@ def main(avalancheDir=""):
         log = logUtils.initiateLogger(workDir, logName + "_" + uid)
 
         timeString = datetime.now().strftime("%Y%m%d_%H%M%S")
-        try:
-            os.makedirs(workDir / "res_{}".format(uid))  # (time_string))
-            res_dir = workDir / "res_{}".format(uid)  # (time_string)
-        except FileExistsError:
+
+        res_dir = workDir / "res_{}".format(uid)  # (time_string)
+
+        resFolderExist, resFilesExist = fU.checkResultFolderFilesExist(
+            res_dir, cfgCustomPaths["outputFiles"].split("|")
+        )
+
+        if cfgCustomPaths["overwriteResults"] == "default" and resFilesExist:
             log.info(
                 "simulation results folder with same .ini parameters already exists: simulation {}".format(
                     uid
                 )
             )
-            sys.exit(1)
-        try:
-            os.makedirs(workDir / res_dir / "temp")
-            temp_dir = workDir / res_dir / "temp"
-        except FileExistsError:
-            log.info("temp folder for simualtion {} already exists - aborting".format(uid))
-            sys.exit(1)
+            return {
+                "uid": uid,
+                "simulationPerformed": False,
+                "resultOverwritten": False,
+                "message": "Simulation not performed! - results for exact same configuration already exist."
+            }
+        elif cfgCustomPaths["overwriteResults"] == "default" and resFolderExist:
+            # delete existing result folder
+            fU.deleteCom4Results(workDir, uid)
+            resultOverwritten = True
+            message = f"simulation completed, Leftover files from aborted run with same {uid} overwritten."
+
+        elif cfgCustomPaths["overwriteResults"] == "reRunAndOverwrite" and resFolderExist:
+            # it does not matter if the files exist, the existing results folder is deleted
+            fU.deleteCom4Results(workDir, uid)
+            resultOverwritten = True
+            message = "simulation completed, existing results overwritten."
+
+        elif cfgCustomPaths["overwriteResults"] == "reRunAndBackup" and resFolderExist:
+            # move results folder and json file to backup folder
+            fU.backupCom4Results(workDir, uid)
+            resultOverwritten = True
+            message = "simulation completed, existing results backed up."
+
+        else:
+            resultOverwritten = False
+            message = "simulation completed, no previous results found."
+
+        fU.makeADir(res_dir)
+
+        # TODO: how should we deal with the temp folder?
+        temp_dir = workDir / res_dir / "temp"
+        tempFolderExist, _ = fU.checkResultFolderFilesExist(temp_dir)
+        if cfgCustomPaths["overwriteResults"] == "default" and tempFolderExist:
+            log.info("temp folder for simulation {} already exists - aborting".format(uid))
+            return {
+                "uid": uid,
+                "simulationPerformed": False,
+                "resultOverwritten": False,
+                "message": "temp folder already exists.",
+            }
+        elif tempFolderExist:
+            shutil.rmtree(temp_dir)
+        fU.makeADir(temp_dir)
 
         # writing config to .json file
         successToJSON = writeCfgJSON(cfg, uid, workDir)
@@ -190,12 +284,23 @@ def main(avalancheDir=""):
         cfgPath["timeString"] = timeString
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
+        return {
+            "uid": uid,
+            "simulationPerformed": True,
+            "resultOverwritten": resultOverwritten,
+            "message": message,
+        }
 
     else:
         print(
             "INPUT SETTINGS incorrect - please check (local_)avaframeCfg.ini and (local_)com4FlowPyCfg.ini"
         )
-        sys.exit(1)
+        return {
+            "uid": None,
+            "simulationPerformed": False,
+            "resultOverwritten": False,
+            "message": "input settings incorrect.",
+        }
 
 
 def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
@@ -417,5 +522,36 @@ def writeCfgJSON(cfg, uid, workDir):
         return e
 
 
+def checkOverwriteRes(overwriteResults):
+    """
+    check if overwriteResults option is provided in proper format, else return default
+
+    Parameters
+    ------------
+    overwriteResults: str
+       overwriteResults option
+
+    Returns
+    ----------
+    overwriteResults: str
+       allowed overwriteResults option
+    """
+    if overwriteResults not in ["reRunAndBackup", "reRunAndOverwrite", "default"]:
+        message = "'overwriteResults' setting not valid - please re-check settings and use any of <'default', 'reRunAndBackup', 'reRunAndOverwrite'>"
+        raise ValueError(message)
+    return overwriteResults
+
+
 if __name__ == "__main__":
-    main()
+    """
+    main entry point for runCom4FlowPy.py
+    """
+    resDict = main()
+
+    if resDict["simulationPerformed"]:
+        print("simulation {} completed!".format(resDict["uid"]))
+        print("{}".format(resDict["message"]))
+
+    else:
+        print("simulation {} NOT completed".format(resDict["uid"]))
+        print("{}".format(resDict["message"]))

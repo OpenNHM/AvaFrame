@@ -10,11 +10,15 @@ import pickle
 import os
 import rasterio
 import geopandas as gpd
+import configparser
+import copy
+import shutil
 
 from avaframe.com4FlowPy import flowClass
 import avaframe.com4FlowPy.flowCore as flowCore
 import avaframe.com4FlowPy.splitAndMerge as SPAM
 import avaframe.in2Trans.rasterUtils as IOf
+import avaframe.runCom4FlowPy as runCom4FlowPy
 
 
 def test_add_os():
@@ -529,6 +533,225 @@ def test_mergeDictToPolygon(tmp_path):
     assert np.all(gdfPathPolygons.geometry.geom_equals(refPolygons.geometry))
 
 
+def test_runCom4FlowPy(tmp_path):
+
+    _avaframeDir = pathlib.Path(__file__).parents[1]
+    avaFlowPyDir = str(_avaframeDir / "data" / "avaFlowPy" / "Inputs")
+    avaTestDir = pathlib.Path(tmp_path, "avaFlowPyTest")
+    avaTestDirInput = avaTestDir / "Inputs"
+    shutil.copytree(avaFlowPyDir, avaTestDirInput)
+    avalancheDir = str(avaTestDir)
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "infra": "False",
+        "variableUmaxLim": "False",
+        "variableAlpha": "False",
+        "variableExponent": "False",
+        "forest": "False",
+        "alpha": "40",
+        "exp": "8",
+        "flux_threshold": "3.0e-4",
+        "max_z": "200",
+        "previewMode": "False",
+        "fluxDistOldVersion": "False",
+        "procPerCPUCore": "1",
+        "chunkSize": "50",
+        "maxChunks": "500",
+        "cpuCount": "1",
+        "tileSize": "15000",
+        "tileOverlap": "5000",
+    }
+    cfg["PATHS"] = {
+        "outputFiles": "zDelta",
+        "useCustomPaths": "False",
+        "useCustomPathDEM": "False",
+        "outputFileFormat": ".tif",
+        "overwriteResults": "default",
+    }
+
+    resDictTest1 = {
+        "simulationPerformed": True,
+        "resultOverwritten": False,
+        "message": "simulation completed, no previous results found."
+    }
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # second run
+    resDictTest2 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": False,
+        "resultOverwritten": False,
+        "message": "Simulation not performed! - results for exact same configuration already exist.",
+    }
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest2:
+        assert resDictTest2[key] == resDict[key]
+
+    # search for one result file and remove it
+    resFolder = (
+        pathlib.Path(avalancheDir) / "Outputs" / "com4FlowPy" / "peakFiles" / "res_{}".format(resDict["uid"])
+    )
+    fileNames = os.listdir(resFolder)
+    os.remove(resFolder / fileNames[0])
+    # second run
+    resDictTest21 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": True,
+        "message": f"simulation completed, Leftover files from aborted run with same {resDict['uid']} overwritten.",
+    }
+
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest21:
+        assert resDictTest21[key] == resDict[key]
+
+    # third run with changing cfg:
+    cfg["PATHS"]["overwriteResults"] = "reRunAndOverwrite"
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # fourth run with overwriting results
+    resDictTest4 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": True,
+        "message": "simulation completed, existing results overwritten.",
+    }
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest4:
+        assert resDictTest4[key] == resDict[key]
+
+    # fifth run with changing cfg:
+    cfg["PATHS"]["overwriteResults"] = "reRunAndBackup"
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # sixth run with backuping results
+    resDictTest6 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": True,
+        "message": "simulation completed, existing results backed up.",
+    }
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest6:
+        assert resDictTest6[key] == resDict[key]
+
+    # make same for custom paths
+    _wDir = avalancheDir + "/Outputs/com4FlowPy"
+    _demPath = avalancheDir + "/Inputs/dem.tif"
+    _releasePath = avalancheDir + "/Inputs/REL/rel.shp"
+
+    cfg["PATHS"] = {
+        "outputFiles": "zDelta",
+        "useCustomPaths": "True",
+        "useCustomPathDEM": "False",
+        "outputFileFormat": ".tif",
+        "overwriteResults": "default",
+        "workDir": _wDir,
+        "demPath": _demPath,
+        "releasePath": _releasePath,
+        "relIdPath": "",
+        "infraPath": "",
+        "forestPath": "",
+        "varUmaxPath": "",
+        "varAlphaPath": "",
+        "varExponentPath": "",
+        "deleteTempFolder": "True",
+        "outputNoDataValue": "-9999",
+        "useCompression": "False",
+    }
+
+    resDictTest1 = {
+        "simulationPerformed": True,
+        "resultOverwritten": False,
+        "message": "simulation completed, no previous results found.",
+    }
+    resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # second run
+    resDictTest2 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": False,
+        "resultOverwritten": False,
+        "message": "Simulation not performed! - results for exact same configuration already exist.",
+    }
+    resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest2:
+        assert resDictTest2[key] == resDict[key]
+
+    # search for one result file and remove it
+    resFolder = pathlib.Path(avalancheDir) / "Outputs" / "com4FlowPy" / "res_{}".format(resDict["uid"])
+    fileNames = os.listdir(resFolder)
+    os.remove(resFolder / fileNames[0])
+    # second run
+    resDictTest21 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": True,
+        "message": f"simulation completed, Leftover files from aborted run with same {resDict['uid']} overwritten.",
+    }
+
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest21:
+        assert resDictTest21[key] == resDict[key]
+
+    # second run with changing cfg:
+    cfg["PATHS"]["overwriteResults"] = "reRunAndOverwrite"
+    resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # fourth run with overwriting results
+    resDictTest4 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": True,
+        "message": "simulation completed, existing results overwritten.",
+    }
+    resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest4:
+        assert resDictTest4[key] == resDict[key]
+
+    # fifth run with changing cfg:
+    cfg["PATHS"]["overwriteResults"] = "reRunAndBackup"
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # sixth run with backuping results
+    resDictTest6 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": True,
+        "message": "simulation completed, existing results backed up.",
+    }
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest6:
+        assert resDictTest6[key] == resDict[key]
+
+
 if __name__ == "__main__":
     test_add_os()
     test_reverseTopology()
@@ -539,3 +762,4 @@ if __name__ == "__main__":
     test_mergeDict(tmpDir)
     test_mergeDictToRaster(tmpDir)
     test_mergeDictToPolygon(tmpDir)
+    test_runCom4FlowPy()
