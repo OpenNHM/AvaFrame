@@ -34,9 +34,41 @@ Running the code
 ----------------
 
 Generate an environment as described in :ref:`developinstall:Script Installation (Linux)` or
-:ref:`developinstallwin:Script Installation (Windows)`. Run the model via::
+:ref:`developinstallwin:Script Installation (Windows)`. 
+Either modify the ``avaframe/com4FlowPy/(local_)com4FlowPyCfg.ini`` according to your requirements and run the model directly from the command-line via::
 
     pixi run python runCom4FlowPy.py
+
+or setup model parameters/config, import and run ``runCom4FlowPy`` from an external script similar to this example::
+    
+    from avaframe import runCom4FlowPy
+    import configparser
+
+    cfg = configparser.ConfigParser()
+
+    cfg["GENERAL"] = {
+        "alpha": "40",
+        "exp": "8",
+        ...
+        }
+    
+    cfg["PATHS"] = {
+        "useCustomPaths" = "True",
+        "outPputFileFormat" = ".tif",
+        ...
+    }
+    
+    results = runCom4FlowPy.main(cfg=cfg) # actual model execution
+
+    # example for printing values of returned dictionary containing 
+    # information on the return status of the model run
+    print("simulation {} completed?: {}".format(results["uid"], results["simulationPerformed"])
+    print("return status: {}".format(results["message"]))
+
+**Note:**
+Setup of the ConfigParser object needs to reflect the structure of the ``avaframe/com4FlowPy/(local_)com4FlowPyCfg.ini``.
+In this context the configuration file can be overwritten, for more information see :ref:`complexUsage:Override configuration`.
+
      
 
 Configuration
@@ -256,6 +288,15 @@ If ``infra = True`` this layer will be written automatically (no need to separat
 
 - ``backcalculation``: Parts of modeled process paths upslope of infrastructure cells that are ''hit'' by (a) modeled process(es).
 
+.. Note::
+
+  Behavior of the model in case of already existing model results for the exact same configuration can be controlled by the ``overwrite`` parameter in the cfg
+
+  - ``default``: if model results with same configuration already exist from a previous run, then the simulation is not performed and existing results are kept
+  - ``reRunAndOverwrite``: model is run regardless of pre-existing results with same configuration -- existing results are deleted/overwritten
+  - ``reRunAndBackup``: model is run regardless of pre-existing results with same configuration -- existing results are moved to a backup Folder
+
+   
  .. Model Parameterisation
  .. ------------------------
  ..
