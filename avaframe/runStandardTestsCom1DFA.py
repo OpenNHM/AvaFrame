@@ -256,8 +256,8 @@ if __name__ == "__main__":
     # valuesList = ["resistance"]
     filterType = "TAGS"
     valuesList = ["standardTest", "standardTestSnowGlide"]
-    #filterType = "NAME"
-    #valuesList = ["avaFlatPlaneNullTest"]
+    # filterType = "NAME"
+    # valuesList = ["avaFlatPlaneNullTest"]
 
     testList = tU.filterBenchmarks(testDictList, filterType, valuesList, condition="or")
 
@@ -371,6 +371,30 @@ if __name__ == "__main__":
             log.info("  - %s: %s" % (failure["name"], failure["error"]))
     else:
         log.info("All tests completed successfully!")
+
+    # Display comparison warnings per test
+    log.info("=" * 80)
+    log.info("COMPARISON WARNINGS SUMMARY")
+    log.info("=" * 80)
+    for testName, reportD, benchDict, avaName, cfgRep in results:
+        warnings = generateCompareReport.collectComparisonWarnings(reportD, benchDict, cfgRep)
+        if not warnings:
+            log.info("%s: no differences flagged" % testName)
+            continue
+        log.info("%s:" % testName)
+        for w in warnings:
+            if w["category"] == "parameter":
+                log.info("  [parameter] %s: ref='%s' sim='%s'" % (w["field"], w["ref"], w["sim"]))
+            elif w["category"] == "aimec":
+                log.info(
+                    "  [aimec] %s: ref=%.1f sim=%.1f (%.1f%%)"
+                    % (w["field"], w["ref"], w["sim"], 100.0 * w["diffPercent"])
+                )
+            elif w["category"] == "plot":
+                log.info(
+                    "  [plot] %s: maxDiff=%.2f meanDiff=%.2f minDiff=%.2f (maxVal=%.2f)"
+                    % (w["field"], w["maxDiff"], w["meanDiff"], w["minDiff"], w["maxVal"])
+                )
 
     # Clean up temporary test directory
     tmpTestsDirObj.cleanup()
