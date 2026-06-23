@@ -150,7 +150,7 @@ def main(avalancheDir="", cfg=None):
                     uid
                 )
             )
-            sys.exit(1)
+            return uid
         try:
             os.makedirs(workDir / res_dir / "temp")
             temp_dir = workDir / res_dir / "temp"
