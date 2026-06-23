@@ -95,6 +95,9 @@ def com1DFAPreprocess(cfgMain, cfgInfo, module=com1DFA):
         simDict, inputSimFiles, simDFExisting, outDir = com1DFATools.createSimDictFromCfgs(
             cfgMain, cfgInfo, module=module
         )
+        # if module is mot based - tif is currently not supported as format for input data
+        checkForTif(module, inputSimFiles)
+
         return simDict, outDir, inputSimFiles, simDFExisting
 
     # read initial configuration
@@ -110,24 +113,7 @@ def com1DFAPreprocess(cfgMain, cfgInfo, module=com1DFA):
     )
 
     # if module is mot based - tif is currently not supported as format for input data
-    # TODO:remove when tif to asc conversion for mot is implement
-    if module.__name__.split(".")[-1].lower() in ["com8motpsa", "com9motvoellmy"]:
-        testInputType = [
-            (
-                True
-                if (inputSimFilesAll[iType] and iType not in ["relFiles", "relThFiles"])
-                and ("File" in iType and ".tif" in inputSimFilesAll[iType].suffix)
-                else False
-            )
-            for iType in inputSimFilesAll
-        ]
-        testInputType = testInputType + [
-            True if ".tif" in relFile.suffix else False for relFile in inputSimFilesAll["relFiles"]
-        ]
-        if any(testInputType):
-            message = ".tif files currently not supported for %s" % module
-            log.error(message)
-            raise ValueError(message)
+    checkForTif(module, inputSimFilesAll)
 
     # create dictionary with one key for each simulation that shall be performed
     simDict = dP.createSimDict(avalancheDir, module, cfgStart, inputSimFilesAll, simNameExisting)
@@ -4009,3 +3995,36 @@ def adaptDEM(dem, fields, cfg):
     fields["sfcChangeTotal"] = sfcChangeTotal + sfcChange
 
     return dem, fields
+
+
+def checkForTif(module, inputSimFilesAll):
+    """if com8MoTPSA or com9MoTVoellmy currently .tif files not supported - error if input data is of type .tif
+
+    Parameters
+    -----------
+    module: module
+        computational module used for task
+    inputSimFilesAll: dict
+        dictionary with fetched input data
+
+    """
+    # if module is mot based - tif is currently not supported as format for input data
+    # TODO:remove when tif to asc conversion for mot is implement
+    modName = module.__name__.split(".")[-1]
+    if modName.lower() in ["com8motpsa", "com9motvoellmy"]:
+        testInputType = [
+            (
+                True
+                if (inputSimFilesAll[iType] and iType not in ["relFiles", "relThFile"])
+                and ("File" in iType and ".tif" in inputSimFilesAll[iType].suffix)
+                else False
+            )
+            for iType in inputSimFilesAll
+        ]
+        testInputType = testInputType + [
+            True if ".tif" in relFile.suffix else False for relFile in inputSimFilesAll["relFiles"]
+        ]
+        if any(testInputType):
+            message = ".tif files currently not supported for %s" % modName
+            log.error(message)
+            raise ValueError(message)
