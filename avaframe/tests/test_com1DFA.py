@@ -24,6 +24,8 @@ from avaframe.in3Utils import cfgUtils
 import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.DFAtools as DFAtls
 import avaframe.com1DFA.particleInitialisation as pI
+import avaframe.com8MoTPSA.com8MoTPSA as com8
+from avaframe.in1Data import getInput
 
 
 def test_prepareInputData(tmp_path):
@@ -3662,3 +3664,94 @@ def test_com1DFAPreprocessWithDirectoryPath(tmp_path):
     assert len(simDict) == 16
     assert simDFExisting is None
     assert "demFile" in inputSimFiles
+
+
+def test_checkForTif(tmp_path):
+    """check if in dict .tif files are included"""
+
+    # setup required input
+    avaTestDir = pathlib.Path(tmp_path, "avaTest", "Inputs")
+
+    inputSimFiles = {
+        "demFile": (avaTestDir / "demTest.asc"),
+        "relFiles": [(avaTestDir / "release1.shp"), (avaTestDir / "release2.shp")],
+        "secondaryRelFile": (avaTestDir / "secRelFile.asc"),
+        "muFile": (avaTestDir / "muTest.asc"),
+        "xiFile": (avaTestDir / "xiTest.asc"),
+        "resFile": None,
+        "tauCFile": None,
+        "entFile": (avaTestDir / "entTest.asc"),
+        "entResInfo": {
+            "relThFileType": ".asc",
+            "flagRel": "Yes",
+            "flagSecondaryRelease": "Yes",
+            "secondaryRelThFileType": ".asc",
+            "flagRes": "No",
+            "resFileType": None,
+            "flagEnt": "Yes",
+            "entThFileType": ".asc",
+            "dam": "No",
+            "mu": "Yes",
+            "xi": "Yes",
+            "k": "No",
+            "tauC": "No",
+            "bhd": "No",
+            "relRemeshed": "No",
+            "secondaryRelRemeshed": "No",
+            "entRemeshed": "No",
+            "tauCRemeshed": "No",
+            "kRemeshed": "No",
+            "muRemeshed": "No",
+            "xiRemeshed": "No",
+            "resRemeshed": "No",
+            "bhdRemeshed": "No",
+            "timeDepRelCsvAvailable": "No",
+        },
+        "timeDepRelCsv": [],
+        "secondaryRelThFile": (avaTestDir / "secRelFile.asc"),
+        "entThFile": (avaTestDir / "entTest.asc"),
+    }
+
+    # call function to be tested
+    com1DFA.checkForTif(com8, inputSimFiles)
+
+    # adjust input to produce error
+    inputSimFiles["relFiles"] = [(avaTestDir / "release1.asc"), (avaTestDir / "release2.tif")]
+    inputSimFiles["relThFile"] = [(avaTestDir / "release1.asc"), (avaTestDir / "release2.tif")]
+
+    with pytest.raises(ValueError) as e:
+        assert com1DFA.checkForTif(com8, inputSimFiles)
+    assert ".tif files currently not supported for com8MoTPSA" in str(e.value)
+
+    # adjust input to produce error
+    inputSimFiles["relFiles"] = [(avaTestDir / "release1.shp"), (avaTestDir / "release2.shp")]
+    inputSimFiles["relThFile"] = [(avaTestDir / "release1.asc"), (avaTestDir / "release2.asc")]
+    inputSimFiles["muFile"] = avaTestDir / "muTest.tif"
+
+    with pytest.raises(ValueError) as e:
+        assert com1DFA.checkForTif(com8, inputSimFiles)
+    assert ".tif files currently not supported for com8MoTPSA" in str(e.value)
+
+    # read Inputs from existing avaDirs
+
+    testDir = pathlib.Path(__file__).parents[0]
+    avalancheDir = testDir / ".." / "data" / "avaAlr" / "Inputs"
+    avaTestDir2 = pathlib.Path(tmp_path, "avaTestDir2")
+    avaTestDir2Input = avaTestDir2 / "Inputs"
+    shutil.copytree(avalancheDir, avaTestDir2Input)
+
+    inputSimFilesTest2 = getInput.getInputDataCom1DFA(avaTestDir2)
+
+    with pytest.raises(ValueError) as e:
+        assert com1DFA.checkForTif(com8, inputSimFilesTest2)
+    assert ".tif files currently not supported for com8MoTPSA" in str(e.value)
+
+    testDir = pathlib.Path(__file__).parents[0]
+    avalancheDir = testDir / ".." / "data" / "avaParabola" / "Inputs"
+    avaTestDir3 = pathlib.Path(tmp_path, "avaTestDir3")
+    avaTestDir3Input = avaTestDir3 / "Inputs"
+    shutil.copytree(avalancheDir, avaTestDir3Input)
+
+    inputSimFilesTest3 = getInput.getInputDataCom1DFA(avaTestDir3)
+
+    com1DFA.checkForTif(com8, inputSimFilesTest3)
