@@ -96,9 +96,9 @@ def generatePathAndSplitpoint(avalancheDir, cfgDFAPath, cfgMain, runDFAModule):
         pathFromPart = cfgDFAPath['PATH'].getboolean('pathFromPart')
         resampleDistance = cfgDFAPath['PATH'].getfloat('nCellsResample') * dem['header']['cellsize']
         # peak flow thickness field, only needed when extending the path to the deposit front
-        fieldFT = None
+        fieldPFT = None
         if extendToFront:
-            fieldFT = readPeakFT(peakFilesDF, simName)
+            fieldPFT = readPeakFT(peakFilesDF, simName)
         # get the mass average path
         avaProfileMass, particlesIni = generateMassAveragePath(avalancheDir, pathFromPart, simName, dem,
                                                                addVelocityInfo=cfgDFAPath['PATH'].getboolean('addVelocityInfo'))
@@ -109,7 +109,7 @@ def generatePathAndSplitpoint(avalancheDir, cfgDFAPath, cfgMain, runDFAModule):
         parabolicFit = getParabolicFit(cfgDFAPath['PATH'], avaProfileMass, dem)
         # here the avaProfileMass given in input is overwritten and returns only an x, y, z extended profile
         avaProfileMass = extendDFAPath(cfgDFAPath['PATH'], avaProfileMass, dem, particlesIni,
-                                       fieldFT=fieldFT)
+                                       fieldPFT=fieldPFT)
         # resample path and keep track of start and end of mass averaged part
         avaProfileMass = resamplePath(cfgDFAPath['PATH'], dem, avaProfileMass)
         # get split point
@@ -334,7 +334,7 @@ def readPeakFT(peakFilesDF, simName):
 
     Returns
     --------
-    fieldFT: numpy array
+    fieldPFT: numpy array
         peak flow thickness raster (same grid as the simulation dem),
         None if no pft peak field is available for this simulation
     """
@@ -348,7 +348,7 @@ def readPeakFT(peakFilesDF, simName):
     return IOf.readRaster(peakFilesDF.loc[index[0], 'files'])['rasterData']
 
 
-def extendDFAPath(cfg, avaProfile, dem, particlesIni, fieldFT=None):
+def extendDFAPath(cfg, avaProfile, dem, particlesIni, fieldPFT=None):
     """ extend the DFA path at the top and bottom
     avaProfile with x, y, z, s information
 
@@ -358,8 +358,8 @@ def extendDFAPath(cfg, avaProfile, dem, particlesIni, fieldFT=None):
         configuration object with:
 
         - extTopOption: int, how to extend towards the top? 0 for heighst point method, a for largest runout method
-        - extBottomOption: int, how to extend towards the bottom? 0 for the fixed-length extrapolation
-        method, 1 for the least-cost extension to the deposit front (requires fieldFT)
+        - extBottomOption: int, how to extend towards the bottom? 0 for the straight-line extrapolation
+        method, 1 for the least-cost extension to the deposit front (requires fieldPFT)
         - nCellsResample: int, resampling length is given by nCellsResample*demCellSize
         - nCellsMinExtend: int, when extending towards the bottom, take points at more
         than nCellsMinExtend*demCellSize from last point to get the direction
@@ -373,7 +373,7 @@ def extendDFAPath(cfg, avaProfile, dem, particlesIni, fieldFT=None):
         dem dict
     particlesIni: dict
         initial particles dict
-    fieldFT: numpy array, optional
+    fieldPFT: numpy array, optional
         peak flow thickness field on the dem grid, only used if extBottomOption = 1
 
     Returns
@@ -386,12 +386,12 @@ def extendDFAPath(cfg, avaProfile, dem, particlesIni, fieldFT=None):
     avaProfile, _ = gT.prepareLine(dem, avaProfile, distance=resampleDistance, Point=None)
     avaProfile = extendProfileTop(cfg.getint('extTopOption'), particlesIni, avaProfile)
     if cfg.getint('extBottomOption', fallback=0) == 1:
-        if fieldFT is None:
-            log.warning('extBottomOption is 1 but no flow thickness field was provided, '
-                        'falling back to the fixed-length bottom extension')
+        if fieldPFT is None:
+            log.warning('extBottomOption is 1 but no peak flow thickness field was provided, '
+                        'falling back to the straight-line bottom extension')
             avaProfile = extendProfileBottom(cfg, dem, avaProfile)
         else:
-            avaProfile = extendProfileToFront(cfg, dem, avaProfile, fieldFT)
+            avaProfile = extendProfileToFront(cfg, dem, avaProfile, fieldPFT)
     else:
         avaProfile = extendProfileBottom(cfg, dem, avaProfile)
     return avaProfile
@@ -577,15 +577,15 @@ def extendProfileBottom(cfg, dem, profile):
     return profile
 
 
-def extendProfileToFront(cfg, dem, profile, fieldFT):
+def extendProfileToFront(cfg, dem, profile, fieldPFT):
     """ extend the DFA path at the bottom to the front of the deposit
 
-    Locate the front of the deposit in the flow thickness field (findFlowFront)
+    Locate the front of the deposit in the peak flow thickness field (findFlowFront)
     and extend the profile to it along a least-cost path over the dem
     (leastCostPath). In contrast to extendProfileBottom, the extension follows
     the terrain and the deposit and stops at the front instead of extrapolating
     a straight line of fixed relative length. If the front cannot be located or
-    reached, the profile falls back to the fixed-length extension
+    reached, the profile falls back to the straight-line extension
     (extendProfileBottom).
 
     Parameters
@@ -601,8 +601,8 @@ def extendProfileToFront(cfg, dem, profile, fieldFT):
         dem dict
     profile: dict
         profile to extend
-    fieldFT: numpy array
-        flow thickness field (peak or last time step) on the same grid as the dem
+    fieldPFT: numpy array
+        peak flow thickness field (pft) on the same grid as the dem
 
     Returns
     --------
@@ -612,8 +612,8 @@ def extendProfileToFront(cfg, dem, profile, fieldFT):
     header = dem['header']
     csz = header['cellsize']
     zRaster = dem['rasterData']
-    if fieldFT.shape != zRaster.shape:
-        message = 'Flow thickness field and dem do not have the same shape'
+    if fieldPFT.shape != zRaster.shape:
+        message = 'Peak flow thickness field and dem do not have the same shape'
         log.error(message)
         raise AssertionError(message)
     # get last point
@@ -621,21 +621,21 @@ def extendProfileToFront(cfg, dem, profile, fieldFT):
     yLast = profile['y'][-1]
     sLast = profile['s'][-1]
     # locate the deposit front
-    frontRow, frontCol = findFlowFront(fieldFT, zRaster, cfg.getfloat('ftThreshold'),
+    frontRow, frontCol = findFlowFront(fieldPFT, zRaster, cfg.getfloat('ftThreshold'),
                                        cfg.getfloat('lowFrontFraction'))
     if frontRow is None:
         log.warning('No flow cell above ftThreshold was found, '
-                    'falling back to the fixed-length bottom extension')
+                    'falling back to the straight-line bottom extension')
         return extendProfileBottom(cfg, dem, profile)
     # cell of the last profile point (profile and field share the dem grid)
     startRow = min(max(int(round((yLast - header['yllcenter']) / csz)), 0), zRaster.shape[0] - 1)
     startCol = min(max(int(round((xLast - header['xllcenter']) / csz)), 0), zRaster.shape[1] - 1)
-    cellPath = leastCostPath((startRow, startCol), (frontRow, frontCol), fieldFT, zRaster, csz,
+    cellPath = leastCostPath((startRow, startCol), (frontRow, frontCol), fieldPFT, zRaster, csz,
                              cfg.getfloat('ftThreshold'), cfg.getfloat('upSlopePenalty'),
                              cfg.getfloat('flowDistPenalty'))
     if len(cellPath) < 2:
         log.warning('No least-cost path to the deposit front was found, '
-                    'falling back to the fixed-length bottom extension')
+                    'falling back to the straight-line bottom extension')
         return extendProfileBottom(cfg, dem, profile)
     # drop the first cell (the path end itself) and convert to coordinates; the extension
     # points are cell centers of valid dem cells, so z is read directly from the raster
@@ -657,8 +657,8 @@ def extendProfileToFront(cfg, dem, profile, fieldFT):
     return profile
 
 
-def findFlowFront(fieldFT, demRaster, ftThreshold, lowFrontFraction):
-    """ locate the front of the deposit in a flow thickness field
+def findFlowFront(fieldPFT, demRaster, ftThreshold, lowFrontFraction):
+    """ locate the front of the deposit in a peak flow thickness field
 
     The front is the flow-thickness-weighted centroid of the flow cells lying
     in the lowest lowFrontFraction of the flow elevation range. The band always
@@ -669,8 +669,8 @@ def findFlowFront(fieldFT, demRaster, ftThreshold, lowFrontFraction):
 
     Parameters
     -----------
-    fieldFT: numpy array
-        flow thickness field
+    fieldPFT: numpy array
+        peak flow thickness field
     demRaster: numpy array
         dem raster of the same shape
     ftThreshold: float
@@ -683,15 +683,15 @@ def findFlowFront(fieldFT, demRaster, ftThreshold, lowFrontFraction):
     frontRow, frontCol: int
         cell of the front, (None, None) if there is no flow above ftThreshold
     """
-    flow = (fieldFT > ftThreshold) & np.isfinite(demRaster)
+    flow = (fieldPFT > ftThreshold) & np.isfinite(demRaster)
     if not flow.any():
         return None, None
     rows, cols = np.nonzero(flow)
     elev = demRaster[rows, cols]
     lowBand = elev <= elev.min() + lowFrontFraction * (elev.max() - elev.min())
-    weight = fieldFT[rows, cols] * lowBand
+    weight = fieldPFT[rows, cols] * lowBand
     # weight.sum() is always positive: the lowest flow cell is in lowBand and, being a flow
-    # cell, carries fieldFT > ftThreshold >= 0, so no divide-by-zero guard is needed
+    # cell, carries fieldPFT > ftThreshold >= 0, so no divide-by-zero guard is needed
     frontRow = int(round(np.sum(rows * weight) / weight.sum()))
     frontCol = int(round(np.sum(cols * weight) / weight.sum()))
     if not flow[frontRow, frontCol]:
@@ -702,7 +702,7 @@ def findFlowFront(fieldFT, demRaster, ftThreshold, lowFrontFraction):
     return frontRow, frontCol
 
 
-def leastCostPath(startCell, goalCell, fieldFT, demRaster, csz, ftThreshold, upSlopePenalty,
+def leastCostPath(startCell, goalCell, fieldPFT, demRaster, csz, ftThreshold, upSlopePenalty,
                   flowDistPenalty):
     """ Dijkstra least-cost path between two cells of the dem grid
 
@@ -714,8 +714,8 @@ def leastCostPath(startCell, goalCell, fieldFT, demRaster, csz, ftThreshold, upS
     -----------
     startCell, goalCell: tuple
         (row, col) of the start and goal cells
-    fieldFT: numpy array
-        flow thickness field used to build the flow footprint
+    fieldPFT: numpy array
+        peak flow thickness field used to build the flow footprint
     demRaster: numpy array
         dem raster of the same shape
     csz: float
@@ -737,14 +737,14 @@ def leastCostPath(startCell, goalCell, fieldFT, demRaster, csz, ftThreshold, upS
         log.error(message)
         raise AssertionError(message)
     # distance (m) from the flow footprint, used to keep the path on the deposit
-    distToFlow = distance_transform_edt(~(fieldFT > ftThreshold), sampling=csz)
-    nrows, ncols = demRaster.shape
+    distToFlow = distance_transform_edt(~(fieldPFT > ftThreshold), sampling=csz)
+    nRows, nCols = demRaster.shape
     demValid = np.isfinite(demRaster)
     neighbours = ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1))
     diagDist = csz * math.sqrt(2.)
-    costGrid = np.full((nrows, ncols), np.inf)
+    costGrid = np.full((nRows, nCols), np.inf)
     costGrid[startCell] = 0.
-    previousCell = np.full((nrows, ncols, 2), -1, dtype=np.int64)
+    previousCell = np.full((nRows, nCols, 2), -1, dtype=np.int64)
     queue = [(0., int(startCell[0]), int(startCell[1]))]
     while queue:
         cost, row, col = heapq.heappop(queue)
@@ -754,7 +754,7 @@ def leastCostPath(startCell, goalCell, fieldFT, demRaster, csz, ftThreshold, upS
             continue
         for dRow, dCol in neighbours:
             nRow, nCol = row + dRow, col + dCol
-            if 0 <= nRow < nrows and 0 <= nCol < ncols and demValid[nRow, nCol]:
+            if 0 <= nRow < nRows and 0 <= nCol < nCols and demValid[nRow, nCol]:
                 # no diagonal moves across the corner of two nodata cells
                 if dRow and dCol and not (demValid[row, nCol] and demValid[nRow, col]):
                     continue

@@ -127,16 +127,17 @@ We also extend the path at the bottom, to have some buffer in the runout area. T
   cellSize < distance < ``nCellsMaxExtend`` * cellSize)) and extend in this direction by a given factor
   (``factBottomExt``) of the total length of the path :math:`s`.
 
-* ``extBottomOption = 1``: extend the path to the front of the deposit. Since the mass-averaged path
-  ends short of the deposit once the front decelerates, this option first locates the front as the
-  flow-thickness-weighted centroid of the flow cells lying in the lowest ``lowFrontFraction`` of the
-  flow elevation range (flow cells are those above ``ftThreshold`` in the peak flow thickness field),
-  and then connects the end of the mass-averaged path to the front with a least-cost path (Dijkstra)
-  over the DEM. The cost of a step is its horizontal length, penalized by the positive elevation gain
-  (``upSlopePenalty``) and by the distance from the flow footprint (``flowDistPenalty``), so the
-  extension descends along the deposit. With this option the path ends at the simulated deposit front
-  instead of at a fixed relative distance. If the front cannot be located or reached, the path falls
-  back to the fixed-length extension of option 0.
+* ``extBottomOption = 1``: extend the path to the front of the deposit. The mass-averaged path ends
+  at the last center of mass position, which lies behind the deposit front, so this option first
+  locates the front as the flow-thickness-weighted centroid of the flow cells lying in the lowest
+  ``lowFrontFraction`` of the flow elevation range (flow cells are those above ``ftThreshold`` in the
+  peak flow thickness field). A smaller ``lowFrontFraction`` places the front closer to the furthest
+  reaching deposit cells; the default is 0.05. The end of the mass-averaged path is then connected to
+  the front with a least-cost path (Dijkstra) over the DEM. The cost of a step is its horizontal
+  length, penalized by the positive elevation gain (``upSlopePenalty``) and by the distance from the
+  flow footprint (``flowDistPenalty``), so the extension descends along the deposit. With this option
+  the path ends at the simulated deposit front instead of at a fixed relative distance. If the front
+  cannot be located or reached, the path falls back to the straight-line extension of option 0.
 
 Resampling
 ==========

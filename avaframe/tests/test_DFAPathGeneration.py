@@ -141,16 +141,16 @@ def test_findFlowFront():
     """"""
     # plane sloping towards increasing column index, flat runout zone from column 5 on
     demRaster = np.tile(np.array([50., 40., 30., 20., 10., 0., 0., 0., 0., 0., 0.]), (10, 1))
-    fieldFT = np.zeros((10, 11))
+    fieldPFT = np.zeros((10, 11))
     # flow tongue along row 5, thicker towards the front
-    fieldFT[5, 1:9] = np.array([0.5, 0.5, 0.5, 0.5, 1., 2., 3., 5.])
-    frontRow, frontCol = DFAPathGeneration.findFlowFront(fieldFT, demRaster, 0.01, 0.05)
+    fieldPFT[5, 1:9] = np.array([0.5, 0.5, 0.5, 0.5, 1., 2., 3., 5.])
+    frontRow, frontCol = DFAPathGeneration.findFlowFront(fieldPFT, demRaster, 0.01, 0.05)
     # front band is the flat zone (columns 5-8), ft-weighted centroid at column 78/11
     assert frontRow == 5
     assert frontCol == 7
 
     # flat deposit: the band covers the whole footprint, ft-weighted centroid at column 83/13
-    frontRow, frontCol = DFAPathGeneration.findFlowFront(fieldFT, np.ones((10, 11)), 0.01, 0.05)
+    frontRow, frontCol = DFAPathGeneration.findFlowFront(fieldPFT, np.ones((10, 11)), 0.01, 0.05)
     assert (frontRow, frontCol) == (5, 6)
 
     # two disjoint lobes at the same elevation: the centroid falls between them and is
@@ -174,19 +174,19 @@ def test_leastCostPath():
     # the channel instead of cutting straight through the no-flow area
     csz = 5.
     demRaster = np.zeros((7, 7))
-    fieldFT = np.zeros((7, 7))
-    fieldFT[0, :] = 1.
-    fieldFT[:, 0] = 1.
-    fieldFT[:, 6] = 1.
-    cellPath = DFAPathGeneration.leastCostPath((3, 0), (3, 6), fieldFT, demRaster, csz, 0.01, 10., 1.)
+    fieldPFT = np.zeros((7, 7))
+    fieldPFT[0, :] = 1.
+    fieldPFT[:, 0] = 1.
+    fieldPFT[:, 6] = 1.
+    cellPath = DFAPathGeneration.leastCostPath((3, 0), (3, 6), fieldPFT, demRaster, csz, 0.01, 10., 1.)
     assert cellPath[0] == (3, 0)
     assert cellPath[-1] == (3, 6)
-    assert all(fieldFT[row, col] > 0 for row, col in cellPath)
+    assert all(fieldPFT[row, col] > 0 for row, col in cellPath)
 
     # a goal behind a nodata barrier is unreachable
     demBarrier = np.zeros((7, 7))
     demBarrier[:, 3] = np.nan
-    cellPath = DFAPathGeneration.leastCostPath((3, 0), (3, 6), fieldFT, demBarrier, csz, 0.01, 10., 1.)
+    cellPath = DFAPathGeneration.leastCostPath((3, 0), (3, 6), fieldPFT, demBarrier, csz, 0.01, 10., 1.)
     assert cellPath == []
 
 
@@ -203,8 +203,8 @@ def test_extendProfileToFront():
     dem = {'header': {'xllcenter': 0, 'yllcenter': 0, 'cellsize': 2, 'nrows': 10, 'ncols': 11},
            'rasterData': np.tile(np.array([50., 40., 30., 20., 10., 0., 0., 0., 0., 0., 0.]), (10, 1))}
     # flow tongue along the profile, reaching the flat runout zone (front cell (5, 7))
-    fieldFT = np.zeros((10, 11))
-    fieldFT[5, 1:9] = np.array([0.5, 0.5, 0.5, 0.5, 1., 2., 3., 5.])
+    fieldPFT = np.zeros((10, 11))
+    fieldPFT[5, 1:9] = np.array([0.5, 0.5, 0.5, 0.5, 1., 2., 3., 5.])
 
     avaProfile = {'x': np.array([2, 4, 5, 6]), 'y': np.array([10, 10, 10, 10]),
                   'z': np.array([40, 30, 25, 20])}
@@ -212,24 +212,24 @@ def test_extendProfileToFront():
     particlesIni, _ = gT.projectOnRaster(dem, particlesIni, interp='bilinear')
 
     avaProfileExt = DFAPathGeneration.extendDFAPath(cfg['PATH'], avaProfile, dem, particlesIni,
-                                                    fieldFT=fieldFT)
+                                                    fieldPFT=fieldPFT)
     # the extension descends along the tongue and ends on the deposit front
     assert avaProfileExt['x'][-1] == pytest.approx(14., abs=1e-6)
     assert avaProfileExt['y'][-1] == pytest.approx(10., abs=1e-6)
     assert avaProfileExt['z'][-1] == pytest.approx(0., abs=1e-6)
     assert np.all(np.diff(avaProfileExt['s']) > 0)
 
-    # if the path already ends on the front cell, the fixed-length extension takes over so
+    # if the path already ends on the front cell, the straight-line extension takes over so
     # that the profile is always extended at the bottom (resamplePath relies on it)
     avaProfileEnd = {'x': np.array([8, 10, 12, 14]), 'y': np.array([10, 10, 10, 10]),
                      'z': np.array([10., 0., 0., 0.])}
     avaProfileExt = DFAPathGeneration.extendDFAPath(cfg['PATH'], avaProfileEnd, dem, particlesIni,
-                                                    fieldFT=fieldFT)
+                                                    fieldPFT=fieldPFT)
     assert avaProfileExt['x'][-1] > 14.
     assert np.all(np.isfinite(avaProfileExt['z']))
     assert np.all(np.diff(avaProfileExt['s']) > 0)
 
-    # without a flow thickness field, option 1 falls back to the fixed-length extension
+    # without a peak flow thickness field, option 1 falls back to the straight-line extension
     avaProfileNoField = {'x': np.array([2, 4, 5, 6]), 'y': np.array([10, 10, 10, 10]),
                          'z': np.array([40, 30, 25, 20])}
     avaProfileFallback = DFAPathGeneration.extendDFAPath(cfg['PATH'], avaProfileNoField, dem,
@@ -238,7 +238,7 @@ def test_extendProfileToFront():
     avaProfileOpt0 = {'x': np.array([2, 4, 5, 6]), 'y': np.array([10, 10, 10, 10]),
                       'z': np.array([40, 30, 25, 20])}
     avaProfileOpt0 = DFAPathGeneration.extendDFAPath(cfg['PATH'], avaProfileOpt0, dem, particlesIni,
-                                                     fieldFT=fieldFT)
+                                                     fieldPFT=fieldPFT)
     assert np.allclose(avaProfileFallback['x'], avaProfileOpt0['x'])
     assert np.allclose(avaProfileFallback['y'], avaProfileOpt0['y'])
 
@@ -253,11 +253,11 @@ def test_readPeakFT(tmp_path):
     # the peak files are parsed once and the dataframe is passed to readPeakFT
     peakFilesDF = fU.makeSimDF(peakDir, avaDir=tmp_path)
     # the simulation is found by its hash (the index of the configuration dataframe)
-    fieldFT = DFAPathGeneration.readPeakFT(peakFilesDF, '0123456789')
-    assert fieldFT.shape == (2, 3)
+    fieldPFT = DFAPathGeneration.readPeakFT(peakFilesDF, '0123456789')
+    assert fieldPFT.shape == (2, 3)
     # and by its full simulation name
-    fieldFT = DFAPathGeneration.readPeakFT(peakFilesDF, 'relA_0123456789_C_M_null_dfa')
-    assert fieldFT.shape == (2, 3)
+    fieldPFT = DFAPathGeneration.readPeakFT(peakFilesDF, 'relA_0123456789_C_M_null_dfa')
+    assert fieldPFT.shape == (2, 3)
     # no pft available for the simulation: returns None
     assert DFAPathGeneration.readPeakFT(peakFilesDF, 'someOtherSim') is None
 
