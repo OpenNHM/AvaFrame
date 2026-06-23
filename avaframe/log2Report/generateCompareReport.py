@@ -204,3 +204,81 @@ def writeCompareReport(reportFile, reportD, benchD, avaName, cfgRep):
         pfile.write(' \n')
 
     log.info('Standard tests performed - Report saved to: %s ' % reportFile)
+
+
+def collectComparisonWarnings(reportD, benchD, cfgRep):
+    """ Collect the comparison warnings that writeCompareReport flags in red.
+
+        Returns a structured list of warnings (one dict per flagged item) instead
+        of writing markdown. Mirrors the flag logic of writeCompareReport so the
+        summary stays consistent with the rendered report.
+
+        Parameters
+        ----------
+        reportD : dict
+            report dictionary with simulation info
+        benchD : dict
+            dictionary with reference simulation info
+        cfgRep : dict
+            dictionary with configuration info (uses GENERAL.diffLim and
+            GENERAL.perDiff)
+
+        Returns
+        -------
+        warnings : list[dict]
+            each dict has 'category' and 'field'; see categories below
+    """
+
+    diffLim = cfgRep['GENERAL'].getfloat('diffLim')
+    perDiff = cfgRep['GENERAL'].getfloat('perDiff')
+    warnings = []
+
+    # Parameter mismatches: skip metadata keys that are expected to differ
+    paramIgnore = ['type', 'Program version']
+    simParams = reportD['Simulation Parameters']
+    benchParams = benchD['Simulation Parameters']
+    for key in simParams:
+        if key in paramIgnore:
+            continue
+        refVal = benchParams.get(key, 'non existent')
+        if simParams[key] == '' and benchParams.get(key) is None:
+            continue
+        if refVal != simParams[key]:
+            warnings.append(
+                {'category': 'parameter', 'field': key, 'ref': refVal, 'sim': simParams[key]})
+
+    # Aimec percentage differences
+    aimecIgnore = ['type']
+    simAimec = reportD['Aimec analysis']
+    benchAimec = benchD['Aimec analysis']
+    for key in simAimec:
+        if key in aimecIgnore:
+            continue
+        refVal = float(benchAimec[key])
+        simVal = float(simAimec[key])
+        if refVal == 0.0 and simVal == 0.0:
+            diffPercent = 0.0
+        elif refVal == 0.0 or simVal == 0.0:
+            diffPercent = 'undefined'
+        else:
+            diffPercent = (refVal - simVal) / refVal
+        if diffPercent != 'undefined' and abs(diffPercent) >= perDiff:
+            warnings.append(
+                {'category': 'aimec', 'field': key, 'ref': refVal, 'sim': simVal,
+                 'diffPercent': diffPercent})
+
+    # Plot absolute differences (ppr/pft/pfv)
+    simDiff = reportD['Simulation Difference']
+    simStats = reportD['Simulation Stats']
+    for var in ['ppr', 'pft', 'pfv']:
+        if var not in simDiff:
+            continue
+        maxDiff, meanDiff, minDiff = (float(v) for v in simDiff[var])
+        maxVal = float(simStats[var][0])
+        # largest absolute deviation exceeds the tolerance
+        if max(abs(maxDiff), abs(minDiff)) > diffLim * maxVal:
+            warnings.append(
+                {'category': 'plot', 'field': var,
+                 'maxDiff': maxDiff, 'meanDiff': meanDiff, 'minDiff': minDiff, 'maxVal': maxVal})
+
+    return warnings

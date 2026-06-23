@@ -149,3 +149,75 @@ def test_writeCompareReport(tmp_path):
     assert lineVals[34] == '![ppr](testplot.png) \n'
     assert lineVals[37] == '##### Figure:   Aimec comparison of mean and max values along path \n'
     assert lineVals[39] == '![Aimec comparison of mean and max values along path](testplot.png) \n'
+
+
+def test_collectComparisonWarnings_empty(tmp_path):
+    """ no warnings when sim and ref match within tolerance """
+
+    cfg = configparser.ConfigParser()
+    cfg['GENERAL'] = {'diffLim': '0.01', 'perDiff': '0.01'}
+    reportD = {
+        'Simulation Parameters': {
+            'type': 'list', 'Program version': '1.11', 'Friction model': 'samosAT',
+            'Density [kgm-3]': '200'},
+        'Aimec analysis': {
+            'type': 'list', 'runout [m]': 100.0, 'max peak pressure [kPa]': 360.0},
+        'Simulation Difference': {
+            'ppr': [0.0, 0.0, 0.0], 'pft': [0.0, 0.0, 0.0], 'pfv': [0.0, 0.0, 0.0]},
+        'Simulation Stats': {'ppr': [360.0, 0.0], 'pft': [5.0, 0.0], 'pfv': [42.0, 0.0]}}
+    benchD = {
+        'Simulation Parameters': {
+            'type': 'list', 'Program version': '1.10', 'Friction model': 'samosAT',
+            'Density [kgm-3]': '200'},
+        'Aimec analysis': {
+            'type': 'list', 'runout [m]': 100.0, 'max peak pressure [kPa]': 360.0}}
+
+    warnings = gR.collectComparisonWarnings(reportD, benchD, cfg)
+
+    assert warnings == []
+
+
+def test_collectComparisonWarnings_all(tmp_path):
+    """ parameter, aimec and plot warnings are all collected """
+
+    cfg = configparser.ConfigParser()
+    cfg['GENERAL'] = {'diffLim': '0.01', 'perDiff': '0.01'}
+    reportD = {
+        'Simulation Parameters': {
+            'type': 'list', 'Program version': 'development', 'Friction model': 'samosATMedium',
+            'Density [kgm-3]': '200'},
+        'Aimec analysis': {
+            'type': 'list', 'runout [m]': 110.0, 'max peak pressure [kPa]': 360.0},
+        'Simulation Difference': {
+            'ppr': [243.0, -2.2, -166.0], 'pft': [0.0, 0.0, 0.0], 'pfv': [0.0, 0.0, 0.0]},
+        'Simulation Stats': {'ppr': [364.0, 0.0], 'pft': [5.0, 0.0], 'pfv': [42.0, 0.0]}}
+    benchD = {
+        'Simulation Parameters': {
+            'type': 'list', 'Program version': '1.11', 'Friction model': 'samosAT',
+            'Density [kgm-3]': '200'},
+        'Aimec analysis': {
+            'type': 'list', 'runout [m]': 100.0, 'max peak pressure [kPa]': 360.0}}
+
+    warnings = gR.collectComparisonWarnings(reportD, benchD, cfg)
+
+    # parameter: Friction model differs; Program version is excluded; Density matches
+    paramWarnings = [w for w in warnings if w['category'] == 'parameter']
+    assert len(paramWarnings) == 1
+    assert paramWarnings[0] == {
+        'category': 'parameter', 'field': 'Friction model',
+        'ref': 'samosAT', 'sim': 'samosATMedium'}
+
+    # aimec: runout differs by 10% (>= 1%); max peak pressure matches
+    # diffPercent is a fraction (matches report convention): (ref - sim) / ref
+    aimecWarnings = [w for w in warnings if w['category'] == 'aimec']
+    assert len(aimecWarnings) == 1
+    assert aimecWarnings[0] == {
+        'category': 'aimec', 'field': 'runout [m]',
+        'ref': 100.0, 'sim': 110.0, 'diffPercent': -0.1}
+
+    # plot: ppr exceeds tolerance (maxDiff 243 vs 1% of 364); pft/pfv do not
+    plotWarnings = [w for w in warnings if w['category'] == 'plot']
+    assert len(plotWarnings) == 1
+    assert plotWarnings[0] == {
+        'category': 'plot', 'field': 'ppr',
+        'maxDiff': 243.0, 'meanDiff': -2.2, 'minDiff': -166.0, 'maxVal': 364.0}
