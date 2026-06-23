@@ -96,7 +96,7 @@ def main(avalancheDir="", cfg=None):
                     uid
                 )
             )
-            sys.exit(1)
+            return uid
         else:
             fU.makeADir(cfgPath["resDir"])
             cfgPath["tempDir"] = cfgPath["workDir"] / "temp"
@@ -120,6 +120,7 @@ def main(avalancheDir="", cfg=None):
         cfgPath["useCompression"] = cfgCustomPaths.getboolean("useCompression")
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
+        return uid
 
     # if customPaths == True --> check
     elif cfgCustomPaths["useCustomPaths"] == "True":
@@ -191,6 +192,7 @@ def main(avalancheDir="", cfg=None):
         cfgPath["timeString"] = timeString
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
+        return uid
 
     else:
         print(
