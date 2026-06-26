@@ -1,51 +1,51 @@
 {
   "TAGS": [
-    "null",
+    "ent",
     "standardTest",
     "idealized",
     "timeDependentRelease"
   ],
-  "DESCRIPTION": " time dependent release test: null simulation",
+  "DESCRIPTION": " time dependent release test: ent simulation",
   "TYPE": [
     "2DPeak"
   ],
   "FILES": [
-    "release1PF_89eb8e22c9_com1_C_M_null_dfa_pft",
-    "release1PF_89eb8e22c9_com1_C_M_null_dfa_ppr",
-    "release1PF_89eb8e22c9_com1_C_M_null_dfa_pfv",
-    "mass_release1PF_89eb8e22c9_com1_C_M_null_dfa"
+    "release1PF_72dbf914b6_com1_C_M_ent_dfa_pft",
+    "release1PF_72dbf914b6_com1_C_M_ent_dfa_ppr",
+    "release1PF_72dbf914b6_com1_C_M_ent_dfa_pfv",
+    "mass_release1PF_72dbf914b6_com1_C_M_ent_dfa"
   ],
   "AVANAME": "avaParabolaTimeDep",
   "AVADIR": "data/avaParabolaTimeDep",
-  "simNameRef": "release1PF_89eb8e22c9_com1_C_M_null_dfa",
-  "NAME": "avaParabolaTimeDepRelNullTest",
+  "simNameRef": "release1PF_72dbf914b6_com1_C_M_ent_dfa",
+  "NAME": "avaParabolaTimeDepRelEntTest",
   "Test Info": {
     "type": "text",
     "Test Info": "This test runs the Parabola time dependent release test."
   },
-  "simType": "null",
+  "simType": "ent",
   "simName": {
     "type": "simName",
-    "name": "release1PF_89eb8e22c9_com1_C_M_null_dfa"
+    "name": "release1PF_72dbf914b6_com1_C_M_ent_dfa"
   },
   "Simulation Parameters": {
     "type": "list",
-    "Program version": "2.0",
+    "Program version": "2.1",
     "Parameter set": "Changed",
     "Release Area Scenario": "release1PF",
-    "Entrainment": "No",
+    "Entrainment": "Yes",
     "Resistance": "No",
     "Secondary release area": "No",
     "Density [kgm-3]": "200",
     "Friction model": "samosATMedium",
     "Initial mass [kg]": "1710541.37",
-    "Final mass [kg]": "8511880.38",
-    "Entrained mass [kg]": "0.00",
-    "Entrained volume [m3]": "0.00",
+    "Final mass [kg]": "11836588.74",
+    "Entrained mass [kg]": "3324708.36",
+    "Entrained volume [m3]": "33247.08",
     "Detrained mass [kg]": "0.00",
     "Total initialized mass [kg]": "8511880.38",
     "Stop criterion": "< 1.00 percent of PKE",
-    "Process run time [s]": "378.10",
-    "Computation time [s]": "99.60"
+    "Process run time [s]": "375.80",
+    "Computation time [s]": "122.99"
   }
 }
