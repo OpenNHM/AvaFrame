@@ -642,6 +642,7 @@ def prepareInputData(inputSimFiles, cfg):
         releaseLine["thickness"] = "from raster"
         log.info("Set %s for relThField" % relRasterPath)
     # get line from release area polygon
+    # TODO:  use this for sourceline?
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
         releaseLine["type"] = "time dependent Release"
         timeDepRelValues, _ = gI.getTimeDepRelCsv(cfg["INPUT"]["timeDepRelCsv"])
@@ -651,6 +652,8 @@ def prepareInputData(inputSimFiles, cfg):
         releaseLine["thicknessSource"] = ["csv file"] * len(releaseLine["Name"])
         releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
         releaseLine["timeDepRelValues"] = timeDepRelValues
+    if cfg["GENERAL"].getboolean("releaseFromSourceLine"):
+        releaseLine = debF.getCellsAlongLine(releaseLine, demOri)
 
     # get line from secondary release area polygon
     if cfg["GENERAL"].getboolean("secRelArea"):
