@@ -209,3 +209,24 @@ def checkTravelledDistance(cfgGen, timeDepRelValues, timeDepRelCsv):
             # TODO: error or warning?
             log.error(message)
             raise ValueError(message)
+
+
+def getCellsAlongLine(releaseLine, demOri):
+    """
+
+    Parameters
+    ----------
+    releaseLine
+    demOri
+
+    Returns
+    -------
+    releaseLine
+    """
+
+    x0 = releaseLine["x"][0]
+    y0 = releaseLine["y"][0]
+    x1 = releaseLine["x"][-1]
+    y1 = releaseLine["y"][-1]
+
+    geoTrans.projectOnRaster(releaseLine["x"], releaseLine["y"], demOri)
