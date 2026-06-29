@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 
 def plotParticleThalwegAltitudeVelocity(
-        avalancheDir, simIndex, simDF, rasterTransfo, dictVelAltThalweg, resTypePlots, modName, demData
+    avalancheDir, simIndex, simDF, rasterTransfo, dictVelAltThalweg, resTypePlots, modName, demData
 ):
     """plot peak flow fields and velocity thalweg envelope
 
@@ -170,17 +170,17 @@ def plotParticleThalwegAltitudeVelocity(
 
 
 def plotThalwegTimeAltitudes(
-        avalancheDir,
-        simIndex,
-        simDF,
-        rasterTransfo,
-        pfvCrossMax,
-        modName,
-        demSim,
-        mtiInfo,
-        cfgRangeTime,
-        velocityThreshold,
-        measuredData="",
+    avalancheDir,
+    simIndex,
+    simDF,
+    rasterTransfo,
+    pfvCrossMax,
+    modName,
+    demSim,
+    mtiInfo,
+    cfgRangeTime,
+    velocityThreshold,
+    measuredData="",
 ):
     """Create plot showing the resType peak field with thalweg,
     thalweg vs altitude with max peak field values along thalweg derived from peak fields
@@ -288,15 +288,15 @@ def plotThalwegTimeAltitudes(
 
 
 def plotParticleMotionTracking(
-        avalancheDir,
-        simName,
-        dictVelAltThalweg,
-        trackedPartProp,
-        dictVelEnvelope,
-        demSim,
-        modName,
-        rasterTransfo,
-        measuredData="",
+    avalancheDir,
+    simName,
+    dictVelAltThalweg,
+    trackedPartProp,
+    dictVelEnvelope,
+    demSim,
+    modName,
+    rasterTransfo,
+    measuredData="",
 ):
     """Create plot showing particle properties over time and along avalanche thalweg
     in light blue envelope for all particles (filled between min and max values)
@@ -626,6 +626,15 @@ def addPeakFieldConstrained(avaDir, modName, simName, resType, demData, ax, alph
         value for transparency from 0-1
     oneColor: empty str
         optional to add a color for a single color for field
+
+    Returns
+    --------
+    ax: matplotlib axes object
+        axes with the peak field plot added
+    rowsMinPlot: float
+        minimum row extent of the plotted data in plot coordinates
+    colsMinPlot: float
+        minimum column extent of the plotted data in plot coordinates
     """
 
     # prepare dem data
@@ -646,11 +655,11 @@ def addPeakFieldConstrained(avaDir, modName, simName, resType, demData, ax, alph
     cellSize = simResDF["cellSize"].loc[simResDF["simName"] == simName].values[0]
 
     # add constrained peak result field data plot to axes
-    ax, _, _, _ = oP.addConstrainedDataField(
+    ax, rowsMinPlot, colsMinPlot, _ = oP.addConstrainedDataField(
         peakFilePath, resType, demField, ax, cellSize, alpha=alpha, oneColor=oneColor
     )
 
-    return ax
+    return ax, rowsMinPlot, colsMinPlot
 
 
 def velocityEnvelope(particlesTimeArrays):
