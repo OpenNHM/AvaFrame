@@ -362,7 +362,7 @@ def plotProfile(s, z, idsBetaPoint):
 def plotVolumeRelease(releaseLine, relThField, releaseLineField):
     """ create a plot of the release line raster, the relThField for release thickness,
         releaseLineField - combination of relThField and release line raster mask """
-        
+
     fig = plt.figure()
     ax1 = fig.add_subplot(131)
     ax2 = fig.add_subplot(132)
@@ -373,4 +373,62 @@ def plotVolumeRelease(releaseLine, relThField, releaseLineField):
     fig.colorbar(im0 , ax=ax1)
     fig.colorbar(im1, ax=ax2)
     fig.colorbar(im2, ax=ax3)
+    plt.show()
+
+
+def plotParticlesRelease(particles, relRaster, releaseLine, dem, cfg, xyParticlesAll):
+    """plot the release raster and release polygon outline and the particles that were placed and the ones that
+    are finally used for the computation after removing the ones that are outside the release polygon
+    - used in particleInitialisation to visualize initialisation process in com1DFA/initializeParticles
+
+    Parameters
+    ------------
+    particles: dict
+        final particles dict after initialization
+    relRaster: numpy ndarray
+        release raster
+    releaseLine: dict
+        release polygon info dict
+    dem: dict
+        dem info dict
+    cfg: configparser object
+        simulation configuration settings, requires rho
+    xyParticlesAll: dict
+        particles dict during initialization before removing those outside the release polygon
+
+    """
+
+    # compute volume of particles
+    volParticles = particles["mTot"] / cfg.getfloat("rho")
+
+    extentCellCenters, extentCellCorners = pU.createExtentMinMax(
+        relRaster, dem["originalHeader"], originLLCenter=True
+    )
+
+    # figure
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    # Minor ticks
+    ax.set_xticks(
+        np.arange(extentCellCorners[0], extentCellCorners[1], dem["originalHeader"]["cellsize"]), minor=True
+    )
+    ax.set_yticks(
+        np.arange(extentCellCorners[2], extentCellCorners[3], dem["originalHeader"]["cellsize"]), minor=True
+    )
+    # Gridlines based on minor ticks
+    ax.grid(which="minor", color="w", linestyle="-", linewidth=2)
+    ax.imshow(relRaster, extent=extentCellCorners, origin="lower")
+    # plot all particles before removing the ones outside of release polygon
+    ax.plot(
+        xyParticlesAll["x"] + dem["originalHeader"]["xllcenter"],
+        xyParticlesAll["y"] + dem["originalHeader"]["yllcenter"],
+        "+g",
+    )
+    # only particles that have not been removed
+    ax.plot(
+        particles["x"] + dem["originalHeader"]["xllcenter"],
+        particles["y"] + dem["originalHeader"]["yllcenter"],
+        "*r",
+    )
+    ax.plot(releaseLine["x"], releaseLine["y"], "-b")
+    ax.set_title("mass/rho: %.2fm3" % (volParticles))
     plt.show()

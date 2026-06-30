@@ -1629,6 +1629,9 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
         and not cfg.getboolean("initialiseParticlesFromFile")
         and len(relThField) == 0
     ):
+        if debugPlot:
+            xyParticlesAll = {"x": particles["x"], "y": particles["y"]}
+
         particles = geoTrans.checkParticlesInRelease(
             particles, releaseLine, cfg.getfloat("thresholdPointInPoly")
         )
@@ -1671,6 +1674,7 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
 
     if debugPlot:
         debPlot.plotPartIni(particles, dem)
+        debPlot.plotParticlesRelease(particles, relRaster, releaseLine, dem, cfg, xyParticlesAll)
 
     # space for deposited particles TODO: extra dict for them?
     particles["stoppedParticles"] = {
