@@ -34,7 +34,8 @@ Initialize release, entrainment and resistance areas
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Read and check shapefiles according to the configuration (check consistency between
 what is required by the configuration file and what is available in the ``Inputs`` folder).
-Convert shapefile features (polygons) to rasters (:py:func:`in3Utils.geoTrans.prepareArea`).
+Convert shapefile features to rasters (for polygons: :py:func:`in3Utils.geoTrans.prepareArea`,
+for lines: :py:func:`in3Utils.geoTrans.getCellsAlongLine`).
 Check consistency of rasters according to the following rules:
 
   - multiple release features in the release and secondary release shapefiles
@@ -143,6 +144,9 @@ There are then different ways to place the particles in the cells. This is decid
 If the release is time dependent, particles are initialized in provided timesteps. If an initial velocity is provided,
 the particles have this initial velocity (magnitude) in direction of the steepest descent,
 it is computed in the following function: :py:func:`com1DFA.DFAfunctionsCython.updateInitialVelocity`.
+
+If the release features are lines and the release is **not** time dependent, in every time step
+particles are initialized.
 
 
 Particle properties

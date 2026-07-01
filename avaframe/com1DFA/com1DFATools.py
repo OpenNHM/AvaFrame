@@ -19,7 +19,7 @@ import avaframe.in3Utils.initialiseDirs as inDirs
 from avaframe.com1DFA import com1DFA
 from avaframe.in1Data import getInput as gI
 from avaframe.in3Utils import cfgUtils
-from avaframe.in2Trans import rasterUtils as IOf
+from avaframe.in2Trans import shpConversion as shpConv
 
 # create local logger
 # change log level in calling module to DEBUG to see log messages
@@ -350,6 +350,8 @@ def initializeInputs(avalancheDir, cleanRemeshedRasters, module=com1DFA):
 
     # fetch input data - dem, release-, entrainment- and resistance areas (and secondary release areas)
     inputSimFilesAll = gI.getInputDataCom1DFA(avalancheDir)
+
+    shpConv.checkShpType(inputSimFilesAll)
 
     # get thickness of release and entrainment areas (and secondary release areas) -if thFromShp = True
     inputSimFilesAll = gI.getThicknessInputSimFiles(inputSimFilesAll)
