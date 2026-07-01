@@ -21,7 +21,6 @@ import avaframe.in3Utils.fileHandlerUtils as fU
 import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.DFAtools as DFAtls
 
-
 log = logging.getLogger(__name__)
 
 
@@ -1174,20 +1173,20 @@ def test_getNormalMesh(capfd):
 
         atol = 1e-10
         TestNX = np.allclose(
-            Nx[1: n - 1, 1: m - 1],
-            (-a * np.ones(np.shape(Y)) / np.sqrt(1 + a * a + b * b))[1: n - 1, 1: m - 1],
+            Nx[1 : n - 1, 1 : m - 1],
+            (-a * np.ones(np.shape(Y)) / np.sqrt(1 + a * a + b * b))[1 : n - 1, 1 : m - 1],
             atol=atol,
         )
         assert TestNX
         TestNY = np.allclose(
-            Ny[1: n - 1, 1: m - 1],
-            (-b * np.ones(np.shape(Y)) / np.sqrt(1 + a * a + b * b))[1: n - 1, 1: m - 1],
+            Ny[1 : n - 1, 1 : m - 1],
+            (-b * np.ones(np.shape(Y)) / np.sqrt(1 + a * a + b * b))[1 : n - 1, 1 : m - 1],
             atol=atol,
         )
         assert TestNY
         TestNZ = np.allclose(
-            Nz[1: n - 1, 1: m - 1],
-            (np.ones(np.shape(Y)) / np.sqrt(1 + a * a + b * b))[1: n - 1, 1: m - 1],
+            Nz[1 : n - 1, 1 : m - 1],
+            (np.ones(np.shape(Y)) / np.sqrt(1 + a * a + b * b))[1 : n - 1, 1 : m - 1],
             atol=atol,
         )
         assert TestNZ
@@ -1207,20 +1206,58 @@ def test_getNormalMesh(capfd):
         #        print((1 / np.sqrt(1 + 4*a*a*X*X + 4*b*b*Y*Y))[1:n-1, 1:m-1])
         atol = 1e-10
         TestNX = np.allclose(
-            Nx[1: n - 1, 1: m - 1],
-            (-2 * a * X / np.sqrt(1 + 4 * a * a * X * X + 4 * b * b * Y * Y))[1: n - 1, 1: m - 1],
+            Nx[1 : n - 1, 1 : m - 1],
+            (-2 * a * X / np.sqrt(1 + 4 * a * a * X * X + 4 * b * b * Y * Y))[1 : n - 1, 1 : m - 1],
             atol=atol,
         )
         assert TestNX
         TestNY = np.allclose(
-            Ny[1: n - 1, 1: m - 1],
-            (-2 * b * Y / np.sqrt(1 + 4 * a * a * X * X + 4 * b * b * Y * Y))[1: n - 1, 1: m - 1],
+            Ny[1 : n - 1, 1 : m - 1],
+            (-2 * b * Y / np.sqrt(1 + 4 * a * a * X * X + 4 * b * b * Y * Y))[1 : n - 1, 1 : m - 1],
             atol=atol,
         )
         assert TestNY
         TestNZ = np.allclose(
-            Nz[1: n - 1, 1: m - 1],
-            (1 / np.sqrt(1 + 4 * a * a * X * X + 4 * b * b * Y * Y))[1: n - 1, 1: m - 1],
+            Nz[1 : n - 1, 1 : m - 1],
+            (1 / np.sqrt(1 + 4 * a * a * X * X + 4 * b * b * Y * Y))[1 : n - 1, 1 : m - 1],
             atol=atol,
         )
         assert TestNZ
+
+
+def test_getCellsAlongLine():
+    """test for a straight line"""
+    header = {}
+    header["ncols"] = 10
+    header["nrows"] = 10
+    header["cellsize"] = 10
+    header["xllcenter"] = 5
+    header["yllcenter"] = 5
+
+    lineDict = {}
+    lineDict["x"] = np.array([5, 5])
+    lineDict["y"] = np.array([14, 45])
+
+    testCrossedCells = np.zeros((header["nrows"], header["ncols"])).astype(int)
+    testCrossedCells[[1, 2, 3, 4], [0, 0, 0, 0]] = 1
+
+    testLine = geoTrans.getCellsAlongLine(header, lineDict, addBuffer=False)
+    crossedCells = testLine["cellsCrossed"].reshape(header["nrows"], header["ncols"])
+
+    assert np.all(testCrossedCells == crossedCells)
+    assert np.all(lineDict["x"] == testLine["x"])
+    assert np.all(lineDict["y"] == testLine["y"])
+
+    lineDict = {}
+    lineDict["x"] = np.array([15, 45])
+    lineDict["y"] = np.array([15, 35])
+
+    testCrossedCells = np.zeros((header["nrows"], header["ncols"])).astype(int)
+    testCrossedCells[[1, 1, 2, 2, 3, 3], [1, 2, 2, 3, 3, 4]] = 1
+
+    testLine = geoTrans.getCellsAlongLine(header, lineDict, addBuffer=False)
+    crossedCells = testLine["cellsCrossed"].reshape(header["nrows"], header["ncols"])
+
+    assert np.all(testCrossedCells == crossedCells)
+    assert np.all(lineDict["x"] == testLine["x"])
+    assert np.all(lineDict["y"] == testLine["y"])

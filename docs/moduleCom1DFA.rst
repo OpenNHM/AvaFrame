@@ -55,12 +55,12 @@ or GeoTIFF format, or shape files and specified for the respective input type be
 
 * **digital elevation model as raster file. The format of the DEM determines the format of the output files.**
 
-* release area scenario as (multi-) polygon shapefile OR raster file (in Inputs/REL; only shapefiles OR raster files)
-    - either polygon shapefile(s):
+* release area scenario as (multi-) polygon or line shapefile OR raster file (in Inputs/REL; only shapefiles OR raster files)
+    - either polygon or line shapefile(s):
         - the release area polygon must not contain any "holes" or inner rings
         - multiple features are allowed
         - recommended attributes are *name*, *thickness* (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`) and *ci95* (see :ref:`moduleAna4Stats:probAna - Probability maps`)
-    - or raster file(s):
+- or raster file(s):
         - cells with non-zero values define the release area
         - cell value can be read as thickness (measured normal to the slope) (see :ref:`moduleCom1DFA:Release-, entrainment thickness settings`)
         - negative values and no-data values are not allowed

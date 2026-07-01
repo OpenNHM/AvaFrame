@@ -110,28 +110,35 @@ def addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, d
     """
     relLine = inputSimLines["releaseLine"]
     relLine["header"] = dem["originalHeader"].copy()
-    relLine = geoTrans.prepareArea(
-        relLine,
-        dem,
-        np.sqrt(2),
-        thList=[thickness] * len(relLine["Name"]),
-        combine=True,
-        checkOverlap=False,
-    )
-
-    # check if already existing particles are within the release polygon
-    # it's possible that there are still a few particles in the polygon with low velocities
-    # TODO: could think of a threshold of number of particles that are still allowed in the polygons?
-    mask = geoTrans.getParticlesInPolygon(particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel"))
-    if np.sum(mask) > 0:
-        # if there is at least one particle within the polygon (including the buffer):
-        message = (
-            "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
-            % (particles["t"] + particles["dt"])
+    if relLine["shapeTypeName"] in ["POLYLINE", "POLYLINEZ"]:
+        relLine["rasterData"] = (
+                relLine["cellsCrossed"].reshape(dem["header"]["nrows"], dem["header"]["ncols"]) * thickness
         )
-        # timestep in particles is not updated yet
-        log.error(message)
-        raise ValueError(message)
+    else:
+        relLine = geoTrans.prepareArea(
+            relLine,
+            dem,
+            np.sqrt(2),
+            thList=[thickness] * len(relLine["Name"]),
+            combine=True,
+            checkOverlap=False,
+        )
+
+        # check if already existing particles are within the release polygon
+        # it's possible that there are still a few particles in the polygon with low velocities
+        # TODO: could think of a threshold of number of particles that are still allowed in the polygons?
+        mask = geoTrans.getParticlesInPolygon(
+            particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel")
+        )
+        if np.sum(mask) > 0:
+            # if there is at least one particle within the polygon (including the buffer):
+            message = (
+                    "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
+                    % (particles["t"] + particles["dt"])
+            )
+            # timestep in particles is not updated yet
+            log.error(message)
+            raise ValueError(message)
 
     particlesRelease = com1DFA.initializeParticles(
         cfg["GENERAL"],
@@ -209,24 +216,3 @@ def checkTravelledDistance(cfgGen, timeDepRelValues, timeDepRelCsv):
             # TODO: error or warning?
             log.error(message)
             raise ValueError(message)
-
-
-def getCellsAlongLine(releaseLine, demOri):
-    """
-
-    Parameters
-    ----------
-    releaseLine
-    demOri
-
-    Returns
-    -------
-    releaseLine
-    """
-
-    x0 = releaseLine["x"][0]
-    y0 = releaseLine["y"][0]
-    x1 = releaseLine["x"][-1]
-    y1 = releaseLine["y"][-1]
-
-    geoTrans.projectOnRaster(releaseLine["x"], releaseLine["y"], demOri)

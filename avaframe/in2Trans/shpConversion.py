@@ -99,6 +99,7 @@ def SHP2Array(infile, defname=None):
     # Start reading the shapefile
     records = sf.shapeRecords()
     shps = sf.shapes()
+    shapeTypeName = sf.shapeTypeName
 
     SHPdata = {}
     SHPdata["sks"] = sks
@@ -243,6 +244,7 @@ def SHP2Array(infile, defname=None):
     SHPdata["rotAngle"] = rotAngleList
     SHPdata["direc"] = direcList
     SHPdata["offset"] = offsetList
+    SHPdata["shapeTypeName"] = shapeTypeName
 
     sf.close()
 
@@ -643,3 +645,29 @@ def readShapefile(inputShp):
                 srs = f.read().strip()
 
     return fields, fieldNames, properties, geometries, srs
+
+
+def checkShpType(inputSimFiles):
+    """
+    checks if the shp type is same in all release files,
+    raise error if not
+
+    Parameters
+    ----------
+    inputSimFiles: dict
+        relFiles: contains paths to release files
+        entResInfo: contains information on file types
+    """
+    shpTypes = []
+    for releaseA in inputSimFiles["relFiles"]:
+        # fetch thickness and id info from input data
+        if inputSimFiles["entResInfo"]["relThFileType"] == ".shp":
+            sf = shapefile.Reader(str(releaseA))
+            shpTypes.append(sf.shapeType)
+
+            if len(set(shpTypes)) > 1:
+                message = (
+                    "Release shapefiles have inconsistent shape types, provide either lines or polygons."
+                )
+                log.error(message)
+                raise AssertionError(message)

@@ -484,6 +484,10 @@ def prepareReleaseEntrainment(cfg, rel, inputSimLines):
         inputSimLines["releaseLine"]["thicknessSource"] = ["csv file"] * len(
             inputSimLines["releaseLine"]["Name"]
         )
+    elif cfg["GENERAL"]["constMassFlow"] != "":
+        inputSimLines["releaseLine"]["massFlowTot"] = cfg["GENERAL"].getfloat("constMassFlow") * cfg[
+            "GENERAL"
+        ].getfloat("dt")
     elif cfg["INPUT"]["relThFile"] == "":
         # otherwise release thickness is read from ini or shape file
         releaseLine = setThickness(cfg, inputSimLines["releaseLine"], "relTh")
@@ -652,8 +656,6 @@ def prepareInputData(inputSimFiles, cfg):
         releaseLine["thicknessSource"] = ["csv file"] * len(releaseLine["Name"])
         releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
         releaseLine["timeDepRelValues"] = timeDepRelValues
-    if cfg["GENERAL"].getboolean("releaseFromSourceLine"):
-        releaseLine = debF.getCellsAlongLine(releaseLine, demOri)
 
     # get line from secondary release area polygon
     if cfg["GENERAL"].getboolean("secRelArea"):
@@ -1191,19 +1193,43 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
         releaseLine = inputSimLines["releaseLine"]
         # create release area raster if not read from file
         if inputSimLines["releaseLine"]["initializedFrom"] == "shapefile":
-            # check if release features overlap between features
-            geoTrans.prepareArea(releaseLine, dem, thresholdPointInPoly, combine=True, checkOverlap=True)
+            # if release shp file is a line, find cells taht are crossed by the line
+            if inputSimLines["releaseLine"]["shapeTypeName"] in ["POLYLINE", "POLYLINEZ"]:
+                releaseLine = geoTrans.getCellsAlongLine(demOri["header"], releaseLine, addBuffer=False)
+                if cfg["GENERAL"]["constMassFlow"] != "":
+                    # compute release mass per raster cell and timestep
+                    releaseLine["massFlowCell"] = (
+                            releaseLine["massFlowTot"]
+                            / np.nansum(releaseLine["cellsCrossed"])
+                            * cfg["GENERAL"].getfloat("dt")
+                    )
+                    # compute thickness per release cell: mass / area / density
+                    releaseLine["rasterData"] = (
+                            releaseLine["cellsCrossed"].reshape(dem["header"]["nrows"], dem["header"]["ncols"])
+                            * releaseLine["massFlowCell"]
+                            / dem["areaRaster"]
+                            / cfg["GENERAL"].getfloat("rho")
+                    )
+                else:
+                    releaseLine["rasterData"] = (
+                            releaseLine["cellsCrossed"].reshape(dem["header"]["nrows"], dem["header"]["ncols"])
+                            * releaseLine["thickness"]
+                    )
 
-            # if no release thickness field or function - set release according to shapefile or ini file
-            # this is a list of release rasters that we want to combine
-            releaseLine = geoTrans.prepareArea(
-                releaseLine,
-                dem,
-                np.sqrt(2),
-                thList=releaseLine["thickness"],
-                combine=True,
-                checkOverlap=False,
-            )
+            else:
+                # check if release features overlap between features
+                geoTrans.prepareArea(releaseLine, dem, thresholdPointInPoly, combine=True, checkOverlap=True)
+
+                # if no release thickness field or function - set release according to shapefile or ini file
+                # this is a list of release rasters that we want to combine
+                releaseLine = geoTrans.prepareArea(
+                    releaseLine,
+                    dem,
+                    np.sqrt(2),
+                    thList=releaseLine["thickness"],
+                    combine=True,
+                    checkOverlap=False,
+                )
 
     # set relRaster
     relRaster = releaseLine["rasterData"]
@@ -1631,6 +1657,7 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
         not cfg.getboolean("iniStep")
         and not cfg.getboolean("initialiseParticlesFromFile")
         and len(relThField) == 0
+            and not releaseLine["shapeTypeName"] in ["POLYLINE", "POLYLINEZ"]
     ):
         if debugPlot:
             xyParticlesAll = {"x": particles["x"], "y": particles["y"]}
@@ -2266,6 +2293,20 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
             particles, fields, zPartArray0 = debF.initializeTimeDepRelease(
                 cfg, inputSimLines, particles, fields, dem, zPartArray0, t
             )
+        elif inputSimLines["releaseLine"]["shapeTypeName"] in ["POLYLINE", "POLYLINEZ"]:
+            particlesRelease = com1DFA.initializeParticles(
+                cfgGen,
+                inputSimLines["releaseLine"],
+                dem,
+            )
+            particles = particleTools.mergeParticleDict(particles, particlesRelease)
+            zPartArray0 = np.append(zPartArray0, copy.deepcopy(particlesRelease["z"]))
+            particles = DFAfunC.getNeighborsC(particles, dem)
+            # update fields (compute grid values)
+            if fields["computeTA"]:
+                particles = DFAfunC.computeTrajectoryAngleC(particles, zPartArray0)
+            particles, fields = DFAfunC.updateFieldsC(cfg["GENERAL"], particles, dem, fields)
+
         # Perform computations
         particles, fields, zPartArray0, tCPU, dem = computeEulerTimeStep(
             cfgGen,
@@ -2749,6 +2790,7 @@ def computeEulerTimeStep(
     # loop version of the compute force
     log.debug("Compute Force C")
     particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, resistanceType)
+
     tCPUForce = time.time() - startTime
     tCPU["timeForce"] = tCPU["timeForce"] + tCPUForce
     # compute lateral force (SPH component of the calculation)
@@ -2800,7 +2842,6 @@ def computeEulerTimeStep(
         particles, zPartArray0, reportAreaInfo = releaseSecRelArea(
             cfg, particles, fields, dem, zPartArray0, reportAreaInfo
         )
-
     # get particles location (neighbours for sph)
     startTime = time.time()
     log.debug("get Neighbours C")
