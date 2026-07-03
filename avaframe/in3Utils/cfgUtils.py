@@ -948,7 +948,7 @@ def setStrnanToNan(simDF, simDFTest, name):
         updated pandas dataframe with np.nan values where string nan or none was
     """
 
-    nanIndex = simDFTest.str.match("nan|none", flags=re.IGNORECASE)
+    nanIndex = simDFTest.astype(str).str.lower().isin(["nan", "none"])
     simIndex = simDF.index.values
     # loop over each row and use iloc to avoid duplicate index issues
     for index, nanInd in enumerate(nanIndex):
