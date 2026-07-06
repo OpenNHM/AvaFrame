@@ -1,0 +1,14 @@
+name: Require PR Checklist
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  require-checklist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: mheap/require-checklist-action@v2
+        with:
+          requireChecklist: true
