@@ -34,6 +34,22 @@ def main(avalancheDir="", cfg=None):
 
     NOTE-TODO:
         * This function needs clean-up!
+
+    Parameters
+    ------------
+    avalancheDir: str
+        path to avalanche directory that is simulated (if "", the path of the (local_)avaframeCfg.ini is used)
+    cfg: configparser object
+        settings for the simulation (if None, (local_)com4FlowPyCfg.ini is used)
+
+    Returns
+    -------------
+    outputDict: dict
+        information about simulation:
+            "uid": id of simulation
+            "simulation": boolean: is the simulation is run
+            "resultOverwritten": boolean: are result files overwritten
+            "message": explanation to simulation status
     """
     # log file name; leave empty to use default runLog.log
     logName = "runcom4FlowPy"
@@ -46,7 +62,6 @@ def main(avalancheDir="", cfg=None):
     cfg["PATHS"]["outputFiles"] = checkOutputFilesFormat(cfg["PATHS"]["outputFiles"])
 
     cfgSetup = cfg["GENERAL"]
-    cfgFlags = cfg["FLAGS"]
     cfgCustomPaths = cfg["PATHS"]
 
     # if customPaths == False --> use AvaFrame Folder structure
@@ -86,17 +101,27 @@ def main(avalancheDir="", cfg=None):
         # Create result directory
         # NOTE-TODO: maybe move into separate function as well ...
         timeString = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timeString = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         cfgPath["resDir"] = cfgPath["outDir"] / "peakFiles" / "res_{}".format(uid)  # (timeString)
         # check if simulation with same uid already has results folder
-        if os.path.isdir(cfgPath["resDir"]):
+        if os.path.isdir(cfgPath["resDir"]) and os.listdir(cfgPath["resDir"]):
+            resFilesExist = True
+        else:
+            resFilesExist = False
+        if cfgCustomPaths["overwriteResults"] == "False" and resFilesExist:
             log.info("folder with same name already exists - aborting")
             log.info(
                 "simulation results folder with same .ini parameters already exists: simulation {}".format(
                     uid
                 )
             )
-            return uid
+            return {
+                "uid": uid,
+                "simulation": False,
+                "resultOverwritten": False,
+                "message": "simulation results exists",
+            }
         else:
             fU.makeADir(cfgPath["resDir"])
             cfgPath["tempDir"] = cfgPath["workDir"] / "temp"
@@ -120,7 +145,12 @@ def main(avalancheDir="", cfg=None):
         cfgPath["useCompression"] = cfgCustomPaths.getboolean("useCompression")
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
-        return uid
+        return {
+            "uid": uid,
+            "simulation": True,
+            "resultOverwritten": resFilesExist,
+            "message": "simulation is done",
+        }
 
     # if customPaths == True --> check
     elif cfgCustomPaths["useCustomPaths"] == "True":
@@ -141,21 +171,35 @@ def main(avalancheDir="", cfg=None):
         log = logUtils.initiateLogger(workDir, logName + "_" + uid)
 
         timeString = datetime.now().strftime("%Y%m%d_%H%M%S")
-        try:
-            os.makedirs(workDir / "res_{}".format(uid))  # (time_string))
-            res_dir = workDir / "res_{}".format(uid)  # (time_string)
-        except FileExistsError:
+
+        res_dir = workDir / "res_{}".format(uid)  # (time_string)
+
+        if os.path.isdir(res_dir) and os.listdir(res_dir):
+            resFilesExist = True
+        else:
+            resFilesExist = False
+
+        if cfgCustomPaths["overwriteResults"] == "False" and resFilesExist:
+            log.info("folder with same name already exists - aborting")
             log.info(
                 "simulation results folder with same .ini parameters already exists: simulation {}".format(
                     uid
                 )
             )
-            return uid
+            return {
+                "uid": uid,
+                "simulation": False,
+                "resultOverwritten": False,
+                "message": "simulation results exists",
+            }
+        else:
+            # exist_ok True, because simulation is done when there are no files in the results folder
+            fU.makeADir(res_dir)
         try:
             os.makedirs(workDir / res_dir / "temp")
             temp_dir = workDir / res_dir / "temp"
         except FileExistsError:
-            log.info("temp folder for simualtion {} already exists - aborting".format(uid))
+            log.info("temp folder for simulation {} already exists - aborting".format(uid))
             sys.exit(1)
 
         # writing config to .json file
@@ -190,15 +234,26 @@ def main(avalancheDir="", cfg=None):
 
         cfgPath["uid"] = uid
         cfgPath["timeString"] = timeString
+        cfgPath["timeString"] = timeString
 
         com4FlowPy.com4FlowPyMain(cfgPath, cfgSetup)
-        return uid
+        return {
+            "uid": uid,
+            "simulation": True,
+            "resultOverwritten": resFilesExist,
+            "message": "simulation is done",
+        }
 
     else:
         print(
             "INPUT SETTINGS incorrect - please check (local_)avaframeCfg.ini and (local_)com4FlowPyCfg.ini"
         )
-        sys.exit(1)
+        return {
+            "uid": None,
+            "simulation": False,
+            "resultOverwritten": False,
+            "message": "input settings incorrect",
+        }
 
 
 def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
