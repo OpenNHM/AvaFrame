@@ -811,3 +811,103 @@ def findAvaDirsBasedOnInputsDir(Dir):
         log.info(f"'{avaDir.name}'")
 
     return avaDirs
+
+
+def checkResultFolderFilesExist(path, outputnames=""):
+    """
+    check whether a (result) directory exists
+    whether it contains files whose names include the given output names.
+
+    Parameters
+    --------
+    path: pathlib.Path or str
+        Path to the directory to search in
+    outputnames: list
+        names of variables that are checked to appear within the file names
+
+    Returns
+    -------
+    bool
+        True if the directory exists
+    bool
+        True if the directory exists and contains files matching all output names, False otherwise.
+    """
+
+    folderExist = os.path.isdir(path)
+    if not folderExist:
+        return False, False
+
+    fileNames = os.listdir(path)
+    if outputnames != "":
+        for name in outputnames:
+            if not any(name in fileName for fileName in fileNames):
+                return True, False
+
+    return True, True
+
+
+def deleteCom4Results(outputPath, simHash):
+    """
+    Deletes com4FlowPy results folder res_<simHash> and the <simHash>.json file
+
+    Parameters
+    ----------
+    outputPath: pathlib.Path
+        Path to the outputs directory
+    simHash: string
+        simhash of simulation
+    """
+    outputPath = pathlib.Path(outputPath)
+    jsonFile = outputPath / simHash + ".json"
+
+    if os.path.isfile(jsonFile):
+        os.remove(jsonFile)
+        log.info(f"{jsonFile} is deleted.")
+
+    if os.path.isdir(outputPath / "res_" + simHash):
+        resFolder = outputPath / "res_" + simHash
+    elif os.path.isfile(outputPath / "peakFiles" / "res_" + simHash):
+        resFolder = outputPath / "peakFiles" / "res_" + simHash
+    else:
+        resFolder = None
+
+    if resFolder is not None:
+        shutil.rmtree(resFolder)
+        log.info(f"{resFolder} is deleted.")
+
+
+def backupCom4Results(outputPath, simHash):
+    """
+    move com4FlowPy results folder res_<simHash> and <simHash>.json file to a backup folder
+    Parameters
+    ----------
+    outputPath: pathlib.Path
+        Path to the outputs directory
+    simHash: string
+        simhash of simulation
+
+    """
+    # create backup folder
+    outputPath = pathlib.Path(outputPath)
+    backupPath = outputPath / "backup"
+    makeADir(backupPath)
+
+    jsonFile = outputPath / simHash + ".json"
+    resFolder = outputPath / "res_" + simHash
+
+    if os.path.isdir(outputPath / "res_" + simHash):
+        resFolder = outputPath / "res_" + simHash
+    elif os.path.isfile(outputPath / "peakFiles" / "res_" + simHash):
+        resFolder = outputPath / "peakFiles" / "res_" + simHash
+    else:
+        resFolder = None
+
+    # move results folder
+    if resFolder is not None:
+        shutil.move(resFolder, backupPath / "res_" + simHash)
+        log.info(f"{resFolder} is moved to {backupPath}.")
+
+    # move json file
+    if os.path.isfile(jsonFile):
+        shutil.move(jsonFile, backupPath / simHash + ".json")
+        log.info(f"{jsonFile} is moved to {backupPath}.")
