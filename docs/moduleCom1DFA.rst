@@ -88,7 +88,8 @@ at least two results are generated: the *null* variant and the variant with entr
     - either polygon shapefile:
         - resistance areas must not contain any "holes" or inner rings
     - or raster file:
-        - cells with non-zero values define where entrainment can occur
+        - cells with non-zero values define where resistance can occur; this only defines resistance yes/no;
+          the actual resistance model parameter values are set through the configuration file
         - negative values and no-data values are not allowed
         - if the cellsize does not match the requested meshCellSize, the file is
           remeshed if within `resizeThreshold`
