@@ -23,6 +23,12 @@ To run
 * copy ``avaframeCfg.ini`` to ``local_avaframeCfg.ini`` and set your desired avalanche directory name
 * create an avalanche directory with required input files - for this task you can use :ref:`moduleIn3Utils:Initialize Project`
 * copy ``com6RockAvalanche/com6RockAvalancheCfg.ini`` to ``com6RockAvalanche/local_com6RockAvalancheCfg.ini`` and if desired change configuration settings
+* optionally, the ``spatialVoellmy`` friction model can be selected with
+  ``--friction_calibration spatialVoellmy``. When using the QGis Connector,
+  a  shapefile with ``mu`` and ``xsi`` attributes
+  can be provided and the required rasters will
+  be generated automatically. See
+  :ref:`moduleIn3Utils:Spatial Voellmy inputs` for details.
 * if you are on a develop installation, make sure you have an updated compilation, see :ref:`complexUsage:Update AvaFrame`
 * run:
   ::

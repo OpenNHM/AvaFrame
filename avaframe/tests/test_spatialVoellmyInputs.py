@@ -49,8 +49,22 @@ def _makeSyntheticShapefile(shpPath, fieldName, featureCoordsValues):
             w.record(value)
 
 
+def _makeSpatialVoellmyShapefile(shpPath, features):
+    """Create a *_spatialVoellmy.shp with 'mu' and 'xsi' fields.
+
+    features: list of (coords_list, mu_value, xsi_value) tuples.
+    coords_list is list of (x, y) tuples forming a clockwise ring.
+    """
+    with shapefile.Writer(shpPath, shapeType=shapefile.POLYGON) as w:
+        w.field("mu", "F", decimal=6)
+        w.field("xsi", "F", decimal=6)
+        for coords, muVal, xsiVal in features:
+            w.poly([coords])
+            w.record(muVal, xsiVal)
+
+
 def test_generateMuXsiRasters_asc():
-    """Test raster generation with .asc DEM and shapefiles."""
+    """Test raster generation with .asc DEM and shapefile."""
     tmpDir = pathlib.Path(tempfile.mkdtemp())
     try:
         # Setup: DEM
@@ -60,29 +74,17 @@ def test_generateMuXsiRasters_asc():
         shutil.move(str(demPath), str(inputsDir / "DEM.asc"))
         demPath = inputsDir / "DEM.asc"
 
-        # Setup: mu shapefile with two polygons
+        # Setup: spatialVoellmy shapefile with two polygons, each with mu and xsi
         # Polygon 1: geographic (2..5, 7..9) -> rows 1-3, cols 2-5
         # Polygon 2: geographic (6..9, 2..5) -> rows 5-8, cols 6-9
         polyDir = inputsDir / "POLYGONS"
         polyDir.mkdir()
-        muShp = polyDir / "zones_mu.shp"
-        _makeSyntheticShapefile(
-            muShp,
-            "mu",
+        shpPath = polyDir / "zones_spatialVoellmy.shp"
+        _makeSpatialVoellmyShapefile(
+            shpPath,
             [
-                ([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 0.300),
-                ([(6, 2), (9, 2), (9, 5), (6, 5), (6, 2)], 0.500),
-            ],
-        )
-
-        # Setup: xsi shapefile (same geometry, different values)
-        xsiShp = polyDir / "zones_xsi.shp"
-        _makeSyntheticShapefile(
-            xsiShp,
-            "xsi",
-            [
-                ([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 3000.0),
-                ([(6, 2), (9, 2), (9, 5), (6, 5), (6, 2)], 5000.0),
+                ([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 0.300, 3000.0),
+                ([(6, 2), (9, 2), (9, 5), (6, 5), (6, 2)], 0.500, 5000.0),
             ],
         )
 
@@ -135,10 +137,11 @@ def test_generateMuXsiRasters_tif():
 
         polyDir = inputsDir / "POLYGONS"
         polyDir.mkdir()
-        muShp = polyDir / "zones_mu.shp"
-        _makeSyntheticShapefile(muShp, "mu", [([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 0.300)])
-        xsiShp = polyDir / "zones_xsi.shp"
-        _makeSyntheticShapefile(xsiShp, "xsi", [([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 3000.0)])
+        shpPath = polyDir / "zones_spatialVoellmy.shp"
+        _makeSpatialVoellmyShapefile(
+            shpPath,
+            [([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 0.300, 3000.0)],
+        )
 
         import configparser
 
@@ -169,13 +172,13 @@ def test_missingMuFieldRaises():
         shutil.move(str(demPath), str(inputsDir / "DEM.asc"))
         polyDir = inputsDir / "POLYGONS"
         polyDir.mkdir()
-        # Shapefile with wrong field name
-        _makeSyntheticShapefile(
-            polyDir / "zones_mu.shp", "friction_mu", [([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 0.3)]
-        )
-        _makeSyntheticShapefile(
-            polyDir / "zones_xsi.shp", "xsi", [([(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)], 3000.0)]
-        )
+        # Shapefile with wrong field name instead of 'mu'
+        shpPath = polyDir / "zones_spatialVoellmy.shp"
+        with shapefile.Writer(shpPath, shapeType=shapefile.POLYGON) as w:
+            w.field("friction_mu", "F", decimal=6)
+            w.field("xsi", "F", decimal=6)
+            w.poly([[(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)]])
+            w.record(0.3, 3000.0)
 
         import configparser
 

@@ -13,7 +13,7 @@ from avaframe.in3Utils import spatialVoellmyInputs
 
 
 def runSpatialVoellmyInputs(avaDir=""):
-    """Run generation of mu and xi rasters from shapefiles.
+    """Run generation of mu and xi rasters from shapefile.
 
     Parameters
     ----------
