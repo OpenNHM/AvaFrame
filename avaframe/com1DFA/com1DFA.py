@@ -1219,8 +1219,8 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     relAreaActual = np.sum(relAreaActualList)
     reportAreaInfo = {
         "Release area info": {
-            "Projected Area [m2]": "%.2f" % (relAreaProjected),
-            "Actual Area [m2]": "%.2f" % (relAreaActual),
+            "Projected Area [m2] (raster-based)": "%.0f" % (relAreaProjected),
+            "Actual Area [m2] (raster-based)": "%.0f" % (relAreaActual),
         }
     }
 
@@ -1259,7 +1259,7 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
         particles = DFAfunC.updateInitialVelocity(cfgGen, particles, dem, releaseLine["velocity"])
     particles, fields = initializeFields(cfg, dem, particles, releaseLine)
 
-    reportAreaInfo["Release area info"]["Model release volume [m3]"] = "%.2f" % (
+    reportAreaInfo["Release area info"]["Model release volume [m3]"] = "%.0f" % (
         particles["mTot"] / cfgGen.getfloat("rho")
     )
     if cfgGen.getboolean("timeDependentRelease"):
