@@ -758,6 +758,9 @@ def test_createSampleWithVariationForThParameters(tmp_path):
 def test_createCfgFiles(tmp_path):
     """test writing of cfg files"""
 
+    test1 = pathlib.Path(tmp_path, 'avaTest1')
+    fU.makeADir(test1)
+
     paramValuesD = {
         "names": ["relTh", "musamosat"],
         "values": np.asarray([[1.2, 0.1], [1.4, 0.12], [1.6, 0.14]]),
@@ -774,7 +777,7 @@ def test_createCfgFiles(tmp_path):
         "thFromIni": False,
     }
 
-    cfgFiles = pA.createCfgFiles([paramValuesD], com1DFA, cfgProb, cfgPath="")
+    cfgFiles = pA.createCfgFiles([paramValuesD], com1DFA, cfgProb, cfgPath=test1)
 
     #    print(cfgFiles)
 
