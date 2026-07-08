@@ -2641,7 +2641,7 @@ def test_initializeSimulation(tmp_path):
     )
     assert particles["mTot"] == 450.0
     assert np.sum(particles["ux"]) == 0.0
-    assert reportAreaInfo["Release area info"]["Projected Area [m2]"] == "4.00"
+    assert reportAreaInfo["Release area info"]["Projected Area [m2] (raster-based)"] == "4"
     assert reportAreaInfo["entrainment"] == "Yes"
     assert reportAreaInfo["resistance"] == "No"
 
@@ -2695,7 +2695,7 @@ def test_initializeSimulation(tmp_path):
     assert particles2["mTot"] == 400.0
     assert particles2["massInitialized"] == 400.0
     assert np.sum(particles["ux"]) == 0.0
-    assert reportAreaInfo["Release area info"]["Projected Area [m2]"] == "4.00"
+    assert reportAreaInfo["Release area info"]["Projected Area [m2] (raster-based)"] == "4"
     assert reportAreaInfo["entrainment"] == "Yes"
     assert reportAreaInfo["resistance"] == "No"
     assert np.sum(particles2["secondaryReleaseInfo"]["rasterData"]) == 4.5
