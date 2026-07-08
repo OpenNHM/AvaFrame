@@ -14,16 +14,17 @@ Spatial Voellmy inputs
 ======================
 
 The :py:mod:`in3Utils.spatialVoellmyInputs` module generates raster files
-for the Voellmy friction parameters :math:`\mu` and :math:`\xi` from polygon
-shapefiles. This is required when using the ``spatialVoellmy`` friction model
-in com1DFA (see :ref:`moduleCom1DFA:Input`).
+for the Voellmy friction parameters :math:`\mu` and :math:`\xi` from a
+polygon shapefile. This is required when using the ``spatialVoellmy``
+friction model in com1DFA (see :ref:`moduleCom1DFA:Input`).
 
-Provide polygon shapefiles with ``mu`` and ``xsi`` attribute fields in
-``Inputs/POLYGONS/``, with file names ending in ``_mu.shp`` and ``_xsi.shp``.
-The DEM must be placed in ``Inputs/``. The generated rasters are written to
-``Inputs/RASTERS/`` with the same file format as the DEM.
+Provide a polygon shapefile with ``mu`` and ``xsi`` attribute fields in
+``Inputs/POLYGONS/``, with a file name ending in ``_spatialVoellmy.shp``.
+Each polygon feature must include both a ``mu`` and an ``xsi`` attribute
+value. The DEM must be placed in ``Inputs/``. The generated rasters are
+written to ``Inputs/RASTERS/`` with the same file format as the DEM.
 
-Default values for areas not covered by the polygon shapefiles are set in
+Default values for areas not covered by the polygons are set in
 ``avaframe/in3Utils/spatialVoellmyInputsCfg.ini``.
 
 
@@ -35,7 +36,7 @@ To run
   ``in3Utils/local_spatialVoellmyInputsCfg.ini`` and set desired
   ``default_mu`` and ``default_xsi`` values (if not, the default values
   are used)
-* ensure the DEM and shapefiles are in the avalanche directory as
+* ensure the DEM and shapefile are in the avalanche directory as
   described above
 * run::
 
