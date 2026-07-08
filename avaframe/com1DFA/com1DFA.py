@@ -485,9 +485,7 @@ def prepareReleaseEntrainment(cfg, rel, inputSimLines):
             inputSimLines["releaseLine"]["Name"]
         )
     elif cfg["GENERAL"]["constMassFlow"] != "":
-        inputSimLines["releaseLine"]["massFlowTot"] = cfg["GENERAL"].getfloat("constMassFlow") * cfg[
-            "GENERAL"
-        ].getfloat("dt")
+        inputSimLines["releaseLine"]["massFlowTot"] = cfg["GENERAL"].getfloat("constMassFlow")
     elif cfg["INPUT"]["relThFile"] == "":
         # otherwise release thickness is read from ini or shape file
         releaseLine = setThickness(cfg, inputSimLines["releaseLine"], "relTh")
