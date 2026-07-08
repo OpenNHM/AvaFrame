@@ -3,6 +3,8 @@ name: Require PR Checklist
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
+  workflow_dispatch:
+
 
 jobs:
   require-checklist:
