@@ -866,7 +866,7 @@ def deleteCom4Results(outputPath, simHash):
 
     if os.path.isdir(outputPath / "res_" + simHash):
         resFolder = outputPath / "res_" + simHash
-    elif os.path.isfile(outputPath / "peakFiles" / "res_" + simHash):
+    elif os.path.isdir(outputPath / "peakFiles" / "res_" + simHash):
         resFolder = outputPath / "peakFiles" / "res_" + simHash
     else:
         resFolder = None
