@@ -16,9 +16,9 @@ log = logging.getLogger(__name__)
 
 
 def generateMuXsiRasters(avaDir, cfg):
-    """Generate mu and xi raster files from polygon shapefiles.
+    """Generate mu and xi raster files from a polygon shapefile.
 
-    Reads polygon shapefiles with "mu" and "xsi" attribute fields,
+    Reads a polygon shapefile with "mu" and "xsi" attribute fields,
     rasterizes the attribute values onto a grid matching the DEM extent
     and resolution, and writes the rasters to Inputs/RASTERS/.
 
@@ -26,7 +26,7 @@ def generateMuXsiRasters(avaDir, cfg):
     ----------
     avaDir : pathlib.Path
         Path to avalanche directory containing Inputs/DEM and
-        Inputs/POLYGONS/ with *_mu.shp and *_xsi.shp shapefiles.
+        Inputs/POLYGONS/ with *_spatialVoellmy.shp shapefile.
     cfg : configparser.ConfigParser
         Configuration with [DEFAULTS] section containing
         default_mu and default_xsi values for uncovered areas.
@@ -40,17 +40,15 @@ def generateMuXsiRasters(avaDir, cfg):
     demPath = getDEMPath(avaDir)
     demSuffix = demPath.suffix
 
-    # Find shapefiles
-    muShpPath, muAvailable, _ = getAndCheckInputFiles(
-        inputDir, "POLYGONS", "mu shapefile", fileExt="shp", fileSuffix="_mu"
+    # Find shapefile
+    shpPath, shpAvailable, _ = getAndCheckInputFiles(
+        inputDir, "POLYGONS", "spatialVoellmy shapefile", fileExt="shp",
+        fileSuffix="_spatialVoellmy"
     )
-    if muAvailable == "No":
-        raise FileNotFoundError("No *_mu.shp found in %s/POLYGONS/" % inputDir)
-    xsiShpPath, xsiAvailable, _ = getAndCheckInputFiles(
-        inputDir, "POLYGONS", "xsi shapefile", fileExt="shp", fileSuffix="_xsi"
-    )
-    if xsiAvailable == "No":
-        raise FileNotFoundError("No *_xsi.shp found in %s/POLYGONS/" % inputDir)
+    if shpAvailable == "No":
+        raise FileNotFoundError(
+            "No *_spatialVoellmy.shp found in %s/POLYGONS/" % inputDir
+        )
 
     # Read DEM header
     demHeader = readRasterHeader(demPath)
@@ -61,13 +59,22 @@ def generateMuXsiRasters(avaDir, cfg):
     defaultMu = cfg["DEFAULTS"].getfloat("default_mu")
     defaultXsi = cfg["DEFAULTS"].getfloat("default_xsi")
 
-    # Rasterize mu
-    log.info("Rasterizing mu shapefile: %s", muShpPath)
-    muRaster = _rasterizeShapefile(muShpPath, defaultMu, "mu", demShape, demTransform)
+    # Validate required fields
+    with shapefile.Reader(str(shpPath)) as sf:
+        fieldNames = [f[0].lower() for f in sf.fields[1:]]
+    for field in ["mu", "xsi"]:
+        if field not in fieldNames:
+            raise KeyError(
+                "Field '%s' not found in %s. Available fields: %s"
+                % (field, shpPath.name, fieldNames)
+            )
 
-    # Rasterize xsi
-    log.info("Rasterizing xsi shapefile: %s", xsiShpPath)
-    xsiRaster = _rasterizeShapefile(xsiShpPath, defaultXsi, "xsi", demShape, demTransform)
+    # Rasterize mu and xsi from the same shapefile
+    log.info("Rasterizing mu from: %s", shpPath)
+    muRaster = _rasterizeShapefile(shpPath, defaultMu, "mu", demShape, demTransform)
+
+    log.info("Rasterizing xsi from: %s", shpPath)
+    xsiRaster = _rasterizeShapefile(shpPath, defaultXsi, "xsi", demShape, demTransform)
 
     # Determine output driver
     if demSuffix == ".asc":

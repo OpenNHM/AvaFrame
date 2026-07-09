@@ -69,31 +69,33 @@ def runCom6RockAvalanche(avalancheDir="", calibration="voellmy"):
 
         muRasters = list((avaDir / "Inputs" / "RASTERS").glob("*_mu.*"))
         xiRasters = list((avaDir / "Inputs" / "RASTERS").glob("*_xi.*"))
-        muShps = list((avaDir / "Inputs" / "POLYGONS").glob("*_mu.shp"))
-        xsiShps = list((avaDir / "Inputs" / "POLYGONS").glob("*_xsi.shp"))
+        spatialShps = list(
+            (avaDir / "Inputs" / "POLYGONS").glob("*_spatialVoellmy.shp")
+        )
 
         rastersExist = bool(muRasters and xiRasters)
-        shapefilesExist = bool(muShps and xsiShps)
+        shpExists = bool(spatialShps)
 
-        if rastersExist and shapefilesExist:
+        if rastersExist and shpExists:
             raise RuntimeError(
                 "spatialVoellmy friction model: both rasters in Inputs/RASTERS/"
-                " and polygon shapefiles in Inputs/POLYGONS/ found - ambiguous input"
+                " and *_spatialVoellmy.shp in Inputs/POLYGONS/ found"
+                " - ambiguous input"
             )
-        elif shapefilesExist and not rastersExist:
+        elif shpExists:
             spatialVoellmyCfg = cfgUtils.getModuleConfig(spatialVoellmyInputs)
             # set default fill values from rock avalanche Voellmy defaults
             overrideParams = rockAvalancheCfg["com1DFA_com1DFA_override"]
             spatialVoellmyCfg["DEFAULTS"]["default_mu"] = overrideParams["muvoellmy"]
             spatialVoellmyCfg["DEFAULTS"]["default_xsi"] = overrideParams["xsivoellmy"]
             spatialVoellmyInputs.generateMuXsiRasters(avaDir, spatialVoellmyCfg)
-        elif rastersExist and not shapefilesExist:
+        elif rastersExist:
             log.info("spatialVoellmy: using existing mu/xi rasters from Inputs/RASTERS/")
         else:
             raise FileNotFoundError(
                 "spatialVoellmy friction model: no *_mu and *_xi rasters found in"
-                " Inputs/RASTERS/ and no *_mu.shp and *_xsi.shp polygon shapefiles"
-                " found in Inputs/POLYGONS/"
+                " Inputs/RASTERS/ and no *_spatialVoellmy.shp found in"
+                " Inputs/POLYGONS/"
             )
 
     # perform com1DFA simulation with rock avalanche settings
