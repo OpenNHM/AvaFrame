@@ -7,7 +7,10 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import avaframe.in3Utils.initializeProject as initProj
+
 from avaframe.com1DFA import com1DFA
+from avaframe.com4FlowPy import com4FlowPy
+import avaframe.runCom4FlowPy as runCom4FlowPy
 from avaframe.in3Utils import cfgUtils, cfgHandling
 from avaframe.in3Utils import logUtils
 from avaframe.in2Trans import rasterUtils
@@ -204,6 +207,57 @@ def processAvaDirCom1Regional(cfgMain, cfgCom7, avalancheDir):
 
     # Run com1DFA in the current avalanche directory
     com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgCom1DFA)
+
+    return avalancheDir, "Success"
+
+
+def processAvaDirCom4Regional(cfgMain, cfgCom7, avalancheDir):
+    """Run com1DFA simulation in a specific avalanche directory with regional settings.
+
+    Note: This function calls com1DFA within each avalanche directory within the input directory.
+    If wanted it may be used as a template to call another operation within each directory, such as com2AB, ana5Utils, etc.
+
+    Parameters
+    ----------
+    cfgMain : configparser.ConfigParser
+        Main configuration settings
+    cfgCom7 : configparser.ConfigParser
+        Regional configuration settings with potential overrides
+    avalancheDir : pathlib.Path or str
+        Path to the avalanche directory to process
+
+    Returns
+    -------
+    avalancheDir : pathlib.Path or str
+        Path to the avalanche directory that was processed
+    status : str
+        Status of the simulation, "Success" if completed
+    """
+    # Initialize log for each process
+    log = logUtils.initiateLogger(avalancheDir, logName="runCom4FlowPy")
+    log.info("COM$FLOWPY PROCESS CALLED BY COM7REGIONAL RUN")
+    log.info("Current avalanche: %s", avalancheDir)
+
+    # Update cfgMain setting to reflect the current avalancheDir
+    cfgMain["MAIN"]["avalancheDir"] = str(avalancheDir)
+
+    # Clean input directory of old work and output files from module
+    initProj.cleanModuleFiles(avalancheDir, com1DFA, deleteOutput=True)
+
+    # Create com1DFA configuration for the current avalanche directory and override with regional settings
+    cfgCom4FlowPy = cfgUtils.getModuleConfig(
+        com4FlowPy,
+        str(avalancheDir),
+        fileOverride="",
+        toPrint=False,
+        onlyDefault=cfgCom7["com4FlowPy_com4FlowPy_override"].getboolean("defaultConfig"),
+    )
+    cfgCom4FlowPy, cfgCom7 = cfgHandling.applyCfgOverride(
+        cfgCom4FlowPy, cfgCom7, com4FlowPy, addModValues=False
+    )
+
+    # Run com1DFA in the current avalanche directory
+    runCom4FlowPy.main(cfgMain, cfgInfo=cfgCom1DFA)
 
     return avalancheDir, "Success"
 
