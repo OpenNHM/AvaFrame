@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 import logging
 import json
+import shutil
 
 # Local imports
 import avaframe.in3Utils.initializeProject as initProj
@@ -236,8 +237,9 @@ def main(avalancheDir="", cfg=None):
                 "resultOverwritten": "no",
                 "message": "temp folder exists",
             }
-        else:
-            fU.makeADir(temp_dir)
+        elif tempFolderExist:
+            shutil.rmtree(temp_dir)
+        fU.makeADir(temp_dir)
 
         # writing config to .json file
         successToJSON = writeCfgJSON(cfg, uid, workDir)

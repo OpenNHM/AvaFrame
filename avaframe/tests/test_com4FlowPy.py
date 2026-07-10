@@ -583,7 +583,7 @@ def test_runCom4FlowPy():
 
     # search for one result file and remove it
     resFolder = (
-            pathlib.Path(avalancheDir) / "Outputs" / "com4FlowPy" / "peakFiles" / "res_{}".format(resDict["uid"])
+        pathlib.Path(avalancheDir) / "Outputs" / "com4FlowPy" / "peakFiles" / "res_{}".format(resDict["uid"])
     )
     fileNames = os.listdir(resFolder)
     os.remove(resFolder / fileNames[0])
