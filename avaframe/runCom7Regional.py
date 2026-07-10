@@ -102,4 +102,5 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    runCom7Regional(str(args.avadir), splitInputs=args.split_inputs, runComputations=args.run_computations)
+    # runCom7Regional(str(args.avadir), splitInputs=args.split_inputs, runComputations=args.run_computations)
+    runCom7Regional(str(args.avadir), True, True)

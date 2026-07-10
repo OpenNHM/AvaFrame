@@ -79,12 +79,13 @@ def com7RegionalMain(cfgMain, cfg):
     # Track progress and results
     completed = 0
     nSuccesses = 0
+    print(avaDirs)
 
     # Process avalanche directories within the regional folder concurrently
     with ProcessPoolExecutor(max_workers=nProcesses) as executor:
         # Submit each avalanche directory to the executor
         futures = {
-            executor.submit(processAvaDirCom1Regional, cfgMain, cfg, avaDir): avaDir for avaDir in avaDirs
+            executor.submit(processAvaDirCom4Regional, cfgMain, cfg, avaDir): avaDir for avaDir in avaDirs
         }
         # Log results as each future completes
         for future in as_completed(futures):
@@ -257,7 +258,7 @@ def processAvaDirCom4Regional(cfgMain, cfgCom7, avalancheDir):
     )
 
     # Run com1DFA in the current avalanche directory
-    runCom4FlowPy.main(cfgMain, cfgInfo=cfgCom1DFA)
+    runCom4FlowPy.main(avalancheDir=str(avalancheDir), cfg=cfgCom4FlowPy)
 
     return avalancheDir, "Success"
 
