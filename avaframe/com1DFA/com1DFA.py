@@ -1623,6 +1623,9 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
     particles["massEntrained"] = 0.0
     particles["massDetrained"] = 0.0
     particles["massStopped"] = 0.0
+    etaBingham = cfg.getfloat("etaBingham")
+    tauyBingham = cfg.getfloat("tauyBingham")
+    particles['shearFrict'] = tauyBingham + etaBingham * 3 * particles["velocityMag"] / particles["h"]
     # remove particles that might lay outside of the release polygon
     if (
         not cfg.getboolean("iniStep")

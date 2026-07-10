@@ -161,6 +161,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double[:] forceY = np.zeros(nPart, dtype=np.float64)
   cdef double[:] forceZ = np.zeros(nPart, dtype=np.float64)
   cdef double[:] forceFrict = np.zeros(nPart, dtype=np.float64)
+  cdef double[:] shearFrict = np.zeros(nPart, dtype=np.float64)
   cdef double[:] dM = np.zeros(nPart, dtype=np.float64)
   cdef double[:] dMDet = np.zeros(nPart, dtype=np.float64)
   cdef double[:] gEff = np.zeros(nPart, dtype=np.float64)
@@ -375,6 +376,9 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           else:
             tau = 0.0
 
+      # save tau as particle property
+      shearFrict[k] = tau
+
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
       forceBotTang = - areaPart * tau
@@ -467,6 +471,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   particles['dmDet'] = np.asarray(dMDet)
   particles['dmEnt'] = np.asarray(dM)
   particles['totalEnthalpy'] = np.asarray(totalEnthalpyArray)
+  particles['shearFrict'] = np.asarray(shearFrict)
 
   # update mass available for entrainement
   # TODO: this allows to entrain more mass then available...

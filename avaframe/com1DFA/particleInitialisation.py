@@ -120,6 +120,7 @@ def getIniPosition(cfg, particles, dem, fields, inputSimLines, relThField):
     particles['potentialEne'] = np.sum(cfg['GENERAL'].getfloat('gravAcc') * particles['m'] * particles['z'])
     particles['peakForceSPH'] = 0.0
     particles['forceSPHIni'] = 0.0
+    particles['shearFrict'] = np.zeros(nPart)
     # delete mIni and areaIni key from dict
     del particles['mIni']
     del particles['areaIni']
@@ -331,6 +332,7 @@ def fetchAvailableParticleProperties():
         "massEntrained",
         "massDetrained",
         "massStopped",
+        "shearFrict"
     ]
 
     return particleProperties
