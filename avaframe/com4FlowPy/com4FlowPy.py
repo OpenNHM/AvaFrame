@@ -421,8 +421,10 @@ def checkInputParameterValues(modelParameters, modelPaths):
         rasterValues = data["rasterData"]
         rasterValues[rasterValues < 0] = np.nan  # handle different noData values
         if np.any(rasterValues > 90, where=~np.isnan(rasterValues)):
-            log.error("Error: Not all Alpha-raster values are within a physically sensible range ([0,90]),\
-                 in respective startcells the general alpha angle is used.")
+            log.error(
+                "Error: Not all Alpha-raster values are within a physically sensible range ([0,90]),\
+                 in respective startcells the general alpha angle is used."
+            )
             _checkVarParams = False
 
     if modelParameters["varUmaxBool"]:
@@ -774,10 +776,10 @@ def mergeAndWriteResults(modelPaths, modelOptions):
     if "relIdPolygon" in _outputs:
         pathPolygons = SPAM.mergeDictToPolygon(modelPaths["tempDir"], "res_startCellIdDict", outputHeader)
         pathPolygons.to_file(
-            modelPaths["resDir"] / "com4_{}_{}_pathPolygons.geojson".format(_uid, _ts), driver="GeoJSON"
+            modelPaths["resDir"] / "com4_{}_{}_relIdPolygon.geojson".format(_uid, _ts), driver="GeoJSON"
         )
         del pathPolygons
-        log.info("com4_{}_{}_pathPolygons is written".format(_uid, _ts))
+        log.info("com4_{}_{}_relIdPolygon is written".format(_uid, _ts))
 
     if "relIdCount" in _outputs:
         countRelId = SPAM.mergeDictToRaster(modelPaths["tempDir"], "res_startCellIdDict")
@@ -785,13 +787,13 @@ def mergeAndWriteResults(modelPaths, modelOptions):
         output = IOf.writeResultToRaster(
             outputHeader,
             countRelId,
-            modelPaths["resDir"] / "com4_{}_{}_countRelId".format(_uid, _ts),
+            modelPaths["resDir"] / "com4_{}_{}_relIdCount".format(_uid, _ts),
             flip=True,
             useCompression=useCompression,
         )
         del countRelId
         del output
-        log.info("com4_{}_{}_countRelId is written".format(_uid, _ts))
+        log.info("com4_{}_{}_relIdCount is written".format(_uid, _ts))
 
     # NOTE:
     # if not modelOptions["infraBool"]:  # if no infra

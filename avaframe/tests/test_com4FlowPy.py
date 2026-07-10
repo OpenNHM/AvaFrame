@@ -560,30 +560,48 @@ def test_runCom4FlowPy():
         "useCustomPaths": "False",
         "useCustomPathDEM": "False",
         "outputFileFormat": ".tif",
-        "overwriteResults": "False",
+        "overwriteResults": "default",
     }
 
-    resDictTest1 = {"simulation": True, "resultOverwritten": False, "message": "simulation is done"}
+    resDictTest1 = {"simulationPerformed": True, "resultOverwritten": "no", "message": "simulation is done"}
     resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
-    print(resDict["uid"])
+
     for key in resDictTest1:
         assert resDictTest1[key] == resDict[key]
 
     # second run
     resDictTest2 = {
         "uid": resDict["uid"],
-        "simulation": False,
-        "resultOverwritten": False,
+        "simulationPerformed": False,
+        "resultOverwritten": "no",
         "message": "simulation results exists",
     }
     resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
-    print(resDict["uid"])
 
     for key in resDictTest2:
         assert resDictTest2[key] == resDict[key]
 
-    # second run with changing cfg:
-    cfg["PATHS"]["overwriteResults"] = "True"
+    # search for one result file and remove it
+    resFolder = (
+            pathlib.Path(avalancheDir) / "Outputs" / "com4FlowPy" / "peakFiles" / "res_{}".format(resDict["uid"])
+    )
+    fileNames = os.listdir(resFolder)
+    os.remove(resFolder / fileNames[0])
+    # second run
+    resDictTest21 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": "yes - existing results folder not completed",
+        "message": "simulation is done",
+    }
+
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest21:
+        assert resDictTest21[key] == resDict[key]
+
+    # third run with changing cfg:
+    cfg["PATHS"]["overwriteResults"] = "reRunAndOverwrite"
     resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
 
     for key in resDictTest1:
@@ -592,8 +610,8 @@ def test_runCom4FlowPy():
     # fourth run with overwriting results
     resDictTest4 = {
         "uid": resDict["uid"],
-        "simulation": True,
-        "resultOverwritten": True,
+        "simulationPerformed": True,
+        "resultOverwritten": "yes - existing results deleted",
         "message": "simulation is done",
     }
     resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
@@ -601,13 +619,32 @@ def test_runCom4FlowPy():
     for key in resDictTest4:
         assert resDictTest4[key] == resDict[key]
 
+    # fifth run with changing cfg:
+    cfg["PATHS"]["overwriteResults"] = "reRunAndBackup"
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # sixth run with backuping results
+    resDictTest6 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": "yes - existing results backuped",
+        "message": "simulation is done",
+    }
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest6:
+        assert resDictTest6[key] == resDict[key]
+
     # make same for custom paths
     cfg["PATHS"] = {
         "outputFiles": "zDelta",
         "useCustomPaths": "True",
         "useCustomPathDEM": "False",
         "outputFileFormat": ".tif",
-        "overwriteResults": "False",
+        "overwriteResults": "default",
         "workDir": "avaframe/data/avaFlowPy/Outputs/com4FlowPy",
         "demPath": "avaframe/data/avaFlowPy/Inputs/dem.tif",
         "releasePath": "avaframe/data/avaFlowPy/Inputs/REL/rel.shp",
@@ -622,27 +659,43 @@ def test_runCom4FlowPy():
         "useCompression": "False",
     }
 
-    resDictTest1 = {"simulation": True, "resultOverwritten": False, "message": "simulation is done"}
+    resDictTest1 = {"simulationPerformed": True, "resultOverwritten": "no", "message": "simulation is done"}
     resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
-    print(resDict["uid"])
+
     for key in resDictTest1:
         assert resDictTest1[key] == resDict[key]
 
     # second run
     resDictTest2 = {
         "uid": resDict["uid"],
-        "simulation": False,
-        "resultOverwritten": False,
+        "simulationPerformed": False,
+        "resultOverwritten": "no",
         "message": "simulation results exists",
     }
     resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
-    print(resDict["uid"])
 
     for key in resDictTest2:
         assert resDictTest2[key] == resDict[key]
 
+    # search for one result file and remove it
+    resFolder = pathlib.Path(avalancheDir) / "Outputs" / "com4FlowPy" / "res_{}".format(resDict["uid"])
+    fileNames = os.listdir(resFolder)
+    os.remove(resFolder / fileNames[0])
+    # second run
+    resDictTest21 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": "yes - existing results folder not completed",
+        "message": "simulation is done",
+    }
+
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest21:
+        assert resDictTest21[key] == resDict[key]
+
     # second run with changing cfg:
-    cfg["PATHS"]["overwriteResults"] = "True"
+    cfg["PATHS"]["overwriteResults"] = "reRunAndOverwrite"
     resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
 
     for key in resDictTest1:
@@ -651,14 +704,33 @@ def test_runCom4FlowPy():
     # fourth run with overwriting results
     resDictTest4 = {
         "uid": resDict["uid"],
-        "simulation": True,
-        "resultOverwritten": True,
+        "simulationPerformed": True,
+        "resultOverwritten": "yes - existing results deleted",
         "message": "simulation is done",
     }
     resDict = runCom4FlowPy.main(cfg=copy.deepcopy(cfg))
 
     for key in resDictTest4:
         assert resDictTest4[key] == resDict[key]
+
+    # fifth run with changing cfg:
+    cfg["PATHS"]["overwriteResults"] = "reRunAndBackup"
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest1:
+        assert resDictTest1[key] == resDict[key]
+
+    # sixth run with backuping results
+    resDictTest6 = {
+        "uid": resDict["uid"],
+        "simulationPerformed": True,
+        "resultOverwritten": "yes - existing results backuped",
+        "message": "simulation is done",
+    }
+    resDict = runCom4FlowPy.main(avalancheDir=avalancheDir, cfg=copy.deepcopy(cfg))
+
+    for key in resDictTest6:
+        assert resDictTest6[key] == resDict[key]
 
 
 if __name__ == "__main__":

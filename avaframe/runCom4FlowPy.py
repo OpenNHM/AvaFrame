@@ -59,7 +59,7 @@ def main(avalancheDir="", cfg=None):
 
     # check and handle outputFiles list provided in (local_)com4FlowPyCfg.ini
     cfg["PATHS"]["outputFiles"] = checkOutputFilesFormat(cfg["PATHS"]["outputFiles"])
-
+    cfg["PATHS"]["overwriteResults"] = checkOverwriteRes(cfg["PATHS"]["overwriteResults"])
     cfgSetup = cfg["GENERAL"]
     cfgCustomPaths = cfg["PATHS"]
 
@@ -122,18 +122,17 @@ def main(avalancheDir="", cfg=None):
                 "message": "simulation results exists",
             }
         elif cfgCustomPaths["overwriteResults"] == "default" and resFolderExist:
-            print("folder with same name already exists - aborting")
             # delete existing result folder
-            fU.deleteCom4Results(cfgPath["workDir"], uid)
+            fU.deleteCom4Results(cfgPath["outDir"], uid)
             resultOverwritten = "yes - existing results folder not completed"
 
         elif cfgCustomPaths["overwriteResults"] == "reRunAndOverwrite" and resFolderExist:
             # it does not matter if the files exist, the existing results folder is deleted
-            fU.deleteCom4Results(cfgPath["workDir"], uid)
+            fU.deleteCom4Results(cfgPath["outDir"], uid)
             resultOverwritten = "yes - existing results deleted"
         elif cfgCustomPaths["overwriteResults"] == "reRunAndBackup" and resFolderExist:
             # move results folder and json file to backup folder
-            fU.backupCom4Results(cfgPath["workDir"], uid)
+            fU.backupCom4Results(cfgPath["outDir"], uid)
             resultOverwritten = "yes - existing results backuped"
 
         else:
@@ -191,11 +190,10 @@ def main(avalancheDir="", cfg=None):
         res_dir = workDir / "res_{}".format(uid)  # (time_string)
 
         resFolderExist, resFilesExist = fU.checkResultFolderFilesExist(
-            res_dir, cfgPath["outputFiles"].split("|")
+            res_dir, cfgCustomPaths["outputFiles"].split("|")
         )
 
         if cfgCustomPaths["overwriteResults"] == "default" and resFilesExist:
-            log.info("folder with same name already exists - aborting")
             log.info(
                 "simulation results folder with same .ini parameters already exists: simulation {}".format(
                     uid
@@ -513,9 +511,30 @@ def writeCfgJSON(cfg, uid, workDir):
         return e
 
 
+def checkOverwriteRes(overwriteResults):
+    """
+    check if overwriteResults option is provided in proper format, else return default
+
+    Parameters
+    ------------
+    overwriteResults: str
+       overwriteResults option
+
+    Returns
+    ----------
+    overwriteResults: str
+       allowed overwriteResults option
+    """
+    if overwriteResults not in ["reRunAndBackup", "reRunAndOverwrite", "default"]:
+        overwriteResults = "default"
+        log.info("overwrite results was not allowed, changed to default")
+    return overwriteResults
+
+
 if __name__ == "__main__":
     resDict = main()
 
+    # TODO: prints here? or should we initialize the logger here?
     if resDict["simulationPerformed"]:
         print("simulation {} performed".format(resDict["uid"]))
         print("{}".format(resDict["message"]))
