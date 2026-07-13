@@ -232,14 +232,14 @@ def test_getModuleConfigBatchCfgDirPriority(tmp_path):
 def test_getGeneralConfig():
     '''Test for module getGeneralConfig'''
 
-
-    # test with both a default and local .ini file
+    # test with both a default and local .ini file (if local_ exists)
+    # only assert structural properties - values depend on user's local_avaframeCfg.ini
     cfg = cfgUtils.getGeneralConfig()
     sections = cfg.sections()
 
     assert sections == ['MAIN', 'FLAGS']
-    assert cfg['MAIN']['avalancheDir'] == 'data/avaParabola'
-    assert cfg['FLAGS']['savePlot'] == 'True'
+    assert cfg.has_option('MAIN', 'avalancheDir')
+    assert cfg.has_option('FLAGS', 'savePlot')
     assert cfg.has_option('FLAGS', 'showPlot')
     assert cfg.has_option('FLAGS', 'reportOneFile')
     assert cfg.has_option('MAIN', 'CPUPercent')
