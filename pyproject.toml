@@ -46,6 +46,12 @@ dependencies = [
     "fiona",
 ]
 
+[project.optional-dependencies]
+# Optional JIT compute engine for com4FlowPy (config: engine = numba | numba32).
+# If numba is not installed, com4FlowPy transparently falls back to the pure-Python
+# (Cell-based) engine, so this dependency is not required for normal operation.
+numba = ["numba"]
+
 # Setuptools
 [tool.setuptools]
 include-package-data = true

@@ -234,6 +234,26 @@ def run(optTuple):
     )
 
     release_list = split_release(release, nChunks)
+
+    # select compute engine: "numba" JIT kernel, else the default Python (Cell) path.
+    # numba does not (yet) implement infra/back-calculation, previewMode or the
+    # release-id (relIdPolygon/relIdCount) outputs, so fall back to the Python
+    # engine when any of those are active.
+    engine = optTuple[2].get("engine", "python")
+    calcFunc = calculation
+    if engine == "numba":
+        if infraBool or previewMode or relIdBool:
+            log.warning("engine=numba does not support infra/previewMode/relId outputs — "
+                        "falling back to the Python engine for this run")
+        else:
+            try:
+                from avaframe.com4FlowPy.flowCoreNumba import calculationNumba
+                calcFunc = calculationNumba
+                log.info("Using numba compute engine")
+            except ImportError:
+                log.warning("engine=numba requested but 'numba' is not installed — "
+                            "falling back to the Python engine")
+
     log.info(
         "Multiprocessing starts, used Cores/Processes/Chunks: %i/%i/%i"
         % (MPOptions["nCPU"], nProcesses, nChunks)
@@ -241,7 +261,7 @@ def run(optTuple):
 
     with Pool(processes=nProcesses) as pool:
         results = pool.map(
-            calculation,
+            calcFunc,
             [
                 [  # TODO: write in dicts:
                     dem,

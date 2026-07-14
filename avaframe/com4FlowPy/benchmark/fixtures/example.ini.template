@@ -1,0 +1,24 @@
+# Example fixture for flowpy_bench.py — copy to <name>.ini and edit paths.
+# Concrete *.ini files are gitignored (they carry machine-specific data paths).
+[inputs]
+demPath      = /path/to/DEM.tif
+releasePath  = /path/to/release_or_pra_binary.tif
+forestPath   = /path/to/forest.tif        ; optional (required if forest=True)
+varAlphaPath = /path/to/alpha.tif          ; optional (required if variableAlpha=True)
+varUmaxPath  = /path/to/umax.tif           ; optional (required if variableUmaxLim=True)
+referenceDir = /path/to/reference_outputs  ; optional; compare outputs against these tifs
+
+[GENERAL]
+# any com4FlowPy [GENERAL] key overrides the module default
+alpha                   = 25
+exp                     = 8
+flux_threshold          = 3.0e-4
+max_z                   = 270
+forest                  = True
+forestModule            = forestFriction    ; forestFriction | forestDetrainment | forestFrictionLayer
+forestInteraction       = True
+variableAlpha           = False
+variableUmaxLim         = False
+tileSize                = 15000
+tileOverlap             = 5000
+outputFiles             = zDelta|fpTravelAngleMax|cellCounts|flux
