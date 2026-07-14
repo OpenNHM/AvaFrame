@@ -3509,20 +3509,22 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                 cfgSim["INPUT"]["entThFile"] = pathToEnt
                 inputSimFiles["entResInfo"]["entRemeshed"] = remeshedEnt
             cfgSim["INPUT"]["entrainmentScenario"] = str(pathlib.Path("ENT", inputSimFiles["entFile"].name))
-            if cfgSim["GENERAL"]["entrainableDeposition"] == "True" and (
-                cfgSim["GENERAL"]["adaptSfcEntrainment"] == "0"
-                or (
-                    cfgSim["GENERAL"]["adaptSfcStopped"] == "0"
-                    and cfgSim["GENERAL"]["adaptSfcDetrainment"] == "0"
-                )
-            ):
-                # set entrainable Deposition to False if entrainment or adapt Sfc are switched off
-                message = f"When entrainable deposition is True, adaptSfcEntrainment and adaptSfcDeposition (or adaptSfcDetrainment) need to be 1."
-                log.error(message)
-                raise ValueError(message)
+            if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
+                if cfgSim["GENERAL"]["entrainableDeposition"] == "True" and (
+                    cfgSim["GENERAL"]["adaptSfcEntrainment"] == "0"
+                    or (
+                        cfgSim["GENERAL"]["adaptSfcStopped"] == "0"
+                        and cfgSim["GENERAL"]["adaptSfcDetrainment"] == "0"
+                    )
+                ):
+                    # set entrainable Deposition to False if entrainment or adapt Sfc are switched off
+                    message = f"When entrainable deposition is True, adaptSfcEntrainment and adaptSfcDeposition (or adaptSfcDetrainment) need to be 1."
+                    log.error(message)
+                    raise ValueError(message)
         else:
-            cfgSim["GENERAL"]["entrainableDeposition"] = "False"
-            log.info("Deposition is not entrainable when it's not an ent sim type.")
+            if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
+                cfgSim["GENERAL"]["entrainableDeposition"] = "False"
+                log.info("Deposition is not entrainable when it's not an ent sim type.")
 
         # add info about resistance file path to the cfg
         if "res" in row._asdict()["simTypeList"] and inputSimFiles["resFile"] is not None:
