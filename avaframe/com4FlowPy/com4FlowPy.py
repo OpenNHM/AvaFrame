@@ -78,6 +78,9 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     # Flag for use of old flux distribution version
     modelParameters["fluxDistOldVersionBool"] = cfgSetup.getboolean("fluxDistOldVersion")
 
+    # compute engine: "python" (default, Cell-based) or "numba" (JIT kernel)
+    modelParameters["engine"] = cfgSetup.get("engine", "python").strip().lower()
+
     # Tiling Parameters used for calculation of large model-domains
     tilingParameters = {}
     tilingParameters["tileSize"] = cfgSetup.getfloat("tileSize")  # float(cfgSetup["tileSize"])

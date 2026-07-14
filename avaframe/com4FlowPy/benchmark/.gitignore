@@ -1,0 +1,7 @@
+# Local run artifacts and machine-specific fixtures — never committed.
+# Concrete fixtures carry absolute data paths; only the *.template is tracked.
+runs/
+fixtures/*.ini
+
+# debug repro (not for commit)
+repro_tile.py
