@@ -50,20 +50,20 @@ def _makeSyntheticShapefile(shpPath, fieldName, featureCoordsValues):
 
 
 def _makeSpatialVoellmyShapefile(shpPath, features):
-    """Create a *_spatialVoellmy.shp with 'mu' and 'xsi' fields.
+    """Create a *_spatialVoellmy.shp with 'mu' and 'xi' fields.
 
-    features: list of (coords_list, mu_value, xsi_value) tuples.
+    features: list of (coords_list, mu_value, xi_value) tuples.
     coords_list is list of (x, y) tuples forming a clockwise ring.
     """
     with shapefile.Writer(shpPath, shapeType=shapefile.POLYGON) as w:
         w.field("mu", "F", decimal=6)
-        w.field("xsi", "F", decimal=6)
-        for coords, muVal, xsiVal in features:
+        w.field("xi", "F", decimal=6)
+        for coords, muVal, xiVal in features:
             w.poly([coords])
-            w.record(muVal, xsiVal)
+            w.record(muVal, xiVal)
 
 
-def test_generateMuXsiRasters_asc():
+def test_generateMuXiRasters_asc():
     """Test raster generation with .asc DEM and shapefile."""
     tmpDir = pathlib.Path(tempfile.mkdtemp())
     try:
@@ -74,7 +74,7 @@ def test_generateMuXsiRasters_asc():
         shutil.move(str(demPath), str(inputsDir / "DEM.asc"))
         demPath = inputsDir / "DEM.asc"
 
-        # Setup: spatialVoellmy shapefile with two polygons, each with mu and xsi
+        # Setup: spatialVoellmy shapefile with two polygons, each with mu and xi
         # Polygon 1: geographic (2..5, 7..9) -> rows 1-3, cols 2-5
         # Polygon 2: geographic (6..9, 2..5) -> rows 5-8, cols 6-9
         polyDir = inputsDir / "POLYGONS"
@@ -92,17 +92,17 @@ def test_generateMuXsiRasters_asc():
         import configparser
 
         cfg = configparser.ConfigParser()
-        cfg["DEFAULTS"] = {"default_mu": "0.155", "default_xsi": "4000."}
+        cfg["DEFAULTS"] = {"default_mu": "0.155", "default_xi": "4000."}
 
         # Run
-        spatialVoellmyInputs.generateMuXsiRasters(tmpDir, cfg)
+        spatialVoellmyInputs.generateMuXiRasters(tmpDir, cfg)
 
         # Assert output files exist
         rastersDir = inputsDir / "RASTERS"
         muRasterPath = rastersDir / "raster_mu.asc"
-        xsiRasterPath = rastersDir / "raster_xi.asc"
+        xiRasterPath = rastersDir / "raster_xi.asc"
         assert muRasterPath.exists()
-        assert xsiRasterPath.exists()
+        assert xiRasterPath.exists()
 
         # Assert mu raster values
         with rasterio.open(muRasterPath) as src:
@@ -115,18 +115,18 @@ def test_generateMuXsiRasters_asc():
             # Uncovered cell should have default
             assert muData[9, 0] == pytest.approx(0.155)  # row 9, col 0 outside
 
-        # Assert xsi raster values
-        with rasterio.open(xsiRasterPath) as src:
-            xsiData = src.read(1)
-            assert xsiData[2, 3] == pytest.approx(3000.0)
-            assert xsiData[6, 7] == pytest.approx(5000.0)
-            assert xsiData[9, 0] == pytest.approx(4000.0)
+        # Assert xi raster values
+        with rasterio.open(xiRasterPath) as src:
+            xiData = src.read(1)
+            assert xiData[2, 3] == pytest.approx(3000.0)
+            assert xiData[6, 7] == pytest.approx(5000.0)
+            assert xiData[9, 0] == pytest.approx(4000.0)
 
     finally:
         shutil.rmtree(tmpDir)
 
 
-def test_generateMuXsiRasters_tif():
+def test_generateMuXiRasters_tif():
     """Test raster generation with .tif DEM -- output should be .tif."""
     tmpDir = pathlib.Path(tempfile.mkdtemp())
     try:
@@ -146,17 +146,17 @@ def test_generateMuXsiRasters_tif():
         import configparser
 
         cfg = configparser.ConfigParser()
-        cfg["DEFAULTS"] = {"default_mu": "0.155", "default_xsi": "4000."}
+        cfg["DEFAULTS"] = {"default_mu": "0.155", "default_xi": "4000."}
 
-        spatialVoellmyInputs.generateMuXsiRasters(tmpDir, cfg)
+        spatialVoellmyInputs.generateMuXiRasters(tmpDir, cfg)
 
         rastersDir = inputsDir / "RASTERS"
         muPath = rastersDir / "raster_mu.tif"
-        xsiPath = rastersDir / "raster_xi.tif"
+        xiPath = rastersDir / "raster_xi.tif"
         assert muPath.exists()
-        assert xsiPath.exists()
+        assert xiPath.exists()
         assert muPath.suffix == ".tif"
-        assert xsiPath.suffix == ".tif"
+        assert xiPath.suffix == ".tif"
 
     finally:
         shutil.rmtree(tmpDir)
@@ -176,17 +176,17 @@ def test_missingMuFieldRaises():
         shpPath = polyDir / "zones_spatialVoellmy.shp"
         with shapefile.Writer(shpPath, shapeType=shapefile.POLYGON) as w:
             w.field("friction_mu", "F", decimal=6)
-            w.field("xsi", "F", decimal=6)
+            w.field("xi", "F", decimal=6)
             w.poly([[(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)]])
             w.record(0.3, 3000.0)
 
         import configparser
 
         cfg = configparser.ConfigParser()
-        cfg["DEFAULTS"] = {"default_mu": "0.1", "default_xsi": "300."}
+        cfg["DEFAULTS"] = {"default_mu": "0.1", "default_xi": "300."}
 
         with pytest.raises(KeyError, match="mu"):
-            spatialVoellmyInputs.generateMuXsiRasters(tmpDir, cfg)
+            spatialVoellmyInputs.generateMuXiRasters(tmpDir, cfg)
     finally:
         shutil.rmtree(tmpDir)
 
@@ -200,8 +200,8 @@ def test_missingDEMRaises():
         import configparser
 
         cfg = configparser.ConfigParser()
-        cfg["DEFAULTS"] = {"default_mu": "0.1", "default_xsi": "300."}
+        cfg["DEFAULTS"] = {"default_mu": "0.1", "default_xi": "300."}
         with pytest.raises(FileNotFoundError):
-            spatialVoellmyInputs.generateMuXsiRasters(tmpDir, cfg)
+            spatialVoellmyInputs.generateMuXiRasters(tmpDir, cfg)
     finally:
         shutil.rmtree(tmpDir)

@@ -18,9 +18,9 @@ for the Voellmy friction parameters :math:`\mu` and :math:`\xi` from a
 polygon shapefile. This is required when using the ``spatialVoellmy``
 friction model in com1DFA (see :ref:`moduleCom1DFA:Input`).
 
-Provide a polygon shapefile with ``mu`` and ``xsi`` attribute fields in
+Provide a polygon shapefile with ``mu`` and ``xi`` attribute fields in
 ``Inputs/POLYGONS/``, with a file name ending in ``_spatialVoellmy.shp``.
-Each polygon feature must include both a ``mu`` and an ``xsi`` attribute
+Each polygon feature must include both a ``mu`` and an ``xi`` attribute
 value. The DEM must be placed in ``Inputs/``. The generated rasters are
 written to ``Inputs/RASTERS/`` with the same file format as the DEM.
 
@@ -34,7 +34,7 @@ To run
 * first go to ``AvaFrame/avaframe``
 * copy ``in3Utils/spatialVoellmyInputsCfg.ini`` to
   ``in3Utils/local_spatialVoellmyInputsCfg.ini`` and set desired
-  ``default_mu`` and ``default_xsi`` values (if not, the default values
+  ``default_mu`` and ``default_xi`` values (if not, the default values
   are used)
 * ensure the DEM and shapefile are in the avalanche directory as
   described above
