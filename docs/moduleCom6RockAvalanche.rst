@@ -25,7 +25,7 @@ To run
 * copy ``com6RockAvalanche/com6RockAvalancheCfg.ini`` to ``com6RockAvalanche/local_com6RockAvalancheCfg.ini`` and if desired change configuration settings
 * optionally, the ``spatialVoellmy`` friction model can be selected with
   ``--friction_calibration spatialVoellmy``. When using the QGis Connector,
-  a  shapefile with ``mu`` and ``xsi`` attributes
+  a  shapefile with ``mu`` and ``xi`` attributes
   can be provided and the required rasters will
   be generated automatically. See
   :ref:`moduleIn3Utils:Spatial Voellmy inputs` for details.

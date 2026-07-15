@@ -36,7 +36,7 @@ def runSpatialVoellmyInputs(avaDir=""):
     initProj.cleanSingleAvaDir(avaDir, deleteOutput=False)
 
     cfg = cfgUtils.getModuleConfig(spatialVoellmyInputs)
-    spatialVoellmyInputs.generateMuXsiRasters(avaDir, cfg)
+    spatialVoellmyInputs.generateMuXiRasters(avaDir, cfg)
 
     endTime = time.time()
     log.info("Took %6.1f seconds to calculate.", endTime - startTime)

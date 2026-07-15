@@ -87,8 +87,8 @@ def runCom6RockAvalanche(avalancheDir="", calibration="voellmy"):
             # set default fill values from rock avalanche Voellmy defaults
             overrideParams = rockAvalancheCfg["com1DFA_com1DFA_override"]
             spatialVoellmyCfg["DEFAULTS"]["default_mu"] = overrideParams["muvoellmy"]
-            spatialVoellmyCfg["DEFAULTS"]["default_xsi"] = overrideParams["xsivoellmy"]
-            spatialVoellmyInputs.generateMuXsiRasters(avaDir, spatialVoellmyCfg)
+            spatialVoellmyCfg["DEFAULTS"]["default_xi"] = overrideParams["xsivoellmy"]
+            spatialVoellmyInputs.generateMuXiRasters(avaDir, spatialVoellmyCfg)
         elif rastersExist:
             log.info("spatialVoellmy: using existing mu/xi rasters from Inputs/RASTERS/")
         else:

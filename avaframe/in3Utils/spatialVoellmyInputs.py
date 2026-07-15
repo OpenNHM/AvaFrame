@@ -15,10 +15,10 @@ from avaframe.in2Trans.rasterUtils import readRasterHeader, writeResultToRaster
 log = logging.getLogger(__name__)
 
 
-def generateMuXsiRasters(avaDir, cfg):
+def generateMuXiRasters(avaDir, cfg):
     """Generate mu and xi raster files from a polygon shapefile.
 
-    Reads a polygon shapefile with "mu" and "xsi" attribute fields,
+    Reads a polygon shapefile with "mu" and "xi" attribute fields,
     rasterizes the attribute values onto a grid matching the DEM extent
     and resolution, and writes the rasters to Inputs/RASTERS/.
 
@@ -29,7 +29,7 @@ def generateMuXsiRasters(avaDir, cfg):
         Inputs/POLYGONS/ with *_spatialVoellmy.shp shapefile.
     cfg : configparser.ConfigParser
         Configuration with [DEFAULTS] section containing
-        default_mu and default_xsi values for uncovered areas.
+        default_mu and default_xi values for uncovered areas.
     """
     avaDir = pathlib.Path(avaDir)
     inputDir = avaDir / "Inputs"
@@ -57,24 +57,24 @@ def generateMuXsiRasters(avaDir, cfg):
     demShape = (demHeader["nrows"], demHeader["ncols"])
 
     defaultMu = cfg["DEFAULTS"].getfloat("default_mu")
-    defaultXsi = cfg["DEFAULTS"].getfloat("default_xsi")
+    defaultXi = cfg["DEFAULTS"].getfloat("default_xi")
 
     # Validate required fields
     with shapefile.Reader(str(shpPath)) as sf:
         fieldNames = [f[0].lower() for f in sf.fields[1:]]
-    for field in ["mu", "xsi"]:
+    for field in ["mu", "xi"]:
         if field not in fieldNames:
             raise KeyError(
                 "Field '%s' not found in %s. Available fields: %s"
                 % (field, shpPath.name, fieldNames)
             )
 
-    # Rasterize mu and xsi from the same shapefile
+    # Rasterize mu and xi from the same shapefile
     log.info("Rasterizing mu from: %s", shpPath)
     muRaster = _rasterizeShapefile(shpPath, defaultMu, "mu", demShape, demTransform)
 
-    log.info("Rasterizing xsi from: %s", shpPath)
-    xsiRaster = _rasterizeShapefile(shpPath, defaultXsi, "xsi", demShape, demTransform)
+    log.info("Rasterizing xi from: %s", shpPath)
+    xiRaster = _rasterizeShapefile(shpPath, defaultXi, "xi", demShape, demTransform)
 
     # Determine output driver
     if demSuffix == ".asc":
@@ -98,8 +98,8 @@ def generateMuXsiRasters(avaDir, cfg):
     }
     log.info("Writing mu raster")
     writeResultToRaster(outHeader, muRaster, outDir / "raster_mu")
-    log.info("Writing xsi raster")
-    writeResultToRaster(outHeader, xsiRaster, outDir / "raster_xi")
+    log.info("Writing xi raster")
+    writeResultToRaster(outHeader, xiRaster, outDir / "raster_xi")
     log.info("Raster generation completed.")
 
 
