@@ -403,6 +403,111 @@ def test_prepareInputData(tmp_path):
     assert inputSimLines["entLine"] is None
 
 
+def test_prepareInputDataCoordinateCsvRelease(tmp_path):
+    """A coordinate time-dependent CSV supplies both release geometry and thickness."""
+    sourceInputs = pathlib.Path(__file__).parents[0] / ".." / "data" / "avaParabola" / "Inputs"
+    avaDir = tmp_path / "avaCoordinateRelease"
+    shutil.copytree(sourceInputs, avaDir / "Inputs")
+    demHeader = getInput.initializeDEM(avaDir, demPath="DEM_PF_Topo.asc")["header"]
+    coordinateCsv = avaDir / "Inputs" / "REL" / "coordinateRelease.csv"
+    coordinateCsv.write_text(
+        "timestep,thickness,velocityX,velocityY,velocityZ,x,y\n"
+        "%s,1.5,3.0,-4.0,5.0,%s,%s\n"
+        % (0.0, demHeader["xllcenter"], demHeader["yllcenter"])
+    )
+    inputSimFiles = {
+        "releaseScenario": coordinateCsv,
+        "entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "No"},
+        "muFile": None,
+        "xiFile": None,
+        "kFile": None,
+        "tauCFile": None,
+    }
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "avalancheDir": str(avaDir),
+        "timeDependentRelease": "True",
+        "secRelArea": "False",
+        "simTypeActual": "null",
+        "dam": "False",
+        "relThFromFile": "False",
+    }
+    cfg["INPUT"] = {
+        "DEM": "DEM_PF_Topo.asc",
+        "releaseScenario": coordinateCsv.stem,
+        "relThFile": "",
+        "timeDepRelCsv": str(coordinateCsv),
+    }
+
+    demOri, inputSimLines = com1DFA.prepareInputData(inputSimFiles, cfg)
+
+    releaseLine = inputSimLines["releaseLine"]
+    assert releaseLine["initializedFrom"] == "csvfile"
+    assert releaseLine["Name"] == [coordinateCsv.stem]
+    assert releaseLine["thickness"] == 1.5
+    assert releaseLine["rasterData"].shape == (demOri["header"]["nrows"], demOri["header"]["ncols"])
+    assert releaseLine["rasterData"][0, 0] == 1.5
+    assert inputSimLines["relThField"][0, 0] == 1.5
+    assert np.array_equal(releaseLine["timeDepRelValues"]["x"], np.array([demHeader["xllcenter"]]))
+    assert np.array_equal(releaseLine["timeDepRelValues"]["y"], np.array([demHeader["yllcenter"]]))
+    assert np.array_equal(releaseLine["timeDepRelValues"]["velocityX"], np.array([3.0]))
+    assert np.array_equal(releaseLine["timeDepRelValues"]["velocityY"], np.array([-4.0]))
+    assert np.array_equal(releaseLine["timeDepRelValues"]["velocityZ"], np.array([5.0]))
+
+    # All coordinate CSV rows are retained and timestep-zero rows form the initial raster.
+    sourceInputs = pathlib.Path(__file__).parents[0] / ".." / "data" / "avaParabola" / "Inputs"
+    avaDir = tmp_path / "avaCoordinateReleaseMultipleRows"
+    shutil.copytree(sourceInputs, avaDir / "Inputs")
+    demHeader = getInput.initializeDEM(avaDir, demPath="DEM_PF_Topo.asc")["header"]
+    coordinateCsv = avaDir / "Inputs" / "REL" / "coordinateRelease.csv"
+    x0 = demHeader["xllcenter"]
+    y0 = demHeader["yllcenter"]
+    cellsize = demHeader["cellsize"]
+    coordinateCsv.write_text(
+        "timestep,thickness,velocityX,velocityY,velocityZ,x,y\n"
+        "%s,1.5,3.0,-4.0,5.0,%s,%s\n"
+        "%s,2.5,-1.0,2.0,0.0,%s,%s\n"
+        "%s,3.0,0.0,0.0,-2.0,%s,%s\n"
+        % (0.0, x0, y0, 0.0, x0 + cellsize, y0 + cellsize, 10.0, x0 + 2 * cellsize, y0 + 2 * cellsize)
+    )
+    inputSimFiles = {
+        "releaseScenario": coordinateCsv,
+        "entResInfo": {"flagEnt": "No", "flagRes": "No", "flagSecondaryRelease": "No"},
+        "muFile": None,
+        "xiFile": None,
+        "kFile": None,
+        "tauCFile": None,
+    }
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "avalancheDir": str(avaDir),
+        "timeDependentRelease": "True",
+        "secRelArea": "False",
+        "simTypeActual": "null",
+        "dam": "False",
+        "relThFromFile": "False",
+    }
+    cfg["INPUT"] = {
+        "DEM": "DEM_PF_Topo.asc",
+        "releaseScenario": coordinateCsv.stem,
+        "relThFile": "",
+        "timeDepRelCsv": str(coordinateCsv),
+    }
+
+    _, inputSimLines = com1DFA.prepareInputData(inputSimFiles, cfg)
+
+    releaseLine = inputSimLines["releaseLine"]
+    assert releaseLine["initializedFrom"] == "csvfile"
+    assert releaseLine["thickness"] == 2.0
+    assert releaseLine["rasterData"][0, 0] == 1.5
+    assert releaseLine["rasterData"][1, 1] == 2.5
+    assert np.sum(releaseLine["rasterData"]) == 4.0
+    assert np.array_equal(releaseLine["timeDepRelValues"]["timeStep"], np.array([0.0, 0.0, 10.0]))
+    assert np.array_equal(releaseLine["timeDepRelValues"]["thickness"], np.array([1.5, 2.5, 3.0]))
+    assert np.array_equal(releaseLine["timeDepRelValues"]["x"], np.array([x0, x0 + cellsize, x0 + 2 * cellsize]))
+    assert np.array_equal(releaseLine["timeDepRelValues"]["y"], np.array([y0, y0 + cellsize, y0 + 2 * cellsize]))
+
+
 def test_prepareReleaseEntrainment(tmp_path):
     """test preparing release areas"""
 
@@ -1523,6 +1628,7 @@ def test_initializeParticles():
         "thickness": [1.0],
         "rasterData": relRaster,
         "type": "Release",
+        "initializedFrom": "shapefile",
     }
 
     releaseLine["header"] = demHeader

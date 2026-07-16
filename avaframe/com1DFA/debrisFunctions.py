@@ -56,22 +56,20 @@ def initializeTimeDepRelease(cfg, inputSimLines, particles, fields, dem, zPartAr
     if np.isclose(t, timeDepRelValues["timeStep"], atol=atol, rtol=0).any():
         iTup = np.where(np.isclose(t, timeDepRelValues["timeStep"], atol=atol, rtol=0))
         # iTup is a tuple containing an array with one value in the first position, so we can extract the index:
-        i = iTup[0].item()
-        log.info(
-            "add release at timestep: %.2f s with thickness %s m and velocity %s m/s"
-            % (t, timeDepRelValues["thickness"][i], timeDepRelValues["velocity"][i])
-        )
+        i = iTup[0]
+
         # similar workflow to secondary release!
         particles, zPartArray0 = addReleaseParticles(
             cfg,
             particles,
             inputSimLines,
-            timeDepRelValues["thickness"][i],
-            timeDepRelValues["velocity"][i],
+            timeDepRelValues,
             dem,
             zPartArray0,
+            timeDepRelIndex=i,
         )
         particles = DFAfunC.getNeighborsC(particles, dem)
+
         # update fields (compute grid values)
         if fields["computeTA"]:
             particles = DFAfunC.computeTrajectoryAngleC(particles, zPartArray0)
@@ -80,7 +78,9 @@ def initializeTimeDepRelease(cfg, inputSimLines, particles, fields, dem, zPartAr
     return particles, fields, zPartArray0
 
 
-def addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, dem, zPartArray0):
+def addReleaseParticles(
+        cfg, particles, inputSimLines, timeDepRelValues, dem, zPartArray0, timeDepRelIndex
+):
     """
     add new particles initialized by a time dependent release to particles that are in the flow already
 
@@ -92,10 +92,8 @@ def addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, d
         particles dictionary at t that are in the flow already
     inputSimLines : dict
         dictionary with input data dictionaries (releaseLine,...)
-    thickness: float
-        thickness of current release
-    velocityMag: float
-        velocity of current release
+    timeDepRelValues: dict
+        time dependent release values
     dem: dict
         dictionary with info on DEM data
     zPartArray0: numpy array
@@ -108,41 +106,104 @@ def addReleaseParticles(cfg, particles, inputSimLines, thickness, velocityMag, d
     zPartArray0: dict
         dictionary containing z - value of particles at timestep 0
     """
-    relLine = inputSimLines["releaseLine"]
-    relLine["header"] = dem["originalHeader"].copy()
-    relLine = geoTrans.prepareArea(
-        relLine,
-        dem,
-        np.sqrt(2),
-        thList=[thickness] * len(relLine["Name"]),
-        combine=True,
-        checkOverlap=False,
-    )
+    thickness = timeDepRelValues["thickness"][timeDepRelIndex]
+    if "velocity" in timeDepRelValues:
+        velocityMag = timeDepRelValues["velocity"][timeDepRelIndex]
 
-    # check if already existing particles are within the release polygon
-    # it's possible that there are still a few particles in the polygon with low velocities
-    # TODO: could think of a threshold of number of particles that are still allowed in the polygons?
-    mask = geoTrans.getParticlesInPolygon(particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel"))
-    if np.sum(mask) > 0:
-        # if there is at least one particle within the polygon (including the buffer):
-        message = (
-            "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
-            % (particles["t"] + particles["dt"])
+    relLine = copy.deepcopy(inputSimLines["releaseLine"])
+    relLine["header"] = dem["originalHeader"].copy()
+    if relLine["initializedFrom"] == "csvfile":
+        relLine["rasterData"] = gI.timeDepRelCoordsToRaster(
+            relLine["timeDepRelValues"], timeDepRelIndex, dem["originalHeader"], parameter="thickness"
         )
-        # timestep in particles is not updated yet
-        log.error(message)
-        raise ValueError(message)
+        relThField = relLine["rasterData"]
+    else:
+        relThField = ""
+        relLine = geoTrans.prepareArea(
+            relLine,
+            dem,
+            np.sqrt(2),
+            thList=[thickness] * len(relLine["Name"]),
+            combine=True,
+            checkOverlap=False,
+        )
+
+        # check if already existing particles are within the release polygon
+        # it's possible that there are still a few particles in the polygon with low velocities
+        # TODO: could think of a threshold of number of particles that are still allowed in the polygons?
+        mask = geoTrans.getParticlesInPolygon(particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel"))
+        if np.sum(mask) > 0:
+            message = (
+                    "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
+                    % (particles["t"] + particles["dt"])
+            )
+            log.error(message)
+            raise ValueError(message)
 
     particlesRelease = com1DFA.initializeParticles(
         cfg["GENERAL"],
         relLine,
         dem,
+        relThField=relThField,
+        timestep=particles["t"] + particles["dt"]
     )
-    particlesRelease = DFAfunC.updateInitialVelocity(cfg["GENERAL"], particlesRelease, dem, velocityMag)
+
+    if "velocity" in timeDepRelValues and "x" not in timeDepRelValues:
+        particlesRelease = DFAfunC.updateInitialVelocity(cfg["GENERAL"], particlesRelease, dem, velocityMag)
+
+
+
+    elif "velocityX" in timeDepRelValues and "x" in timeDepRelValues:
+        for uComp, timedepParameter in zip(["ux", "uy", "uz"], ["velocityX", "velocityY", "velocityZ"]):
+            raster = gI.timeDepRelCoordsToRaster(relLine["timeDepRelValues"], timeDepRelIndex,
+                                                 dem["originalHeader"], parameter=timedepParameter
+                                                 )
+            rasterDict = {"header": dem["header"], "rasterData": raster}
+            particlesRelease, _ = geoTrans.projectOnRaster(rasterDict,
+                                                           particlesRelease, outData=uComp)
+
+        particlesRelease["uMag"] = np.sqrt(
+            particlesRelease["ux"] ** 2 + particlesRelease["uy"] ** 2 + particlesRelease["uz"] ** 2)
+
     particles = particleTools.mergeParticleDict(particles, particlesRelease)
     # save initial z position for travel angle computation
     zPartArray0 = np.append(zPartArray0, copy.deepcopy(particlesRelease["z"]))
     return particles, zPartArray0
+
+
+def defineReleaseLineFromCoordinates(relFile, timeDepRelValues, demHeader):
+    """
+    define the release line and its thickness raster from coordinates read from time dependent release values
+
+    Parameters
+    ----------
+    relFile: pathlib.Path
+        directory to release file (csv file)
+    timeDepRelValues: dict
+        time dependent release values
+    demHeader: dict
+        header of DEM
+
+    Returns
+    -------
+    releaseLine: dict
+        dictionary for release line containing thickness raster data
+    relThFieldData: numpy array
+        release thickness raster data
+    """
+    releaseLine = {
+        "file": relFile,
+        "Name": [relFile.stem],
+        "initializedFrom": "csvfile"
+    }
+    initialIndex = np.where(timeDepRelValues["timeStep"] == 0)[0]
+    releaseLine["rasterData"] = gI.timeDepRelCoordsToRaster(timeDepRelValues, initialIndex, demHeader,
+                                                            parameter="thickness")
+    relThFieldData = releaseLine["rasterData"]
+    # TODO: define thickness for output report, now mean of thickness values
+    releaseLine["thickness"] = np.nanmean(np.where(relThFieldData == 0, np.nan, relThFieldData))
+
+    return releaseLine, relThFieldData
 
 
 def prepareTimeDepRelLine(releaseLine, cfg):

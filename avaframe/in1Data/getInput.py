@@ -220,6 +220,13 @@ def getInputDataCom1DFA(avaDir):
     relFiles = sorted(
         list(releaseDir.glob("*.shp")) + list(releaseDir.glob("*.tif")) + list(releaseDir.glob("*.asc"))
     )
+    timeDepRelFiles = sorted(releaseDir.glob("*.csv"))
+    # A time-dependent release csv file with x/y columns can be its own release
+    # geometry.  Only use csv files as release scenarios when no conventional
+    # release geometry was supplied, preserving the established csv file+polygon
+    # workflow.
+    if len(relFiles) == 0 and len(timeDepRelFiles) > 0:
+        relFiles = timeDepRelFiles
     relSuffixList = [relF.suffix for relF in relFiles]
 
     if ".shp" in relSuffixList and (".asc" in relSuffixList or ".tif" in relSuffixList):
@@ -227,7 +234,7 @@ def getInputDataCom1DFA(avaDir):
         log.error(message)
         raise AssertionError(message)
     if len(relFiles) == 0:
-        message = "No release area is found - provide a .shp or .asc or .tif file"
+        message = "No release area is found - provide a .shp, .asc, .tif, or time-dependent release .csv file"
         log.error(message)
         raise FileNotFoundError(message)
     else:
@@ -301,7 +308,6 @@ def getInputDataCom1DFA(avaDir):
     entResInfo["resRemeshed"] = "No"
     entResInfo["bhdRemeshed"] = "No"
 
-    timeDepRelFiles = sorted(list(releaseDir.glob("*.csv")))
     if len(timeDepRelFiles) > 0:
         entResInfo["timeDepRelCsvAvailable"] = "Yes"
     else:
@@ -526,7 +532,7 @@ def updateThicknessCfg(inputSimFiles, cfgInitial):
         # update configuration with thickness value to be used for simulations
         cfgInitial = dP.getThicknessValue(cfgInitial, inputSimFiles, releaseA, "relTh")
         cfgInitial["INPUT"]["relThFile"] = ""
-        if inputSimFiles["entResInfo"]["relThFileType"] != ".shp":
+        if inputSimFiles["entResInfo"]["relThFileType"] in [".asc", ".tif"]:
             cfgInitial["INPUT"]["relThFile"] = str(
                 pathlib.Path("REL", releaseA + inputSimFiles["entResInfo"]["relThFileType"])
             )
@@ -735,7 +741,7 @@ def fetchReleaseFile(inputSimFiles, releaseScenario, cfgSim, releaseList):
     # update config entry for release scenario, thickness and id
     cfgSim["INPUT"]["releaseScenario"] = str(releaseScenario)
     # check if release thickness is read from shapefile or raster file
-    if releaseScenarioPath.suffix in [".asc", ".tif"]:
+    if releaseScenarioPath.suffix in [".asc", ".tif", ".csv"]:
         # raster file - set relThFile path
         cfgSim["INPUT"]["relThFile"] = str(
             releaseScenarioPath.parts[-2] + "/" + releaseScenarioPath.parts[-1]
@@ -1202,7 +1208,6 @@ def getTimeDepRelCsv(timeDepRelCsv):
         log.error(message)
         raise FileNotFoundError(message)
     timeDepRelDF = pd.read_csv(timeDepRelCsv, index_col=False)
-    timeDepRelDF = timeDepRelDF.fillna(0.0)
     # delete empty spaces and write column names in low case
     timeDepRelDF.columns = timeDepRelDF.columns.str.strip().str.lower()
 
@@ -1211,17 +1216,90 @@ def getTimeDepRelCsv(timeDepRelCsv):
     timeDepRelValues = {
         "timeStep": timeDepRelDF["timestep"].to_numpy(dtype=np.float64),
         "thickness": timeDepRelDF["thickness"].to_numpy(dtype=np.float64),
-        "velocity": timeDepRelDF["velocity"].to_numpy(dtype=np.float64),
     }
+    # TODO: rethink this actual status: we only allow velocity magnitude together with shape file location and only velocity components with x and y (from csv) locations
+    for component in ["velocityx", "velocityy", "velocityz"]:
+        if "x" not in timeDepRelDF.columns and component in timeDepRelDF.columns:
+            message = "If release location is defined by shape file, only the velocity magnitude can be provided in the csv file."
+            log.error(message)
+            raise ValueError(message)
+    if "x" in timeDepRelDF.columns and "velocity" in timeDepRelDF.columns:
+        message = "If release location is defined by coordinates in csv file, only the velocity components can be provided."
+        log.error(message)
+        raise ValueError(message)
+
+    if "velocity" in timeDepRelDF.columns:
+        timeDepRelDF["velocity"] = timeDepRelDF["velocity"].fillna(0.0)
+        timeDepRelValues["velocity"] = timeDepRelDF["velocity"].to_numpy(dtype=np.float64)
+    else:
+        for component in ["velocityx", "velocityy", "velocityz"]:
+            print()
+            if component not in timeDepRelDF.columns:
+                message = "Please provide x, y, and z velocity component in the time dependent release values (csv file)."
+                log.error(message)
+                raise ValueError(message)
+        timeDepRelValues["velocityX"] = timeDepRelDF["velocityx"].to_numpy(dtype=np.float64)
+        timeDepRelValues["velocityY"] = timeDepRelDF["velocityy"].to_numpy(dtype=np.float64)
+        timeDepRelValues["velocityZ"] = timeDepRelDF["velocityz"].to_numpy(dtype=np.float64)
+
+    if "x" in timeDepRelDF.columns:
+        timeDepRelValues["x"] = timeDepRelDF["x"].to_numpy(dtype=np.float64)
+    if "y" in timeDepRelDF.columns:
+        timeDepRelValues["y"] = timeDepRelDF["y"].to_numpy(dtype=np.float64)
     # check if some criterias are satisfied in the csv file
     checkTimeDepRelease(timeDepRelValues, timeDepRelCsv)
     return timeDepRelValues, timeDepRelDF
 
 
+def timeDepRelCoordsToRaster(timeDepRelValues, index, demHeader, parameter="thickness"):
+    """Create a one-cell release raster at the csv file location for one timestep.
+
+    The x and y coordintates are map coordinates of the DEM cell centres.  Coordinates
+    between centres are assigned to their nearest raster cell.
+
+    Parameters
+    ----------
+    timeDepRelValues: dict
+        contains time dependent release values: timestep, thickness, velocity, x and y coordinates
+    index: int
+        index of timestep (row in csv file)
+    demHeader: dict
+        header of DEM file
+    parameter: str
+        parameter of timeDepRelValues that is written into the raster
+
+    Returns
+    --------
+    raster: np.array
+        thickness raster read from time dependent csv file (coordinates and thickness)
+    """
+    if "x" not in timeDepRelValues:
+        return None
+
+    cellsize = demHeader["cellsize"]
+    cols = np.rint((timeDepRelValues["x"][index] - demHeader["xllcenter"]) / cellsize).astype(int)
+    rows = np.rint((timeDepRelValues["y"][index] - demHeader["yllcenter"]) / cellsize).astype(int)
+    if not np.all(
+            (cols >= 0) & (cols < demHeader["ncols"]) &
+            (rows >= 0) & (rows < demHeader["nrows"])
+    ):
+        message = (
+                "A time dependent release location at timestep %.3f s is outside the DEM extent"
+                % (timeDepRelValues["timeStep"][index])
+        )
+        log.error(message)
+        raise ValueError(message)
+
+    raster = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=float)
+    np.add.at(raster, (rows, cols), timeDepRelValues[parameter][index])
+    return raster
+
+
 def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
     """
     check if time dependent release values satisfy the following requirements:
-    - release - timesteps are unique
+    - if coordinates are provided: x and y coordinates (not just one) are provided in every row
+    - release - timesteps are unique (when no coordinates are provided)
     - the release - timesteps are not too close (that the particle density becomes too high)
     - provided release - thickness is larger than zero
     - provided velocity is zero or larger.
@@ -1233,17 +1311,50 @@ def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
     timeDepRelValues: dict
         contains time dependent release values: timestep, thickness, velocity
     """
-    # check if timesteps are unique
-    timeStepUnique = np.unique(timeDepRelValues["timeStep"])
-    if timeStepUnique.ndim == 0:
-        if timeStepUnique != timeDepRelValues["timeStep"]:
-            message = "The provided time dependent release time steps in %s are not unique" % (timeDepRelCsv)
-            log.error(message)
-            raise ValueError(message)
-    elif len(timeStepUnique) != len(timeDepRelValues["timeStep"]):
-        message = "The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)
+
+    xInCsv = "x" in timeDepRelValues
+    yInCsv = "y" in timeDepRelValues
+    if xInCsv != yInCsv:
+        message = "Time dependent release csv file %s must provide both x and y columns" % timeDepRelCsv
         log.error(message)
         raise ValueError(message)
+    if xInCsv and (np.any(np.isnan(timeDepRelValues["x"])) or np.any(np.isnan(timeDepRelValues["y"]))):
+        message = "Time dependent release csv file %s must provide x and y values for every timestep" % timeDepRelCsv
+        log.error(message)
+        raise ValueError(message)
+
+    # if x,y coordinates are provided, check that for each coordinate pair
+    # there is only one row per timestep (no duplicate timesteps at same location)
+    if xInCsv:
+        xVals = np.asarray(timeDepRelValues["x"])
+        yVals = np.asarray(timeDepRelValues["y"])
+        tVals = np.asarray(timeDepRelValues["timeStep"])
+        seenDict = {}
+        for xVal, yVal, tVal in zip(xVals, yVals, tVals):
+            key = (xVal, yVal)
+            if key not in seenDict:
+                seenDict[key] = set()
+            if tVal in seenDict[key]:
+                message = (
+                        "For coordinate (x=%s, y=%s) in %s, only one timestep is allowed"
+                        % (xVal, yVal, timeDepRelCsv)
+                )
+                log.error(message)
+                raise ValueError(message)
+            seenDict[key].add(tVal)
+
+    # check if timesteps are unique
+    timeStepUnique = np.unique(timeDepRelValues["timeStep"])
+    if not xInCsv:
+        if timeStepUnique.ndim == 0:
+            if timeStepUnique != timeDepRelValues["timeStep"]:
+                message = "The provided time dependent release time steps in %s are not unique" % (timeDepRelCsv)
+                log.error(message)
+                raise ValueError(message)
+        elif len(timeStepUnique) != len(timeDepRelValues["timeStep"]):
+            message = "The provided time dependent release timesteps in %s are not unique" % (timeDepRelCsv)
+            log.error(message)
+            raise ValueError(message)
 
     # check if a timestep = 0 is provided
     if 0 not in timeStepUnique:
@@ -1263,11 +1374,12 @@ def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
             log.error(message)
             raise ValueError(message)
 
-    for vel in timeDepRelValues["velocity"]:
-        if vel < 0:
-            message = "The initial velocity provided in %s can not be negative." % (timeDepRelCsv)
-            log.error(message)
-            raise ValueError(message)
+    if "velocity" in timeDepRelValues.keys():
+        for vel in timeDepRelValues["velocity"]:
+            if vel < 0:
+                message = "The initial velocity provided in %s can not be negative." % (timeDepRelCsv)
+                log.error(message)
+                raise ValueError(message)
 
 
 def preprocessAssets(avalancheDir, dem, cfg):
