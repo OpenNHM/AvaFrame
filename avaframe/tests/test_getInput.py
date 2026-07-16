@@ -203,6 +203,28 @@ def test_getInputDataCom1DFA(tmp_path):
     assert inputSimFiles["relThFile"] == None
 
 
+def test_getInputDataCom1DFAUsesCoordinateCsvWithoutReleaseGeometry(tmp_path):
+    """A coordinate time-dependent release CSV is a release scenario on its own."""
+    dirPath = pathlib.Path(__file__).parents[0]
+    avaDir = tmp_path / "avaCoordinateRelease"
+    shutil.copytree(dirPath / ".." / "data" / "avaHockeyChannel" / "Inputs", avaDir / "Inputs")
+    releaseDir = avaDir / "Inputs" / "REL"
+    for releaseFile in releaseDir.glob("*.shp"):
+        releaseFile.unlink()
+    coordinateRelease = releaseDir / "coordinateRelease.csv"
+    coordinateRelease.write_text(
+        "timestep,thickness,velocityX,velocityY,velocityZ,x,y\n"
+        "0,1,0,0,0,1000,-5000\n"
+    )
+
+    inputSimFiles = getInput.getInputDataCom1DFA(avaDir)
+
+    assert inputSimFiles["relFiles"] == [coordinateRelease]
+    assert inputSimFiles["timeDepRelCsv"] == [coordinateRelease]
+    assert inputSimFiles["entResInfo"]["relThFileType"] == ".csv"
+    assert inputSimFiles["entResInfo"]["timeDepRelCsvAvailable"] == "Yes"
+
+
 def test_getAndCheckInputFiles(tmp_path):
     """test fetching input files and checking if exist"""
 
@@ -1583,15 +1605,72 @@ def test_getTimeDepRelCsv():
     assert np.all(timeDepRelValues["velocity"] == np.array([5, 3, 0]))
 
     testDir = pathlib.Path(__file__).parents[0]
-    timeDepRelCsv = testDir / "data" / "testTimeDepRel" / "rel.csv"
-
-    with pytest.raises(ValueError):
-        timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
 
     timeDepRelCsv = testDir / "data" / "testTimeDepRel" / "rel_notSorted.csv"
     timeDepRelValues, timeDepRelValuesTxt = getInput.getTimeDepRelCsv(timeDepRelCsv)
     assert np.all(timeDepRelValues["timeStep"] == np.array([0, 20, 50]))
     assert np.all(timeDepRelValues["thickness"] == np.array([3, 1, 1]))
+
+
+def test_getTimeDepRelCsvWithCoordinatesAndVectorVelocity(tmp_path):
+    """Coordinate releases may share a timestep and retain velocity components."""
+    timeDepRelCsv = tmp_path / "coordinateRelease.csv"
+    timeDepRelCsv.write_text(
+        "timestep, thickness, velocityX, velocityY, velocityZ, x, y\n"
+        "0, 1.5, 3.0, -4.0, 5.0, 101.0, 202.0\n"
+        "0, 2.5, -1.0, 2.0, 0.0, 119.0, 219.0\n"
+        "10, 3.0, 0.0, 0.0, -2.0, 110.0, 210.0\n"
+    )
+
+    values, table = getInput.getTimeDepRelCsv(timeDepRelCsv)
+
+    assert table.shape == (3, 7)
+    assert np.array_equal(values["timeStep"], np.array([0.0, 0.0, 10.0]))
+    assert np.array_equal(values["velocityX"], np.array([3.0, -1.0, 0.0]))
+    assert np.array_equal(values["velocityY"], np.array([-4.0, 2.0, 0.0]))
+    assert np.array_equal(values["velocityZ"], np.array([5.0, 0.0, -2.0]))
+
+
+def test_timeDepRelCoordsToRaster():
+    """Coordinate release values are assigned to their nearest DEM cells."""
+    values = {
+        "timeStep": np.array([0.0, 0.0, 10.0]),
+        "thickness": np.array([1.5, 2.5, 3.0]),
+        "velocityX": np.array([3.0, -1.0, 0.0]),
+        "x": np.array([101.0, 119.0, 110.0]),
+        "y": np.array([202.0, 219.0, 210.0]),
+    }
+    header = {"xllcenter": 100.0, "yllcenter": 200.0, "cellsize": 10.0, "nrows": 3, "ncols": 3}
+    thicknessRaster = getInput.timeDepRelCoordsToRaster(values, np.array([0, 1]), header)
+    velocityXRaster = getInput.timeDepRelCoordsToRaster(values, 1, header, parameter="velocityX")
+
+    assert np.array_equal(thicknessRaster, np.array([[1.5, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 2.5]]))
+    assert np.array_equal(velocityXRaster, np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, -1.0]]))
+    assert getInput.timeDepRelCoordsToRaster({"thickness": np.array([1.0])}, 0, header) is None
+
+    values["x"][2] = 1000.0
+    with pytest.raises(ValueError, match="outside the DEM extent"):
+        getInput.timeDepRelCoordsToRaster(values, 2, header)
+
+
+def test_checkTimeDepReleaseCoordinateValidation():
+    """Coordinate releases require complete coordinates and unique events per location."""
+    csvPath = "coordinateRelease.csv"
+    values = {
+        "timeStep": np.array([0.0, 10.0]),
+        "thickness": np.array([1.0, 1.0]),
+        "velocityX": np.array([0.0, 0.0]),
+        "velocityY": np.array([0.0, 0.0]),
+        "velocityZ": np.array([0.0, 0.0]),
+        "x": np.array([100.0, 100.0]),
+    }
+    with pytest.raises(ValueError, match="both x and y columns"):
+        getInput.checkTimeDepRelease(values, csvPath)
+
+    values["y"] = np.array([200.0, 200.0])
+    values["timeStep"] = np.array([0.0, 0.0])
+    with pytest.raises(ValueError, match="only one timestep is allowed"):
+        getInput.checkTimeDepRelease(values, csvPath)
 
 
 def test_checkTimeDepRelease():

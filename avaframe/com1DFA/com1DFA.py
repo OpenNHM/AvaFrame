@@ -620,7 +620,17 @@ def prepareInputData(inputSimFiles, cfg):
     # TODO: remove if not required anymore
     # relThFieldData, _ = gI.initializeRelTh(cfg, dOHeader)
 
-    if cfg["INPUT"]["relThFile"] == "":
+    if relFile.suffix.lower() == ".csv":
+        if not cfg["GENERAL"].getboolean("timeDependentRelease"):
+            message = "A CSV release geometry requires timeDependentRelease=True"
+            log.error(message)
+            raise ValueError(message)
+        timeDepRelValues, _ = gI.getTimeDepRelCsv(cfg["INPUT"]["timeDepRelCsv"])
+        if "x" not in timeDepRelValues:
+            message = "A CSV release geometry requires x and y columns in the time dependent release CSV"
+            log.error(message)
+            raise ValueError(message)
+    elif cfg["INPUT"]["relThFile"] == "":
         # get line from release area polygon
         releaseLine = shpConv.readLine(relFile, "release1", demOri)
         releaseLine["file"] = relFile
@@ -646,13 +656,24 @@ def prepareInputData(inputSimFiles, cfg):
         log.info("Set %s for relThField" % relRasterPath)
     # get line from release area polygon
     if cfg["GENERAL"].getboolean("timeDependentRelease"):
-        releaseLine["type"] = "time dependent Release"
         timeDepRelValues, _ = gI.getTimeDepRelCsv(cfg["INPUT"]["timeDepRelCsv"])
-        releaseLine["thickness"] = [
-            timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0].item()
-        ] * len(releaseLine["Name"])
+
+        if "x" in timeDepRelValues:
+            releaseLine, relThFieldData = debF.defineReleaseLineFromCoordinates(relFile, timeDepRelValues, dOHeader)
+        else:
+            releaseLine["thickness"] = [
+                                           timeDepRelValues["thickness"][timeDepRelValues["timeStep"] == 0].item()
+                                       ] * len(releaseLine["Name"])
+
+            if "velocity" in timeDepRelValues.keys():
+                releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
+            else:
+                releaseLine["velocityX"] = timeDepRelValues["velocityX"][timeDepRelValues["timeStep"] == 0]
+                releaseLine["velocityY"] = timeDepRelValues["velocityY"][timeDepRelValues["timeStep"] == 0]
+                releaseLine["velocityZ"] = timeDepRelValues["velocityZ"][timeDepRelValues["timeStep"] == 0]
+
+        releaseLine["type"] = "time dependent Release"
         releaseLine["thicknessSource"] = ["csv file"] * len(releaseLine["Name"])
-        releaseLine["velocity"] = timeDepRelValues["velocity"][timeDepRelValues["timeStep"] == 0]
         releaseLine["timeDepRelValues"] = timeDepRelValues
 
     # get line from secondary release area polygon
@@ -1258,8 +1279,9 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
         relThField=relThField,
     )
 
-    if cfgGen.getboolean("timeDependentRelease") and releaseLine["velocity"] != 0:
-        particles = DFAfunC.updateInitialVelocity(cfgGen, particles, dem, releaseLine["velocity"])
+    if cfgGen.getboolean("timeDependentRelease") and "velocity" in releaseLine.keys():
+        if np.any(releaseLine["velocity"]) != 0:
+            particles = DFAfunC.updateInitialVelocity(cfgGen, particles, dem, releaseLine["velocity"])
     particles, fields = initializeFields(cfg, dem, particles, releaseLine)
 
     reportAreaInfo["Release area info"]["Model release volume [m3]"] = "%.0f" % (
@@ -1449,7 +1471,7 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
     return particles, fields, dem, reportAreaInfo
 
 
-def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", relThField="", thName="rel"):
+def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", relThField="", thName="rel", timestep=0.0):
     """Initialize DFA simulation
 
     Create particles and fields dictionary according to config parameters
@@ -1469,6 +1491,8 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
         if the release thickness is not uniform, give here the releaseRaster
     thName: str
         name rel, secondaryRel
+    timestep: float
+        for log: timestep at which particles are released
 
     Returns
     -------
@@ -1631,6 +1655,7 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
         not cfg.getboolean("iniStep")
         and not cfg.getboolean("initialiseParticlesFromFile")
         and len(relThField) == 0
+            and releaseLine["initializedFrom"] != "csvfile"
     ):
         if debugPlot:
             xyParticlesAll = {"x": particles["x"], "y": particles["y"]}
@@ -1667,8 +1692,8 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
     particles["nPPK"] = nPPK
 
     log.info(
-        "Initialized particles. MTot = %.2f kg, %s particles in %.2f cells."
-        % (particles["mTot"], particles["nPart"], relCells)
+        "Initialized particles in t = %.2f s. MTot = %.2f kg, %s particles in %.2f cells."
+        % (timestep, particles["mTot"], particles["nPart"], relCells)
     )
     log.info(
         "Mass per particle = %.2f kg and particles per cell = %.2f."
@@ -2860,7 +2885,8 @@ def releaseSecRelArea(cfg, particles, fields, dem, zPartArray0, reportAreaInfo):
             if secondaryReleaseInfo["initializedFrom"] == "shapefile":
                 secRelInfo = shpConv.extractFeature(secondaryReleaseInfo, count)
                 secRelInfo["rasterData"] = secRelRaster
-                secRelParticles = initializeParticles(cfg, secRelInfo, dem, thName="secondaryRel")
+                secRelParticles = initializeParticles(cfg, secRelInfo, dem, thName="secondaryRel",
+                                                      timestep=particles["t"])
             else:
                 secondaryReleaseInfo["rasterData"] = secRelRaster
                 secRelParticles = initializeParticles(
@@ -2869,6 +2895,7 @@ def releaseSecRelArea(cfg, particles, fields, dem, zPartArray0, reportAreaInfo):
                     dem,
                     relThField=secRelRaster,
                     thName="secondaryRel",
+                    timestep=particles["t"]
                 )
             # release secondary release area by just appending the particles
             log.info(
@@ -3436,7 +3463,12 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
             timeDepRelValues, _ = gI.getTimeDepRelCsv(cfgSim["INPUT"]["timeDepRelCsv"])
             cfgSim["INPUT"]["timeDepRelTimeStep"] = str(timeDepRelValues["timeStep"])
             cfgSim["INPUT"]["timeDepRelThickness"] = str(timeDepRelValues["thickness"])
-            cfgSim["INPUT"]["timeDepRelVelocity"] = str(timeDepRelValues["velocity"])
+            if "velocity" in timeDepRelValues:
+                cfgSim["INPUT"]["timeDepRelVelocity"] = str(timeDepRelValues["velocity"])
+            else:
+                cfgSim["INPUT"]["timeDepRelVelocityX"] = str(timeDepRelValues["velocityX"])
+                cfgSim["INPUT"]["timeDepRelVelocityY"] = str(timeDepRelValues["velocityY"])
+                cfgSim["INPUT"]["timeDepRelVelocityZ"] = str(timeDepRelValues["velocityZ"])
         else:
             cfgSim["INPUT"]["timeDepRelCsv"] = ""
 
@@ -3851,10 +3883,20 @@ def initializeRelVol(cfg, demVol, releaseFile, radius, releaseType="primary", ti
 
     # check if release thickness provided as field or constant value
     if cfg["INPUT"][(typeTh + "File")] != "":
-        # read relThField from file
-        relThFilePath = pathlib.Path(cfg["GENERAL"]["avalancheDir"], "Inputs", cfg["INPUT"][typeTh + "File"])
-        relThFieldFull = IOf.readRaster(relThFilePath)
-        relThField = relThFieldFull["rasterData"]
+        if releaseType == "timeDepRel":
+            # compute total initialized thickness
+            timeDepRelValues, _ = gI.getTimeDepRelCsv(timeDepRelFile)
+            # for time dependent release use the release volume summed up over all timesteps
+            relThField = np.zeros((demVol["header"]["nrows"], demVol["header"]["ncols"]))
+            for ts in np.unique(timeDepRelValues["timeStep"]):
+                idx = np.where(timeDepRelValues["timeStep"] == ts)[0]
+                thRaster = gI.timeDepRelCoordsToRaster(timeDepRelValues, idx, demVol["header"], parameter="thickness")
+                relThField += thRaster
+        else:
+            # read relThField from file
+            relThFilePath = pathlib.Path(cfg["GENERAL"]["avalancheDir"], "Inputs", cfg["INPUT"][typeTh + "File"])
+            relThFieldFull = IOf.readRaster(relThFilePath)
+            relThField = relThFieldFull["rasterData"]
 
         # mask the relThField with raster from polygon
         releaseLineMask = np.ma.masked_where(relThField == 0.0, relThField)

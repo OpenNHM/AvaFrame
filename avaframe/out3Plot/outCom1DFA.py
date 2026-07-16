@@ -571,6 +571,16 @@ def plotReleaseScenarioView(
         relArea.plot(ax=ax, edgecolor="darkblue", linewidth=2, facecolor="none")
         relPatch = Patch(color="darkblue", label="release")
         handles.append(relPatch)
+    else:
+        relAreaPlot = np.where(releaseLine["rasterData"] > 0, releaseLine["rasterData"], np.nan)
+        ax.imshow(
+            relAreaPlot,
+            extent=extentCells,
+            cmap="Blues",
+            vmin=0,
+            vmax=1,
+            zorder=1000,
+        )
     count = 1
     if reportAreaInfo["resistance"] == "Yes":
         if inputSimLines["resLine"]["initializedFrom"] == "shapefile":

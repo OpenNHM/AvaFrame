@@ -179,17 +179,21 @@ input file (shape file or raster file) or 2) through the :py:mod:`com1DFA` confi
 
     - if the flag `timeDependentRelease` is True, in various provided time steps flowing mass is initialized
       (`relThFromFile` is also set to True, currently the only option to read time dependent thickness is from csv file)
-    - additional to a .shp file (raster file does not work yet), at least one csv file is provided in the `REL` folder, that contains:
+    - provide at least one csv file in the `REL` folder. A release polygon can still be used; alternatively,
+      include location columns in the CSV and no polygon is required.
 
         - a header (first line)
         - the following columns with the respective column names:
 
             - timestep values (column name: "timestep")
             - thickness values (column name: "thickness")
-            - initial velocity values (column name: "velocity")
+            - initial velocity values (column name: "velocity") or velocity components
+                (column names: "velocityX", "velocityY", "velocityZ")
+            - optional release location values (column names: "x" and "y"). Both columns must be provided
+              together; each row initializes particles in the DEM grid cell nearest to that coordinate.
         - the delimiter is: ","
     - In each provided timestep, particles are initialized with the provided corresponding thickness
-      in the release area. If a velocity is provided, the particles have this initial velocity
+      in the release area, or in the csv file defined grid cell when ``x``/``y`` are present. If a velocity components are provided, the particles have this initial velocity
       in the direction of the steepest descent.
 
 
