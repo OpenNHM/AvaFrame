@@ -123,6 +123,7 @@ ii) additional modules (forest, infrastructure)
 
 - ``forest``: if set to ``True`` the runout calculation is performed with the *forest module* (a forest layer has to be provided)
 - ``infra``: if set to ``True`` the calculation is performend with the *backcalculation module* (an infrastructure layer has to be provided)
+- ``calcGeneration``: if set to ``True`` the calculation (iteration per cell) is done per generation (iteration). The results can vary. This computation is required for deriving thalwegs.
 
 if ``infra`` is set to ``True`` the infrastructure layer has to be provided either in ``avalancheDir/INPUTS/INFRA`` (if ``useCustomPaths=False``) or at the defined
 ``infraPath`` (if ``useCustomPaths=True``). The layer has to be of the same resolution and extent as the other input layers; infrastructure cells have to be coded with values > 0, while 
@@ -187,6 +188,7 @@ If ``forestInteraction = True``, an additional output Layer is computed, which r
 iv) variable parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
 There are options to set for each path variable parameters:
 
 - alpha (``variableAlpha = True``), 
@@ -198,7 +200,51 @@ If the value of the variable layer in the cell that is assigned to a release cel
 When ``variableUmaxLim = True``, the type of the provided parameter is required: ``varUmaxParameter = uMax`` (in m/s) or ``varUmaxParameter = zDeltaMax`` (in m). (A layer containing release cells is still required).
 
 
-v) tiling and multiprocessing parameters
+
+v) thalweg output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To generate thalweg data, set both ``calcGeneration`` and ``calcThalweg`` to ``True``.
+
+.. note::
+
+    Enabling ``calcGeneration = True`` may lead to slight differences in the results because the raster cells are processed in a different iteration order.
+
+The ``thalwegReleaseArea`` parameter determines how thalwegs are generated:
+
+* If ``thalwegReleaseArea is True``, one thalweg is computed for each continuous release area. In this case, the ``Inputs/RELID`` directory must contain a raster defining the release area IDs, where each continuous release area has a unique ID.
+* If ``thalwegReleaseArea is False``, one thalweg is computed for each start cell.
+
+The generated thalweg data are stored in a separate ``thalwegData`` directory within the output folder.
+Each computed thalweg is saved as a dictionary in a separate pickle file.
+
+The thalweg can be calculated using one of three center definitions at each iteration step that is selected using the ``thalwegCenterOf`` parameter:
+
+* center of energy
+* center of flux
+* center of velocity altitude (``zDelta``)
+
+Each output dictionary always contains the Flow-Py input parameters ``alpha``, ``zDeltaMax``,
+and ``exponent`` used for the path simulation. Additional variables can be specified using the
+``thalwegVariables`` parameter.
+The following variables are available:
+
+* ``col`` - column index of the thalweg
+* ``row`` - row index of the thalweg
+* ``x`` - x coordinate of the thalweg (in the coordinate system of the PRA-raster)
+* ``y`` - y coordinate of the thalweg (in the coordinate system of the PRA-raster)
+* ``z`` or ``altitude`` - elevation along thalweg
+* ``flux`` - flux along thalweg
+* ``zDelta`` - velocity altitude along thalweg
+* ``flowEnergy`` - flow energy (:math:`= flux * zdelta * g`, with gravitational acceleration :math:`g`) along thalweg
+* ``gamma`` - travel angle along thalweg
+* ``s`` or ``travelLength`` - horizontally projected travel length along thalweg
+* ``flowEnergyArray`` - flow energy of the path (2 dimensional array)
+* ``zDeltaArray`` - velocity altitude of the path (2 dimensional array)
+* ``fluxArray`` - flux of the path (2 dimensional array)
+
+
+vi) tiling and multiprocessing parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If the model extent (i.e. number of cells and/or rows in the input layers) is larger than ``tileSize``, then :py:mod:`com4FlowPy` 
