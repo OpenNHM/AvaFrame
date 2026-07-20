@@ -136,9 +136,37 @@ def test_backTracking():
         12: [],
     }
 
-    testValsIn = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 1, 10: 0, 11: 3, 12: 2}
+    testValsIn = {
+        0: 0,
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+        6: 0,
+        7: 0,
+        8: 0,
+        9: 1,
+        10: 0,
+        11: 3,
+        12: 2,
+    }
 
-    testValsBT = {0: 3, 1: 1, 2: 2, 3: 3, 4: 1, 5: 2, 6: 2, 7: 3, 8: 0, 9: 1, 10: 2, 11: 3, 12: 2}
+    testValsBT = {
+        0: 3,
+        1: 1,
+        2: 2,
+        3: 3,
+        4: 1,
+        5: 2,
+        6: 2,
+        7: 3,
+        8: 0,
+        9: 1,
+        10: 2,
+        11: 3,
+        12: 2,
+    }
 
     calcValsBT = flowCore.backTracking(testGraph, testValsIn)
 
@@ -157,7 +185,15 @@ def test_calculation():
         ]
     )
     infra = None
-    pra = np.array([[0, 0, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
+    pra = np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
     alpha = 10
     exp = 99
     fluxTh = 0.001
@@ -185,6 +221,7 @@ def test_calculation():
         "relVolBool": False,
         "relVolArray": None,
     }
+    rasterAttributes = {"cellsize": cellsize, "nodata": nodata}
     args = [
         dem,
         infra,
@@ -193,8 +230,7 @@ def test_calculation():
         exp,
         fluxTh,
         zDeltaMax,
-        nodata,
-        cellsize,
+        rasterAttributes,
         infraBool,
         forestBool,
         variableParameters,
@@ -204,6 +240,9 @@ def test_calculation():
         forestParams,
         outputs,
         relOutputParams,
+        False,
+        False,
+        None,
     ]
 
     flux = np.ones_like(dem) * -9999.0
@@ -225,7 +264,6 @@ def test_calculation():
 
 
 def createTestRaster(pathTestFolder, rasterName):
-
     # first create test raster and save in test folder
     testRaster = np.zeros((10, 10))
 
@@ -299,7 +337,10 @@ def test_tileRaster(tmp_path):
     assert ext00 == ((0, xDim), (0, yDim))
     assert ext03 == ((0, xDim), (2 * yDim - 2 * U, 3 * yDim - 2 * U))
     assert ext10 == ((xDim - 2 * U, 2 * xDim - 2 * U), (0, yDim))
-    assert ext21 == ((2 * xDim - 4 * U, 3 * xDim - 4 * U), (yDim - 2 * U, 2 * yDim - 2 * U))
+    assert ext21 == (
+        (2 * xDim - 4 * U, 3 * xDim - 4 * U),
+        (yDim - 2 * U, 2 * yDim - 2 * U),
+    )
 
 
 def test_mergeDict(tmp_path):
@@ -752,6 +793,231 @@ def test_runCom4FlowPy(tmp_path):
 
     for key in resDictTest6:
         assert resDictTest6[key] == resDict[key]
+def test_getMaskedRasters():
+    raster = np.array(
+        [
+            [1, 2, 3],
+            [4, 5, 0],
+            [0, 7, 8],
+        ]
+    )
+    mask = np.array(
+        [
+            [1, 1, 0],
+            [1, 0, 0],
+            [0, 0, 1],
+        ]
+    )
+
+    idsIn, idsOut = SPAM.getMaskedRasters(mask, raster)
+
+    # inside mask: (0,0)=1, (0,1)=2, (1,0)=4, (2,2)=8
+    assert list(idsIn) == [1, 2, 4, 8]
+    # outside mask: (0,2)=3, (1,1)=5, (1,2)=0, (2,0)=0, (2,1)=7 -> zeros/negatives dropped
+    assert list(idsOut) == [3, 5, 7]
+
+    raster = np.array([[1, 2], [3, 4]])
+    mask = np.ones_like(raster)
+
+    idsIn, idsOut = SPAM.getMaskedRasters(mask, raster)
+
+    assert list(idsIn) == [1, 2, 3, 4]
+    assert list(idsOut) == []
+
+
+def test_getTileEnds(tmp_path):
+    # same raster/geometry as used implicitly by test_tileRaster, so the
+    # expected exList/eyList can be cross-checked against the ext_i_j values
+    # asserted there.
+    pathTestFolder = tmp_path / "data" / "testCom4"
+    rasterName = "testRaster"
+    pathTempFolder = pathTestFolder / "tmp"
+    os.makedirs(pathTempFolder, exist_ok=True)
+
+    createTestRaster(pathTestFolder, rasterName)
+    testData = IOf.readRaster(pathTestFolder / f"{rasterName}.tif", noDataToNan=False)
+    relIdRaster = testData["rasterData"]
+
+    xDim, yDim, U = 4, 4, 1
+
+    exList, eyList = SPAM.getTileEnds(pathTempFolder, xDim, yDim, U, relIdRaster)
+
+    assert exList == [6, 10]
+    assert eyList == [6, 10]
+
+    nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
+    assert nTiles == (1, 1)
+
+    # relId over entire raster
+
+    relIdRaster = np.ones((10, 10))
+    exList, eyList = SPAM.getTileEnds(pathTempFolder, xDim, yDim, U, relIdRaster)
+
+    assert exList == [11]
+    assert eyList == [11]
+    nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
+    assert nTiles == (0, 0)
+
+    extentLarge = pickle.load(open(pathTempFolder / "extentLarge", "rb"))
+    assert extentLarge == (10, 10)
+
+    pathTempFolder = tmp_path / "tmp"
+    os.makedirs(pathTempFolder, exist_ok=True)
+
+    relIdRaster = np.zeros((10, 10))
+    # release area (ID 5) straddles the naive x-tile boundary (column 3/4)
+    relIdRaster[2:5, 2:6] = 5
+
+    xDim, yDim, U = 4, 4, 1
+
+    exList, eyList = SPAM.getTileEnds(pathTempFolder, xDim, yDim, U, relIdRaster)
+
+    assert exList == [7, 9, 11]
+    assert eyList == [6, 8, 10]
+
+    relIdRaster = np.zeros((10, 10))
+    # release area fully inside what would become the first naive tile
+    relIdRaster[0:2, 0:2] = 7
+
+    xDim, yDim, U = 4, 4, 1
+
+    exList, eyList = SPAM.getTileEnds(pathTempFolder, xDim, yDim, U, relIdRaster)
+
+    assert exList == [4, 6, 8, 10]
+    assert eyList == [4, 6, 8, 10]
+
+
+def test_tileRasterWithIndices(tmp_path):
+    pathTestFolder = tmp_path / "data" / "testCom4"
+    rasterName = "testRaster"
+    ext = ".tif"
+    pathTempFolder = pathTestFolder / "tmp"
+    os.makedirs(pathTempFolder, exist_ok=True)
+
+    createTestRaster(pathTestFolder, rasterName)
+
+    fNameIn = pathTestFolder / f"{rasterName}{ext}"
+    fNameOut = "testTile"
+    U = 1
+    # same end-indices SPAM.getTileEnds would produce for this raster/config
+    exList = [4, 6, 8, 10]
+    eyList = [4, 6, 8, 10]
+
+    SPAM.tileRasterWithIndices(fNameIn, fNameOut, pathTempFolder, exList, eyList, U, isInit=False)
+
+    testData = IOf.readRaster(fNameIn, noDataToNan=False)
+    testRaster = testData["rasterData"]
+
+    nTiles = pickle.load(open(pathTempFolder / "nTiles", "rb"))
+    assert nTiles == (3, 3)
+
+    # corner tile (0,0): rows 0:4, cols 0:4
+    ext00 = pickle.load(open(pathTempFolder / "ext_0_0", "rb"))
+    assert ext00 == ((0, 4), (0, 4))
+    tile00 = np.load(pathTempFolder / "testTile_0_0.npy")
+    assert tile00.shape == (4, 4)
+    assert np.all(tile00 == testRaster[0:4, 0:4])
+
+    # interior tile (1,2): rows 2:6, cols 4:8
+    ext12 = pickle.load(open(pathTempFolder / "ext_1_2", "rb"))
+    assert ext12 == ((2, 6), (4, 8))
+    tile12 = np.load(pathTempFolder / "testTile_1_2.npy")
+    assert np.all(tile12 == testRaster[2:6, 4:8])
+
+    # bottom-right corner tile (3,3): rows 6:10, cols 6:10
+    ext33 = pickle.load(open(pathTempFolder / "ext_3_3", "rb"))
+    assert ext33 == ((6, 10), (6, 10))
+    tile33 = np.load(pathTempFolder / "testTile_3_3.npy")
+    assert np.all(tile33 == testRaster[6:10, 6:10])
+
+    # with tiling  init
+    pathTestFolder = tmp_path / "data" / "testCom4"
+    rasterName = "testRaster"
+    ext = ".tif"
+    pathTempFolder = pathTestFolder / "tmp"
+    os.makedirs(pathTempFolder, exist_ok=True)
+
+    createTestRaster(pathTestFolder, rasterName)
+
+    fNameIn = pathTestFolder / f"{rasterName}{ext}"
+    fNameOut = "testTileInit"
+    U = 1
+    exList = [4, 6, 8, 10]
+    eyList = [4, 6, 8, 10]
+
+    SPAM.tileRasterWithIndices(fNameIn, fNameOut, pathTempFolder, exList, eyList, U, isInit=True)
+
+    testData = IOf.readRaster(fNameIn, noDataToNan=False)
+    testRaster = testData["rasterData"]
+    # test raster only contains values >= 0, so any -9999 found below must
+    # come from the edge-nulling logic, not from the source data
+    assert not np.any(testRaster == -9999)
+
+    # --- corner tile (0,0): east edge nulled (j != JMAX) and south edge
+    #     nulled (i != IMAX); north/west untouched (i == 0, j == 0)
+    tile00 = np.load(pathTempFolder / "testTileInit_0_0.npy")
+    assert np.all(tile00[:, -U:] == -9999)  # east
+    assert np.all(tile00[-U:, :] == -9999)  # south
+    assert np.all(tile00[0, :-U] == testRaster[0, 0:4][:-U])  # north untouched
+    assert np.all(tile00[:-U, 0] == testRaster[0:4, 0][:-U])  # west untouched
+
+    # --- interior tile (1,2): all four edges nulled
+    tile12 = np.load(pathTempFolder / "testTileInit_1_2.npy")
+    assert np.all(tile12[:, -U:] == -9999)  # east
+    assert np.all(tile12[0:U, :] == -9999)  # north
+    assert np.all(tile12[:, 0:U] == -9999)  # west
+    assert np.all(tile12[-U:, :] == -9999)  # south
+
+    # --- bottom-right corner tile (3,3): north edge nulled (i != 0) and
+    #     west edge nulled (j != 0); east/south untouched (j == JMAX, i == IMAX)
+    tile33 = np.load(pathTempFolder / "testTileInit_3_3.npy")
+    assert np.all(tile33[0:U, :] == -9999)  # north
+    assert np.all(tile33[:, 0:U] == -9999)  # west
+    assert np.all(tile33[-1, U:] == testRaster[9, 6:10][U:])  # south untouched
+    assert np.all(tile33[U:, -1] == testRaster[6:10, 9][U:])  # east untouched
+
+    # workflow: first get tiles, then make tiling
+    createTestRaster(pathTestFolder, rasterName)
+    testData = IOf.readRaster(pathTestFolder / f"{rasterName}.tif", noDataToNan=False)
+    relIdRaster = testData["rasterData"]
+
+    xDim, yDim, U = 4, 4, 1
+    fNameIn = pathTestFolder / f"{rasterName}.tif"
+    fNameOut = "testTile"
+
+    exList, eyList = SPAM.getTileEnds(pathTempFolder, xDim, yDim, U, relIdRaster)
+    SPAM.tileRasterWithIndices(fNameIn, fNameOut, pathTempFolder, exList, eyList, U, isInit=True)
+
+    tile00 = np.load(pathTempFolder / "testTile_0_0.npy")
+    tile01 = np.load(pathTempFolder / "testTile_0_1.npy")
+    tile10 = np.load(pathTempFolder / "testTile_1_0.npy")
+    tile11 = np.load(pathTempFolder / "testTile_1_1.npy")
+
+    ids00 = np.unique(tile00)
+    ids01 = np.unique(tile01)
+    ids10 = np.unique(tile10)
+    ids11 = np.unique(tile11)
+
+    for id in ids00:
+        if id <= 0:
+            continue
+        assert id not in ids01
+        assert id not in ids10
+        assert id not in ids11
+
+    for id in ids10:
+        if id <= 0:
+            continue
+        assert id not in ids01
+        assert id not in ids00
+        assert id not in ids11
+
+    for id in ids01:
+        if id <= 0:
+            continue
+        assert id not in ids00
+        assert id not in ids10
+        assert id not in ids11
 
 def testCompareRasters(monkeypatch):
     """Test the comparison of two raster arrays.
@@ -1243,3 +1509,6 @@ if __name__ == "__main__":
     test_checkGlobalParameters_exp()
     test_checkGlobalParameters_fluxThreshold()
     test_checkGlobalParameters_errorMessageMentionsValidRange()
+    test_getMaskedRasters()
+    test_getTileEnds(tmpDir)
+    test_tileRasterWithIndices(tmpDir)

@@ -10,7 +10,6 @@ import math
 
 
 class Cell:
-
     def __init__(
         self,
         rowindex,
@@ -57,7 +56,7 @@ class Cell:
         self.z_delta = z_delta
 
         self.alpha = float(alpha)
-        self.exp = int(exp)
+        self.exp = float(exp)
         self.max_z_delta = float(max_z_delta)
         self.flux_threshold = float(flux_threshold)
 
@@ -84,7 +83,6 @@ class Cell:
         # if FSI != None AND forestParams != None - then self.ForestBool = True and forestParams and
         # FSI are accordingly initialized
         if (FSI is not None) and (forestParams is not None):
-
             self.forestBool = True
             self.forestModule = forestParams["forestModule"]
             self.skipForestDist = forestParams["skipForestDist"]
@@ -115,7 +113,6 @@ class Cell:
                 self.noDetrainmentEffectZdelta = (_vThDe * _vThDe) / _sqrt2xG
 
             elif self.forestModule == "forestFrictionLayer":
-
                 if forestParams["fFrLayerType"] == "absolute":
                     self.AlphaFor = FSI
                 elif forestParams["fFrLayerType"] == "relative":
@@ -264,7 +261,6 @@ class Cell:
                 self.calcDistMin(calc3D=True)
 
         if self.forestBool:
-
             if self.forestModule == "forestFrictionLayer":
                 if (not self.is_start) and (self.skipForestDist < self.minDistXYZ):
                     _tanAlpha = self.tanAlphaFor
@@ -318,6 +314,11 @@ class Cell:
         self.tan_beta[1, 1] = 0
         if abs(np.sum(self.tan_beta)) > 0:
             self.r_t = self.tan_beta**self.exp / np.sum(self.tan_beta**self.exp)
+
+    def calcFlowEnergy(self):
+        # calculate flow energy (corresponding to kinetic energy)
+        # analog to: kin_energy = mass * velocity² / 2
+        self.flowEnergy = self.flux * self.z_delta * 9.81
 
     def calc_persistence(self):
         """
@@ -407,6 +408,7 @@ class Cell:
                 # substituted by self.flux_threshold????
                 self.flux = max(0.0003, self.flux - self.detrainment)
 
+        self.calcFlowEnergy()
         threshold = self.flux_threshold
         if np.sum(self.r_t) > 0:
             self.dist = (self.persistence * self.r_t) / np.sum(self.persistence * self.r_t) * self.flux
@@ -449,10 +451,10 @@ class Cell:
         row_local, col_local = np.where(self.dist >= threshold)
 
         return (
-            self.rowindex - 1 + row_local,
-            self.colindex - 1 + col_local,
-            self.dist[row_local, col_local],
-            self.z_delta_neighbour[row_local, col_local],
+            list(self.rowindex - 1 + row_local),
+            list(self.colindex - 1 + col_local),
+            list(self.dist[row_local, col_local]),
+            list(self.z_delta_neighbour[row_local, col_local]),
         )
 
     def forest_detrainment(self):
