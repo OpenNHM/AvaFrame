@@ -77,6 +77,19 @@ def com4FlowPyMain(cfgPath, cfgSetup):
 
     # Flag for use of old flux distribution version
     modelParameters["fluxDistOldVersionBool"] = cfgSetup.getboolean("fluxDistOldVersion")
+    modelParameters["calcGeneration"] = cfgSetup.getboolean("calcGeneration")
+    modelParameters["calcThalweg"] = cfgSetup.getboolean("calcThalweg")
+    if modelParameters["calcThalweg"]:
+        modelParameters["thalwegReleaseArea"] = cfgSetup.getboolean("thalwegReleaseArea")
+        modelParameters["thalwegSaveRam"] = cfgSetup.getboolean("thalwegSaveRam")
+    else:
+        modelParameters["thalwegReleaseArea"] = False
+        modelParameters["thalwegSaveRam"] = False
+    modelParameters["thalwegCenterOf"] = cfgSetup.get("thalwegCenterOf")
+    modelParameters["thalwegVariables"] = cfgSetup.get("thalwegVariables")
+
+    # modelParameters["infra"]  = cfgSetup["infra"]
+    # modelParameters["forest"] = cfgSetup["forest"]
 
     # compute engine: "python" (default, Cell-based) or "numba" (JIT kernel)
     modelParameters["engine"] = cfgSetup.get("engine", "python").strip().lower()
@@ -106,6 +119,7 @@ def com4FlowPyMain(cfgPath, cfgSetup):
         modelPaths["outputFileFormat"] = ".asc"
     else:
         modelPaths["outputFileFormat"] = ".tif"
+    modelPaths["thalwegDir"] = cfgPath["thalwegDir"]
 
     # check if 'customDirs' are used - alternative is 'default' AvaFrame Folder Structure
     modelPaths["useCustomDirs"] = True if cfgPath["customDirs"] == "True" else False
@@ -134,7 +148,6 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     forestParams = {}
     # check if calculation with forest
     if modelParameters["forestBool"]:
-
         forestParams["forestModule"] = cfgSetup.get("forestModule")
         modelPaths["forestPath"] = cfgPath["forestPath"]
         # 'forestFriction' and 'forestDetrainment' parameters
@@ -182,7 +195,10 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     else:
         modelPaths["varExponentPath"] = ""
 
-    if "relIdPolygon" in modelPaths["outputFileList"] or "relIdCount" in modelPaths["outputFileList"]:
+    # conditions if relId is used
+    _outputPolygon = "relIdPolygon" in modelPaths["outputFileList"]
+    _outputCount = "relIdCount" in modelPaths["outputFileList"]
+    if _outputPolygon or _outputCount or modelParameters["thalwegReleaseArea"]:
         modelPaths["relIdPath"] = cfgPath["relIdPath"]
         modelParameters["outputRelIdBool"] = True
     else:
@@ -213,6 +229,9 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     demHeader = IOf.readRasterHeader(modelPaths["demPath"])
     rasterAttributes["nodata"] = demHeader["nodata_value"]
     rasterAttributes["cellsize"] = demHeader["cellsize"]
+    rasterAttributes["xllcenter"] = demHeader["xllcenter"]
+    rasterAttributes["yllcenter"] = demHeader["yllcenter"]
+    rasterAttributes["nrows"] = demHeader["nrows"]
 
     # tile input layers and write tiles (pickled np.arrays) to temp Folder
     nTiles = tileInputLayers(modelParameters, modelPaths, rasterAttributes, tilingParameters)
@@ -295,7 +314,7 @@ def startLogging(modelParameters, forestParams, modelPaths, MPOptions):
     for param, value in MPOptions.items():
         log.info(f"{'%s:'%param : <20}{value : <5}")
         # log.info("{}:\t{}".format(param,value))
-    log.info("------------------------")
+        log.info("------------------------")
     log.info(f"{'WorkDir:' : <12}{'%s'%modelPaths['workDir'] : <5}")
     log.info(f"{'ResultsDir:' : <12}{'%s'%modelPaths['resDir'] : <5}")
     # log.info("WorkDir: {}".format(modelPaths["workDir"]))
@@ -326,16 +345,27 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
         if _demHeader["ncols"] == _relHeader["ncols"] and _demHeader["nrows"] == _relHeader["nrows"]:
             log.info("DEM and Release Layer ok!")
         else:
-            log.error("Error: Release Layer doesn't match DEM!")
-            sys.exit(1)
+            message = "Error: Release Layer doesn't match DEM!"
+            log.error(message)
+            raise ValueError(message)
+
+        if modelParameters["outputRelIdBool"]:
+            _relIdHeader = IOf.readRasterHeader(modelPaths["relIdPath"])
+            if _demHeader["ncols"] == _relIdHeader["ncols"] and _demHeader["nrows"] == _relIdHeader["nrows"]:
+                log.info("Release ID Layer ok!")
+            else:
+                message = "Error: Release ID Layer doesn't match DEM!"
+                log.error(message)
+                raise ValueError(message)
 
         if modelParameters["infraBool"]:
             _infraHeader = IOf.readRasterHeader(modelPaths["infraPath"])
             if _demHeader["ncols"] == _infraHeader["ncols"] and _demHeader["nrows"] == _infraHeader["nrows"]:
                 log.info("Infra Layer ok!")
             else:
-                log.error("Error: Infra Layer doesn't match DEM!")
-                sys.exit(1)
+                message = "Error: Infra Layer doesn't match DEM!"
+                log.error(message)
+                raise ValueError(message)
 
         if modelParameters["forestBool"]:
             _forestHeader = IOf.readRasterHeader(modelPaths["forestPath"])
@@ -345,8 +375,9 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
             ):
                 log.info("Forest Layer ok!")
             else:
-                log.error("Error: Forest Layer doesn't match DEM!")
-                sys.exit(1)
+                message = "Error: Forest Layer doesn't match DEM!"
+                log.error(message)
+                raise ValueError(message)
 
         if modelParameters["varUmaxBool"]:
             _varUmaxHeader = IOf.readRasterHeader(modelPaths["varUmaxPath"])
@@ -356,8 +387,9 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
             ):
                 log.info("uMax Limit Layer ok!")
             else:
-                log.error("Error: uMax Limit Layer doesn't match DEM!")
-                sys.exit(1)
+                message = "Error: uMax Limit Layer doesn't match DEM!"
+                log.error(message)
+                raise ValueError(message)
 
         if modelParameters["varAlphaBool"]:
             _varAlphaHeader = IOf.readRasterHeader(modelPaths["varAlphaPath"])
@@ -367,8 +399,9 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
             ):
                 log.info("variable Alpha Layer ok!")
             else:
-                log.error("Error: variable Alpha Layer doesn't match DEM!")
-                sys.exit(1)
+                message = "Error: variable Alpha Layer doesn't match DEM!"
+                log.error(message)
+                raise ValueError(message)
 
         if modelParameters["varExponentBool"]:
             _varExponentHeader = IOf.readRasterHeader(modelPaths["varExponentPath"])
@@ -378,8 +411,9 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
             ):
                 log.info("variable exponent Layer ok!")
             else:
-                log.error("Error: variable exponent Layer doesn't match DEM!")
-                sys.exit(1)
+                message = "Error: variable exponent Layer doesn't match DEM!"
+                log.error(message)
+                raise ValueError(message)
 
         log.info("========================")
 
@@ -389,7 +423,9 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
         )
         log.error("Error occured: %s" % ex)
         # return
-        sys.exit(1)
+        raise ValueError(
+            "could not read all required Input Layers, please re-check files and paths provided in .ini files"
+        )
 
 def checkInputParameterValues(modelParameters, modelPaths, validParamRanges):
     """check if the input parameters are valid
@@ -479,30 +515,151 @@ def tileInputLayers(modelParameters, modelPaths, rasterAttributes, tilingParamet
 
     log.info("Start Tiling...")
     log.info("---------------------")
+    if modelParameters["thalwegReleaseArea"]:
+        _relIdRasterDict = IOf.readRaster(modelPaths["relIdPath"])
+        _relIdRaster = _relIdRasterDict["rasterData"]
+        exList, eyList = SPAM.getTileEnds(modelPaths["tempDir"], _tileCOLS, _tileROWS, _U, _relIdRaster)
 
-    SPAM.tileRaster(modelPaths["demPath"], "dem", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U)
-    SPAM.tileRaster(
-        modelPaths["releasePathWork"], "init", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U, isInit=True
-    )
+        SPAM.tileRasterWithIndices(modelPaths["demPath"], "dem", modelPaths["tempDir"], exList, eyList, _U)
+        SPAM.tileRasterWithIndices(
+            modelPaths["releasePathWork"],
+            "init",
+            modelPaths["tempDir"],
+            exList,
+            eyList,
+            _U,
+            isInit=True,
+        )
 
-    if modelParameters["infraBool"]:
-        SPAM.tileRaster(modelPaths["infraPath"], "infra", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U)
-    if modelParameters["varUmaxBool"]:
+        if modelParameters["infraBool"]:
+            SPAM.tileRasterWithIndices(
+                modelPaths["infraPath"],
+                "infra",
+                modelPaths["tempDir"],
+                exList,
+                eyList,
+                _U,
+            )
+        if modelParameters["varUmaxBool"]:
+            SPAM.tileRasterWithIndices(
+                modelPaths["varUmaxPath"],
+                "varUmax",
+                modelPaths["tempDir"],
+                exList,
+                eyList,
+                _U,
+            )
+        if modelParameters["varAlphaBool"]:
+            SPAM.tileRasterWithIndices(
+                modelPaths["varAlphaPath"],
+                "varAlpha",
+                modelPaths["tempDir"],
+                exList,
+                eyList,
+                _U,
+            )
+        if modelParameters["varExponentBool"]:
+            SPAM.tileRasterWithIndices(
+                modelPaths["varExponentPath"],
+                "varExponent",
+                modelPaths["tempDir"],
+                exList,
+                eyList,
+                _U,
+            )
+        if modelParameters["forestBool"]:
+            SPAM.tileRasterWithIndices(
+                modelPaths["forestPath"],
+                "forest",
+                modelPaths["tempDir"],
+                exList,
+                eyList,
+                _U,
+            )
+        if modelParameters["outputRelIdBool"]:
+            SPAM.tileRasterWithIndices(
+                modelPaths["relIdPath"],
+                "relId",
+                modelPaths["tempDir"],
+                exList,
+                eyList,
+                _U,
+            )
+
+    else:
         SPAM.tileRaster(
-            modelPaths["varUmaxPath"], "varUmax", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U
+            modelPaths["demPath"],
+            "dem",
+            modelPaths["tempDir"],
+            _tileCOLS,
+            _tileROWS,
+            _U,
         )
-    if modelParameters["varAlphaBool"]:
         SPAM.tileRaster(
-            modelPaths["varAlphaPath"], "varAlpha", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U
+            modelPaths["releasePathWork"],
+            "init",
+            modelPaths["tempDir"],
+            _tileCOLS,
+            _tileROWS,
+            _U,
+            isInit=True,
         )
-    if modelParameters["varExponentBool"]:
-        SPAM.tileRaster(
-            modelPaths["varExponentPath"], "varExponent", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U
-        )
-    if modelParameters["forestBool"]:
-        SPAM.tileRaster(modelPaths["forestPath"], "forest", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U)
-    if modelParameters["outputRelIdBool"]:
-        SPAM.tileRaster(modelPaths["relIdPath"], "relId", modelPaths["tempDir"], _tileCOLS, _tileROWS, _U)
+
+        if modelParameters["infraBool"]:
+            SPAM.tileRaster(
+                modelPaths["infraPath"],
+                "infra",
+                modelPaths["tempDir"],
+                _tileCOLS,
+                _tileROWS,
+                _U,
+            )
+        if modelParameters["varUmaxBool"]:
+            SPAM.tileRaster(
+                modelPaths["varUmaxPath"],
+                "varUmax",
+                modelPaths["tempDir"],
+                _tileCOLS,
+                _tileROWS,
+                _U,
+            )
+        if modelParameters["varAlphaBool"]:
+            SPAM.tileRaster(
+                modelPaths["varAlphaPath"],
+                "varAlpha",
+                modelPaths["tempDir"],
+                _tileCOLS,
+                _tileROWS,
+                _U,
+            )
+        if modelParameters["varExponentBool"]:
+            SPAM.tileRaster(
+                modelPaths["varExponentPath"],
+                "varExponent",
+                modelPaths["tempDir"],
+                _tileCOLS,
+                _tileROWS,
+                _U,
+            )
+        if modelParameters["forestBool"]:
+            SPAM.tileRaster(
+                modelPaths["forestPath"],
+                "forest",
+                modelPaths["tempDir"],
+                _tileCOLS,
+                _tileROWS,
+                _U,
+            )
+        if modelParameters["outputRelIdBool"]:
+            SPAM.tileRaster(
+                modelPaths["relIdPath"],
+                "relId",
+                modelPaths["tempDir"],
+                _tileCOLS,
+                _tileROWS,
+                _U,
+            )
+
     log.info("Finished Tiling All Input Rasters.")
     log.info("==================================")
 
@@ -536,7 +693,17 @@ def performModelCalculation(nTiles, modelParameters, modelPaths, rasterAttribute
 
     for i in range(nTiles[0] + 1):
         for j in range(nTiles[1] + 1):
-            optList.append((i, j, modelParameters, modelPaths, rasterAttributes, forestParams, MPOptions))
+            optList.append(
+                (
+                    i,
+                    j,
+                    modelParameters,
+                    modelPaths,
+                    rasterAttributes,
+                    forestParams,
+                    MPOptions,
+                )
+            )
 
     log.info(" >> Start Calculation << ")
     log.info("-------------------------")
@@ -771,7 +938,8 @@ def mergeAndWriteResults(modelPaths, modelOptions):
     if "relIdPolygon" in _outputs:
         pathPolygons = SPAM.mergeDictToPolygon(modelPaths["tempDir"], "res_startCellIdDict", outputHeader)
         pathPolygons.to_file(
-            modelPaths["resDir"] / "com4_{}_{}_relIdPolygon.geojson".format(_uid, _ts), driver="GeoJSON"
+            modelPaths["resDir"] / "com4_{}_{}_pathPolygons.geojson".format(_uid, _ts),
+            driver="GeoJSON",
         )
         del pathPolygons
         log.info("com4_{}_{}_relIdPolygon is written".format(_uid, _ts))
@@ -812,7 +980,6 @@ def checkConvertReleaseShp2Tif(modelPaths):
     # the release is a shp polygon, we need to convert it to a raster
     # releaseLine = shpConv.readLine(releasePath, 'releasePolygon', demDict)
     if modelPaths["releasePath"].suffix == ".shp":
-
         dem = IOf.readRaster(modelPaths["demPath"])
         demHeader = dem["header"]
         dem["originalHeader"] = demHeader
