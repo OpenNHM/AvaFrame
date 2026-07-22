@@ -20,6 +20,7 @@ import avaframe.com4FlowPy.splitAndMerge as SPAM
 import avaframe.in2Trans.rasterUtils as IOf
 import avaframe.runCom4FlowPy as runCom4FlowPy
 
+import avaframe.runStandardTestsCom4FlowPy as runStandardTestsCom4
 
 def test_add_os():
     cell = flowClass.Cell(
@@ -750,6 +751,113 @@ def test_runCom4FlowPy(tmp_path):
 
     for key in resDictTest6:
         assert resDictTest6[key] == resDict[key]
+
+def testCompareRasters(monkeypatch):
+    """Test the comparison of two raster arrays.
+
+    The test replaces ``rasterUtils.readRaster`` with a local fake
+    implementation. This keeps the test self-contained and avoids reading
+    actual raster files from disk.
+
+    The test verifies that:
+
+    * the cell-by-cell difference is calculated correctly;
+    * non-identical rasters are reported as unequal;
+    * the percentage of closely matching processed cells is correct;
+    * both rasters are read with ``noDataToNan=False``;
+    * the raster files are read in the expected order.
+
+    Parameters
+    ----------
+    monkeypatch : pytest.MonkeyPatch
+        Pytest fixture used to temporarily replace
+        ``rasterUtils.readRaster`` in the module under test.
+    """
+    rasterPath = pathlib.Path("raster.tif")
+    referenceRasterPath = pathlib.Path("referenceRaster.tif")
+
+    rasterData = np.array(
+        [
+            [1.0, 2.0, 0.0],
+            [4.0, np.nan, 6.0],
+        ]
+    )
+    referenceRasterData = np.array(
+        [
+            [1.0, 2.0001, 0.0],
+            [5.0, np.nan, 6.0],
+        ]
+    )
+
+    rasterDataByPath = {
+        rasterPath: rasterData,
+        referenceRasterPath: referenceRasterData,
+    }
+
+    readRasterCalls = []
+
+    def _fakeReadRaster(requestedPath, noDataToNan):
+        """Return predefined raster data for the requested path.
+
+        Parameters
+        ----------
+        requestedPath : pathlib.Path
+            Path of the raster requested by ``compareRasters``.
+        noDataToNan : bool
+            Value passed to the ``noDataToNan`` argument.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the predefined NumPy array under the
+            ``"rasterData"`` key.
+        """
+        readRasterCalls.append((requestedPath, noDataToNan))
+
+        return {
+            "rasterData": rasterDataByPath[requestedPath],
+        }
+
+    # Patch readRaster where compareRasters looks it up. The patch is
+    # automatically removed by pytest after the test has completed.
+    monkeypatch.setattr(
+        runStandardTestsCom4.rasterUtils,
+        "readRaster",
+        _fakeReadRaster,
+    )
+
+    difference, areEqual, closePercentage = (
+        runStandardTestsCom4.compareRasters(
+            rasterPath,
+            referenceRasterPath,
+        )
+    )
+
+    expectedDifference = referenceRasterData - rasterData
+
+    np.testing.assert_allclose(
+        difference,
+        expectedDifference,
+        equal_nan=True,
+    )
+
+    assert areEqual is False
+
+    # Four cells are selected by the positive-value mask:
+    #
+    #   1.0 versus 1.0       -> close
+    #   2.0 versus 2.0001    -> close
+    #   4.0 versus 5.0       -> not close
+    #   6.0 versus 6.0       -> close
+    #
+    # The 0.0 pair and NaN pair are not selected by the mask.
+    # Therefore, three out of four processed cells are close.
+    assert closePercentage == pytest.approx(3 / 4)
+
+    assert readRasterCalls == [
+        (rasterPath, False),
+        (referenceRasterPath, False),
+    ]
 
 
 if __name__ == "__main__":
