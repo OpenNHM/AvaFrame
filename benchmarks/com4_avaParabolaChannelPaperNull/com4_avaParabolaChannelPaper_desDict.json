@@ -1,0 +1,10 @@
+{
+"INI": "avaParabolaChannelPaperNull_com4FlowPyCfg.ini",
+"TAGS": ["null", "standardTest", "idealized", "com4FlowPy"],
+"DESCRIPTION": "Idealized/generic Topography - Parabolic Slope with channel\nExample also used in D'Amboise et al. (2022)",
+"REFERENCE": "https://doi.org/10.5194/gmd-15-2423-2022",
+"FILES": ["zdelta", "cellCounts", "fpTravelAngleMax", "travelLengthMax"],
+"TOPOTYPE": "idealized",
+"AVADIR": "data/avaParabChannelPaperFP",
+"BENCHMARKED_AVAFRAME_VERSION": "2.1"
+}

@@ -1,0 +1,10 @@
+{
+  "INI": "ArzlerAlmForest_com4FlowPyCfg.ini",
+  "TAGS": ["forest", "infra", "standardTest", "real", "com4FlowPy"],
+  "DESCRIPTION": "Arler Alm Test Case\ncom4FlowPy run with forest friction extension",
+  "REFERENCE": "https://github.com/OpenNHM/AvaFrameData/tree/main/avaArzl",
+  "FILES": ["zdelta", "cellCounts", "fpTravelAngleMax", "travelLengthMax"],
+  "TOPOTYPE": "real",
+  "AVADIR": "data/avaArzlerAlm",
+  "BENCHMARKED_AVAFRAME_VERSION": "2.1"
+}

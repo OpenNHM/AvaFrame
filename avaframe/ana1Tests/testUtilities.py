@@ -92,6 +92,8 @@ def readAllBenchmarkDesDicts(info=False, inDir=""):
         inDir = pathlib.Path("..", "benchmarks")
 
     testDirs = list(inDir.glob("ava*"))
+    testDirsCom4 = list(inDir.glob("com4*"))
+    testDirs.extend(testDirsCom4)
     testDictList = []
 
     for testDir in testDirs:

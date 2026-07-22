@@ -1,0 +1,10 @@
+{
+  "INI": "ArzlerAlmNull_com4FlowPyCfg.ini",
+  "TAGS": ["null", "infra", "standardTest", "idealized", "com4FlowPy"],
+  "DESCRIPTION": "Arzler Alm Avalanche, real Topopgraphy\ndefault com4FlowPy .ini settings",
+  "REFERENCE": "https://github.com/OpenNHM/AvaFrameData/tree/main/avaArzl",
+  "FILES": ["zdelta", "cellCounts", "fpTravelAngleMax", "travelLengthMax", "flux"],
+  "TOPOTYPE": "real",
+  "AVADIR": "data/avaArzlerAlm",
+  "BENCHMARKED_AVAFRAME_VERSION": "2.1"
+}

@@ -1,0 +1,10 @@
+{
+  "INI": "ArzlerAlmNullInfra_com4FlowPyCfg.ini",
+  "TAGS": ["null", "infra", "standardTest", "real", "com4FlowPy"],
+  "DESCRIPTION": "Arzler Alm Test Case - Null variant with infrastructure",
+  "REFERENCE": "https://github.com/OpenNHM/AvaFrameData/tree/main/avaArzl",
+  "FILES": ["zdelta", "cellCounts", "fpTravelAngleMax", "travelLengthMax", "backcalculation"],
+  "TOPOTYPE": "real",
+  "AVADIR": "data/avaArzlerAlm",
+  "BENCHMARKED_AVAFRAME_VERSION": "2.1"
+}
