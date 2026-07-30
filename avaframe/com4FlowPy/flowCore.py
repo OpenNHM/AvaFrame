@@ -8,8 +8,7 @@ Calculation functions (raster level)
 import sys
 import numpy as np
 import logging
-import os
-import platform
+import pathlib
 import gc
 import psutil
 import time
@@ -21,6 +20,7 @@ from multiprocessing import Pool
 from avaframe.com4FlowPy.flowClass import Cell
 from avaframe.com4FlowPy.flowPath import Path
 
+log = logging.getLogger(__name__)
 
 def get_start_idx(dem, release, relIdArray=None, calcThalweg=False):
     """Sort Release Pixels by altitude and return the result as lists for the
@@ -212,6 +212,8 @@ def run(optTuple):
             "thalwegVariables": optTuple[2]["thalwegVariables"],
             "calcRelID": optTuple[2]["thalwegReleaseArea"],
             "thalwegSaveRam": optTuple[2]["thalwegSaveRam"],
+            "videoRelId": optTuple[2]["videoRelId"],
+            "videoDataVariable": optTuple[2]["videoDataVariable"],
         }
     else:
         thalwegParameters = {
@@ -294,6 +296,7 @@ def run(optTuple):
     # every positive value >0 is interpreted as release area
     release[release < 0] = 0
     release[release == nodata] = 0  # added in case nodata is non-negative
+    release[np.isnan(release)] = 0
     release[release > 0] = 1
 
     nRel = np.sum(release)
@@ -757,6 +760,7 @@ def calculation(args):
             cellList = [startcell]  # list of parents for current iteration
             genList = [cellList]  # list of all cells (which are calculated), organised in generations
             childList = []  # list of childs of the current iteration
+            childIndex = {}
             if thalwegParameters["thalwegSaveRam"]:
                 colThalwegLists = []
                 rowThalwegLists = []
@@ -798,7 +802,40 @@ def calculation(args):
                         # if the current cell is not already in the dir-graph, then we add it here
                         updateInfraDirGraph(cell.rowindex, cell.colindex)
 
+                    newRow = []
+                    newCol = []
+                    newFlux = []
+                    newZDelta = []
+
+                    for r, c, f, zd in zip(row, col, flux, z_delta):
+                        key = (r, c)
+
+                        if key in childIndex:
+                            child = childList[childIndex[key]]
+                            child.add_os(f)
+                            child.add_parent(cell)
+
+                            if infraBool:
+                                updateInfraDirGraph(r, c, cell.rowindex, cell.colindex)
+
+                            if zd > child.z_delta:
+                                child.z_delta = zd
+
+                        else:
+                            newRow.append(r)
+                            newCol.append(c)
+                            newFlux.append(f)
+                            newZDelta.append(zd)
+
+                    row = newRow
+                    col = newCol
+                    flux = newFlux
+                    z_delta = newZDelta
+
+
                     # TODO: we could put this checking part in an extra function, if we can move updateInfraDirGraph
+                    """
+                    # I substitute this with checking for the cell in the dict (part above)
                     for i in range(len(childList)):  # Check if Cell already exists in childList
                         k = 0
                         while k < len(row):
@@ -817,6 +854,7 @@ def calculation(args):
                                 z_delta = np.delete(z_delta, k)
                             else:
                                 k += 1
+                    """
 
                     for k in range(len(row)):
                         dem_ng = dem[row[k] - 1 : row[k] + 2, col[k] - 1 : col[k] + 2]  # neighbourhood DEM
@@ -837,6 +875,8 @@ def calculation(args):
                         else:
                             processedCells[(row[k], col[k])] = 1
 
+                        childIndex[(row[k], col[k])] = len(
+                            childList)  # important that it's before childlist.append(...)
                         childList.append(
                             Cell(
                                 row[k],
@@ -942,6 +982,7 @@ def calculation(args):
                     cellList = childList
                     genList.append(cellList)
                     childList = []
+                    childIndex = {}
 
                     if thalwegParameters["thalwegSaveRam"]:
                         colThalwegLists.append(colThalwegGen)
@@ -1025,6 +1066,13 @@ def calculation(args):
                         listsRelId = {}
 
                     else:
+                        if str(int(startcellId)) in list(thalwegParameters["videoRelId"].split("|")):
+                            saveGenerationVideoData(generationListRelId,
+                                                    startcellId,
+                                                    dem,
+                                                    rasterAttributes,
+                                                    outDir=thalwegParameters["thalwegDir"] / "videoData",
+                                                    variable=thalwegParameters["videoDataVariable"])
                         path = Path(
                             dem,
                             row_list[startcell_idx],
@@ -1227,13 +1275,15 @@ def calculation(args):
             release[zDeltaArray > 0] = 0
             row_list, col_list = get_start_idx(dem, release, relIdArray, calcThalweg)
 
-        zDeltaPathList.append(zDeltaPathArray)
+        if "zDeltaSum" in outputs:
+            zDeltaPathList.append(zDeltaPathArray)
         del processedCells, zDeltaPathArray
 
         startcell_idx += 1
 
-    for zDeltaPathArray in zDeltaPathList:
-        zDeltaSumArray += zDeltaPathArray
+    if "zDeltaSum" in outputs:
+        for zDeltaPathArray in zDeltaPathList:
+            zDeltaSumArray += zDeltaPathArray
 
     gc.collect()
     return (
@@ -1439,3 +1489,129 @@ def reverseTopology(topologyDict):
             reverseGraph[child].append(parentNode)
 
     return reverseGraph
+
+
+def saveGenerationVideoData(genList, relId, dem, rasterAttributes,
+                            outDir, variable="z_delta"):
+    """
+    Saves, per generation, both a cumulative raster snapshot (history) and
+    a generation-only raster snapshot (just the cells of that generation),
+    plus the center-of-flux (thalweg) position, for a given relId.
+    Before saving, both the raster stacks and the row
+    coordinates are flipped along the row axis (upside down), so the saved
+    ``.npz`` data is already in the same up/down orientation as the
+    other com4FlowPy output rasters.
+
+
+    Parameters
+    -----------
+    genList: list
+        list of cell lists (one list per generation), as built in calculation()
+    relId: int
+        release ID for which the data is saved
+    dem: np.array
+        DEM of the tile (used for the array shape)
+    rasterAttributes: dict
+        contains, among other things, "extentTile" for converting tile
+        coordinates to full-DEM coordinates
+    outDir: pathlib.Path
+        target directory
+    variable: str
+        "z_delta" or "flux" (attribute name of the Cell class)
+
+    Returns
+    ---------
+    outFile: pathlib.Path
+        Path to the saved `video data file.
+    """
+    ((startY, _), (startX, _)) = rasterAttributes["extentTile"]
+    nGen = len(genList)
+    nRows = dem.shape[0]
+
+    frameStackHistory = np.zeros((nGen, *dem.shape), dtype=np.float32)  # cumulative
+    frameStackCurrent = np.zeros((nGen, *dem.shape), dtype=np.float32)  # this generation only
+    rowCoF = np.zeros(nGen, dtype=np.float32)
+    colCoF = np.zeros(nGen, dtype=np.float32)
+    rowCoE = np.zeros(nGen, dtype=np.float32)
+    colCoE = np.zeros(nGen, dtype=np.float32)
+
+    runningMax = np.zeros_like(dem, dtype=np.float32)
+
+    for gen, cellList in enumerate(genList):
+        if len(cellList) == 0:
+            frameStackHistory[gen] = runningMax
+            # the thalweg location is not moved compared to the generation before
+            rowCoF[gen] = rowCoF[gen - 1] if gen > 0 else np.nan
+            colCoF[gen] = colCoF[gen - 1] if gen > 0 else np.nan
+            rowCoE[gen] = rowCoE[gen - 1] if gen > 0 else np.nan
+            colCoE[gen] = colCoE[gen - 1] if gen > 0 else np.nan
+            continue
+
+        rowArr = []
+        colArr = []
+        valArr = []
+        fluxWeights = []
+        energyWeights = []
+
+        for cell in cellList:
+            rowArr.append(cell.rowindex)
+            colArr.append(cell.colindex)
+            valArr.append(getattr(cell, variable))
+            fluxWeights.append(cell.flux)
+            energyWeights.append(cell.flowEnergy)
+
+        rowArr = np.asarray(rowArr)
+        colArr = np.asarray(colArr)
+        valArr = np.asarray(valArr)
+        fluxWeights = np.asarray(fluxWeights)
+        energyWeights = np.asarray(energyWeights)
+
+        # generation-only snapshot (not cumulative)
+        currentArr = np.zeros_like(dem, dtype=np.float32)
+        currentArr[rowArr, colArr] = valArr
+        frameStackCurrent[gen] = currentArr
+
+        # cumulative snapshot (history, including current generation)
+        runningMax[rowArr, colArr] = np.maximum(runningMax[rowArr, colArr], valArr)
+        frameStackHistory[gen] = runningMax
+
+        # center of flux (weighted average position, weighted by flux)
+        if fluxWeights.sum() > 0:
+            rowCoF[gen] = np.average(rowArr, weights=fluxWeights)
+            colCoF[gen] = np.average(colArr, weights=fluxWeights)
+        else:
+            rowCoF[gen] = np.average(rowArr)
+            colCoF[gen] = np.average(colArr)
+
+        # center of energy
+        if energyWeights.sum() > 0:
+            rowCoE[gen] = np.average(rowArr, weights=energyWeights)
+            colCoE[gen] = np.average(colArr, weights=energyWeights)
+        else:
+            rowCoE[gen] = np.average(rowArr)
+            colCoE[gen] = np.average(colArr)
+
+    # --- flip everything from the simulation's internal (upside-down)
+    # row orientation to the standard output orientation, BEFORE applying
+    # the tile-to-full-DEM offset ---------------------------------------
+    frameStackHistory = np.flip(frameStackHistory, axis=1)
+    frameStackCurrent = np.flip(frameStackCurrent, axis=1)
+
+    rowCoF = (nRows - 1) - rowCoF
+    rowCoE = (nRows - 1) - rowCoE
+
+    rowCoFFull = rowCoF + startY
+    colCoFFull = colCoF + startX
+    rowCoEFull = rowCoE + startY
+    colCoEFull = colCoE + startX
+
+    outDir = pathlib.Path(outDir)
+    outDir.mkdir(parents=True, exist_ok=True)
+    outFile = outDir / f"videoData_{variable}_{int(relId)}.npz"
+    np.savez_compressed(outFile,
+                        framesHistory=frameStackHistory,
+                        framesCurrent=frameStackCurrent,
+                        rowCoF=rowCoFFull, colCoF=colCoFFull,
+                        rowCoE=rowCoEFull, colCoE=colCoEFull, )
+    log.info(f"Video data for relId {int(relId)} saved: {outFile}")
+    return outFile
