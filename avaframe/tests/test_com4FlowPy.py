@@ -604,6 +604,8 @@ def test_runCom4FlowPy(tmp_path):
         "cpuCount": "1",
         "tileSize": "15000",
         "tileOverlap": "5000",
+        "thalwegreleasearea": "False",
+        "calcThalweg": "False",
     }
     cfg["PATHS"] = {
         "outputFiles": "zDelta",
@@ -1493,6 +1495,241 @@ def test_checkVariableInputParameters_varExponent(monkeypatch):
         com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
 
 
+def test_get_start_idx_sortedByAltitudeDescending():
+    """ test that release pixels are returned sorted by altitude, highest first """
+    dem = np.array([
+        [100.0, 200.0, 150.0],
+        [300.0, 50.0, 400.0],
+        [10.0, 500.0, 20.0],
+    ])
+    release = np.array([
+        [1, 1, 0],
+        [1, 0, 1],
+        [0, 1, 0],
+    ])
+
+    row_list, col_list = flowCore.get_start_idx(dem, release)
+
+    # release pixels are at (0,0)=100, (0,1)=200, (1,0)=300, (1,2)=400, (2,1)=500
+    # sorted descending by altitude: 500, 400, 300, 200, 100
+    expectedOrder = [(2, 1), (1, 2), (1, 0), (0, 1), (0, 0)]
+    actualOrder = list(zip(row_list, col_list))
+
+    assert actualOrder == expectedOrder
+
+
+def test_get_start_idx_noReleasePixels():
+    """ test that empty row/col lists are returned when there are no release pixels """
+    dem = np.array([[100.0, 200.0], [300.0, 400.0]])
+    release = np.zeros((2, 2), dtype=int)
+
+    row_list, col_list = flowCore.get_start_idx(dem, release)
+
+    assert len(row_list) == 0
+    assert len(col_list) == 0
+
+
+def test_get_start_idx_singleReleasePixel():
+    """ test behavior with exactly one release pixel """
+    dem = np.array([[10.0, 20.0], [30.0, 40.0]])
+    release = np.array([[0, 0], [0, 1]])
+
+    row_list, col_list = flowCore.get_start_idx(dem, release)
+
+    assert list(row_list) == [1]
+    assert list(col_list) == [1]
+
+
+def test_get_start_idx_sortedByRelIdWhenThalwegRequested():
+    """ test that with relIdArray and calcThalweg=True, pixels are grouped/sorted by release Id
+    (descending), rather than purely by altitude
+    """
+    dem = np.array([
+        [100.0, 200.0, 150.0],
+        [300.0, 50.0, 400.0],
+    ])
+    release = np.array([
+        [1, 1, 1],
+        [1, 0, 1],
+    ])
+    relIdArray = np.array([
+        [1, 2, 1],
+        [2, 0, 3],
+    ])
+
+    row_list, col_list = flowCore.get_start_idx(dem, release, relIdArray=relIdArray, calcThalweg=True)
+
+    # cells and their relId: (0,0)->1, (0,1)->2, (0,2)->1, (1,0)->2, (1,2)->3
+    # sorted primarily by relId descending: relId 3 first, then relId 2s, then relId 1s
+    resultRelIds = [relIdArray[r, c] for r, c in zip(row_list, col_list)]
+    assert resultRelIds == sorted(resultRelIds, reverse=True)
+
+    # relId 3 has exactly one cell -> must be (1,2)
+    assert (row_list[0], col_list[0]) == (1, 2)
+
+    # cells belonging to the same relId are contiguous in the output
+    idxRelId1 = [i for i, rid in enumerate(resultRelIds) if rid == 1]
+    assert idxRelId1 == list(range(min(idxRelId1), max(idxRelId1) + 1))
+    idxRelId2 = [i for i, rid in enumerate(resultRelIds) if rid == 2]
+    assert idxRelId2 == list(range(min(idxRelId2), max(idxRelId2) + 1))
+
+
+def test_get_start_idx_relIdArrayProvidedButCalcThalwegFalse():
+    """ test that relIdArray is ignored (falls back to altitude sort) when calcThalweg is False """
+    dem = np.array([
+        [100.0, 200.0],
+        [300.0, 400.0],
+    ])
+    release = np.array([
+        [1, 1],
+        [1, 1],
+    ])
+    relIdArray = np.array([
+        [5, 5],
+        [1, 1],
+    ])
+
+    row_list, col_list = flowCore.get_start_idx(dem, release, relIdArray=relIdArray, calcThalweg=False)
+
+    # falls back to pure altitude-descending sort, ignoring relIdArray
+    expectedOrder = [(1, 1), (1, 0), (0, 1), (0, 0)]
+    actualOrder = list(zip(row_list, col_list))
+    assert actualOrder == expectedOrder
+
+
+def test_split_release_evenSplit_byPixelCount():
+    """ test the default (non-thalweg) branch: release cells split roughly evenly
+    by cumulative pixel count into `pieces` chunks
+    """
+    release = np.zeros((2, 10), dtype=int)
+    release[0, :] = 1  # 10 release pixels along the first row
+
+    release_list = flowCore.split_release(release, pieces=2, relIdArray=None, calcThalweg=False)
+
+    assert len(release_list) == 2
+    for piece in release_list:
+        assert piece.shape == release.shape
+
+    # every original release pixel appears in exactly one piece
+    totalReconstructed = sum(piece.sum() for piece in release_list)
+    assert totalReconstructed == release.sum()
+
+    # no overlap between pieces
+    combined = np.zeros_like(release)
+    for piece in release_list:
+        assert np.all((combined & piece) == 0)  # no pixel assigned twice
+        combined = combined | piece
+    np.testing.assert_array_equal(combined, release)
+
+
+def test_split_release_evenSplit_singlePiece():
+    """ test that pieces=1 returns the whole release layer unchanged (in a single piece) """
+    release = np.array([
+        [1, 0, 1],
+        [0, 1, 0],
+    ])
+
+    release_list = flowCore.split_release(release, pieces=1, relIdArray=None, calcThalweg=False)
+
+    assert len(release_list) == 1
+    np.testing.assert_array_equal(release_list[0], release)
+
+
+def test_split_release_evenSplit_unevenPixelCount():
+    """ test even splitting when the number of release pixels doesn't divide evenly into pieces """
+    release = np.zeros((1, 7), dtype=int)
+    release[0, :] = 1  # 7 release pixels, split into 3 pieces
+
+    release_list = flowCore.split_release(release, pieces=3, relIdArray=None, calcThalweg=False)
+
+    assert len(release_list) == 3
+    totalReconstructed = sum(piece.sum() for piece in release_list)
+    assert totalReconstructed == 7
+
+    # no overlaps, full reconstruction
+    combined = np.zeros_like(release)
+    for piece in release_list:
+        combined = combined | piece
+    np.testing.assert_array_equal(combined, release)
+
+
+def test_split_release_thalweg_groupsByReleaseId():
+    """ test the thalweg branch: cells belonging to the same relId stay together in one chunk,
+    and chunks are balanced by total cell count
+    """
+    release = np.ones((2, 6), dtype=int)
+    # 3 release areas of sizes 6, 4, 2
+    relIdArray = np.array([
+        [1, 1, 1, 2, 2, 2],
+        [1, 1, 1, 2, 3, 3],
+    ])
+
+    release_list = flowCore.split_release(release, pieces=2, relIdArray=relIdArray, calcThalweg=True)
+
+    assert len(release_list) == 2
+
+    # every cell belonging to a given relId must end up entirely within a single chunk
+    for relId in np.unique(relIdArray):
+        # find the mask of all cells belonging to this release Id
+        cellsWithThisId = (relIdArray == relId)
+
+        # count in how many of the output chunks these cells actually show up
+        numChunksContainingId = 0
+        for piece in release_list:
+            pixelsInThisChunk = piece[cellsWithThisId]
+            if np.any(pixelsInThisChunk > 0):
+                numChunksContainingId += 1
+
+        # a release area must not be split across multiple chunks
+        assert numChunksContainingId == 1
+
+    # every release pixel appears in exactly one piece, none lost/duplicated
+    combined = np.zeros_like(release)
+    for piece in release_list:
+        assert np.all((combined & piece) == 0)
+        combined = combined | piece
+    np.testing.assert_array_equal(combined, release)
+
+
+def test_split_release_thalweg_piecesClampedToUniqueIdCount():
+    """ test that pieces is clamped down to the number of unique release Ids when
+    there are fewer distinct release areas than requested pieces
+    """
+    release = np.array([
+        [1, 1],
+        [0, 0],
+    ])
+    relIdArray = np.array([
+        [1, 1],
+        [0, 0],
+    ])
+    # only 1 unique release id, but pieces=5 requested
+    release_list = flowCore.split_release(release, pieces=5, relIdArray=relIdArray, calcThalweg=True)
+
+    # should be clamped down to 1 chunk (np.minimum(pieces, len(uniqueIds)))
+    assert len(release_list) == 1
+    np.testing.assert_array_equal(release_list[0], release)
+
+
+def test_split_release_thalweg_balancesChunkSizes():
+    """ test that with several release areas of different sizes, the two most balanced
+    combinations of areas end up in different chunks (greedy balancing by count)
+    """
+    release = np.ones((1, 15), dtype=int)
+    # release areas of very different sizes: 10, 3, 2
+    relIdArray = np.array([[1] * 10 + [2] * 3 + [3] * 2])
+
+    release_list = flowCore.split_release(release, pieces=2, relIdArray=relIdArray, calcThalweg=True)
+
+    counts = [piece.sum() for piece in release_list]
+    assert sum(counts) == 15
+    # the big area (10 cells) should end up alone in one chunk since combining it with
+    # anything else would make that chunk more unbalanced (greedy assigns smallest chunk first)
+    assert 10 in counts
+    # other chunk should contain the two smaller areas (3+2=5)
+    assert 5 in counts
+
+
 if __name__ == "__main__":
     test_add_os()
     test_reverseTopology()
@@ -1512,3 +1749,14 @@ if __name__ == "__main__":
     test_getMaskedRasters()
     test_getTileEnds(tmpDir)
     test_tileRasterWithIndices(tmpDir)
+    test_get_start_idx_sortedByAltitudeDescending()
+    test_get_start_idx_noReleasePixels()
+    test_get_start_idx_singleReleasePixel()
+    test_get_start_idx_sortedByRelIdWhenThalwegRequested()
+    test_get_start_idx_relIdArrayProvidedButCalcThalwegFalse()
+    test_split_release_evenSplit_byPixelCount()
+    test_split_release_evenSplit_singlePiece()
+    test_split_release_evenSplit_unevenPixelCount()
+    test_split_release_thalweg_groupsByReleaseId()
+    test_split_release_thalweg_piecesClampedToUniqueIdCount()
+    test_split_release_thalweg_balancesChunkSizes()

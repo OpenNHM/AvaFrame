@@ -82,11 +82,19 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     if modelParameters["calcThalweg"]:
         modelParameters["thalwegReleaseArea"] = cfgSetup.getboolean("thalwegReleaseArea")
         modelParameters["thalwegSaveRam"] = cfgSetup.getboolean("thalwegSaveRam")
+        modelParameters["videoRelId"] = cfgSetup.get("videoRelId", fallback="")
+        modelParameters["videoDataVariable"] = cfgSetup.get("videoDataVariable")
     else:
         modelParameters["thalwegReleaseArea"] = False
         modelParameters["thalwegSaveRam"] = False
-    modelParameters["thalwegCenterOf"] = cfgSetup.get("thalwegCenterOf")
     modelParameters["thalwegVariables"] = cfgSetup.get("thalwegVariables")
+    modelParameters["thalwegCenterOf"] = cfgSetup.get("thalwegCenterOf")
+
+    if modelParameters["thalwegSaveRam"]:
+        if modelParameters["videoRelId"] != "":
+            message = f"If thalwegSaveRam is True, no video data is stored, please check the configuration settings!"
+            log.error(message)
+            raise ValueError(message)
 
     # modelParameters["infra"]  = cfgSetup["infra"]
     # modelParameters["forest"] = cfgSetup["forest"]
