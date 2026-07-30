@@ -243,6 +243,14 @@ The following variables are available:
 * ``zDeltaArray`` - velocity altitude of the path (2 dimensional array)
 * ``fluxArray`` - flux of the path (2 dimensional array)
 
+When a thalweg is computed and ``thalwegReleaseArea is True``, a GIF of the evolution of the flow path and the thalweg can be created.
+The data for the GIF are stored, when a respective ``videoRelId`` is selected.
+To create the GIF, modify ``out3Plot/(local_)outCom4GifCfg.ini`` respectively and run:
+
+  ::
+
+    python runScripts/runCreateGIFCom4.py
+
 
 vi) tiling and multiprocessing parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
