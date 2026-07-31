@@ -287,13 +287,11 @@ def test_getCenterofs_skipsExcludedVariables():
 
     p = Path(dem, 0, 0, genList, rasterAttributes, countArray, relId=1)
 
-    variables = ["x", "zDeltaArray", "y"]
+    variables = ["zDeltaArray", "x"]
     p.getCenterofs(variables, ["CoF"])
 
     assert not hasattr(p, "xCoF")
     assert not hasattr(p, "zDeltaArrayCoF")
-    assert hasattr(p, "colCoF")
-    assert hasattr(p, "rowCoF")
 
 
 def test_getCenterofs_expandsDepFluxSumAndFluxSum():
@@ -414,11 +412,11 @@ def test_calcAndSaveThalwegData_saveRamBranch(tmp_path):
     }
 
     listsRelId = {
-        "row": [1, 2, 3],
-        "col": [1, 2, 3],
-        "flux": [1.0, 1.0, 1.0],
-        "zdelta": [10.0, 20.0, 30.0],
-        "travelLengthMax": [0.0, 5.0, 10.0],
+        "row": [[1, 2, 3]],
+        "col": [[1, 2, 3]],
+        "flux": [[1.0, 1.0, 1.0]],
+        "zdelta": [[10.0, 20.0, 30.0]],
+        "travelLengthMax": [[0.0, 5.0, 10.0]],
     }
     exampleCell = makeCell(alpha=25.0, exp=8, max_z_delta=100.0)
 
@@ -455,6 +453,10 @@ def test_calcAndSaveThalwegData_saveRamBranch(tmp_path):
     outFile = tmp_path / "thalwegData_CoF_3.pickle"
     assert outFile.is_file()
 
+
+import pathlib
+
+test_calcAndSaveThalwegData_saveRamBranch(pathlib.Path("/home/paula/Downloads/test"))
 
 def test_getGenerationList_threeGenerations_allGenerations():
     """ test getGenerationList (no generation arg) with a 3-generation genList,

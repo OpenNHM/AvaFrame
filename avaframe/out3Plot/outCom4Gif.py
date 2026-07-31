@@ -120,13 +120,18 @@ def figureToRgbArray(fig):
     return buf[..., :3].copy()
 
 
-def buildGlobalPalette(frameArrays, colors=256, sampleEvery=1):
+def buildGlobalPalette(frameArrays, colors=256, sampleEveryFrame=5, sampleEveryPixel=8):
     """
-    Build a single shared color palette from a sample of frames.
+    Build a single shared color palette from a subsample of frames and pixels.
 
     Using one global palette (instead of letting PIL quantize each GIF
     frame independently) prevents visible color flicker between frames,
     since every frame is then mapped onto the exact same set of colors.
+
+    Both frames and pixels within each frame are subsampled before
+    building the palette, since using all pixels of many full-resolution
+    frames can require more contiguous memory than PIL can allocate for
+    a single quantization image.
 
     Parameters
     ----------
@@ -134,10 +139,11 @@ def buildGlobalPalette(frameArrays, colors=256, sampleEvery=1):
         List of RGB frame arrays, each of shape (height, width, 3).
     colors : int, optional
         Number of palette colors (GIF hard limit is 256). Default 256.
-    sampleEvery : int, optional
-        Use only every Nth frame to build the palette (speeds this up
-        for long animations; the color content across frames from this
-        kind of plot is similar enough that subsampling is fine).
+    sampleEveryFrame : int, optional
+        Use only every Nth frame to build the palette. Default 5.
+    sampleEveryPixel : int, optional
+        Use only every Nth pixel (in both height and width) within each
+        sampled frame. Default 8.
 
     Returns
     -------
@@ -145,10 +151,26 @@ def buildGlobalPalette(frameArrays, colors=256, sampleEvery=1):
         A palette-mode image whose palette should be reused for all
         frames via ``Image.quantize(palette=...)``.
     """
-    sampledFrames = frameArrays[::max(1, sampleEvery)]
-    stacked = np.concatenate([f.reshape(-1, 3) for f in sampledFrames], axis=0)
-    # PIL needs a 2D "image" to quantize from
-    paletteSourceImg = Image.fromarray(stacked.reshape(1, -1, 3).astype(np.uint8), mode="RGB")
+    sampledFrames = frameArrays[::max(1, sampleEveryFrame)]
+
+    # subsample pixels within each frame too, so the total number of
+    # pixels stays small regardless of frame resolution or frame count
+    pixelSamples = [
+        frame[::sampleEveryPixel, ::sampleEveryPixel, :].reshape(-1, 3)
+        for frame in sampledFrames
+    ]
+    stacked = np.concatenate(pixelSamples, axis=0)
+
+    # reshape into a reasonably square-ish image instead of a single row,
+    # which avoids extremely wide (1, N) images that some PIL/C backends
+    # fail to allocate contiguous memory for
+    nPixels = stacked.shape[0]
+    width = int(np.ceil(np.sqrt(nPixels)))
+    height = int(np.ceil(nPixels / width))
+    padded = np.zeros((height * width, 3), dtype=np.uint8)
+    padded[:nPixels] = stacked
+
+    paletteSourceImg = Image.fromarray(padded.reshape(height, width, 3), mode="RGB")
     paletteImg = paletteSourceImg.quantize(colors=colors, method=Image.MEDIANCUT)
     return paletteImg
 
