@@ -1104,6 +1104,7 @@ def calculation(args):
 
         else:
             cellList = []
+            cellIndex = {}
             cellList.append(startcell)
 
             if infraBool:
@@ -1132,24 +1133,37 @@ def calculation(args):
                     updateInfraDirGraph(cell.rowindex, cell.colindex)
 
                 # check if cell already exists
-                for i in range(idx, len(cellList)):  # Check if Cell already exists
-                    k = 0
-                    while k < len(row):
-                        if row[k] == cellList[i].rowindex and col[k] == cellList[i].colindex:
-                            cellList[i].add_os(flux[k])
-                            cellList[i].add_parent(cell)
+                newRow = []
+                newCol = []
+                newFlux = []
+                newZDelta = []
 
-                            if infraBool:
-                                updateInfraDirGraph(row[k], col[k], cell.rowindex, cell.colindex)
+                for r, c, f, zd in zip(row, col, flux, z_delta):
+                    key = (r, c)
 
-                            if z_delta[k] > cellList[i].z_delta:
-                                cellList[i].z_delta = z_delta[k]
-                            row = np.delete(row, k)
-                            col = np.delete(col, k)
-                            flux = np.delete(flux, k)
-                            z_delta = np.delete(z_delta, k)
-                        else:
-                            k += 1
+                    if key in cellIndex:
+                        cellExist = cellList[cellIndex[key]]
+                        cellExist.add_os(f)
+                        cellExist.add_parent(cell)
+
+                        if infraBool:
+                            updateInfraDirGraph(r, c, cellExist.rowindex, cellExist.colindex)
+
+                        if zd > cellExist.z_delta:
+                            cellExist.z_delta = zd
+
+                    else:
+                        newRow.append(r)
+                        newCol.append(c)
+                        newFlux.append(f)
+                        newZDelta.append(zd)
+
+                row = newRow
+                col = newCol
+                flux = newFlux
+                z_delta = newZDelta
+
+
                 for k in range(len(row)):
                     dem_ng = dem[row[k] - 1 : row[k] + 2, col[k] - 1 : col[k] + 2]  # neighbourhood DEM
 
@@ -1169,7 +1183,8 @@ def calculation(args):
                         processedCells[(row[k], col[k])] += 1
                     else:
                         processedCells[(row[k], col[k])] = 1
-
+                    cellIndex[(row[k], col[k])] = len(
+                        cellList)  # important that it's before childlist.append(...)
                     cellList.append(
                         Cell(
                             row[k],
