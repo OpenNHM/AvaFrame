@@ -1011,7 +1011,9 @@ def savePartDictToPickle(partDict, fName):
     fi.close()
 
 
-def createAssetsRasterFromParticleLocations(particlesTimeArrays, dem, uniqueAssets, assetsValues):
+def createAssetsRasterFromParticleLocations(
+    particlesTimeArrays, dem, uniqueAssets, assetsValues, noAssetsClass=-1
+):
     """create a raster indicating particle trajectories colorcoded with assets classes, highest overrides lower classes
 
      Parameters
@@ -1023,7 +1025,10 @@ def createAssetsRasterFromParticleLocations(particlesTimeArrays, dem, uniqueAsse
     uniqueAssets: list
         list of assets class values sorted from low to high
     assetsValues: dict
-        dictionary with for each infrastructure class value the affected cell numbers
+        dictionary with affected cell numbers for each asset class
+    noAssetsClass: int
+        optional: value that is set for those parts of particle trajectories that do not affect any assetsValues
+        default it is set to -1
 
     Returns
     ---------
@@ -1069,7 +1074,7 @@ def createAssetsRasterFromParticleLocations(particlesTimeArrays, dem, uniqueAsse
 
     # set all locations where particles were but not affecting assets to class -1.0
     testArray = np.full((dem["header"]["nrows"], dem["header"]["ncols"]), np.nan)
-    testArray[xyIndAllUnique[:, 1], xyIndAllUnique[:, 0]] = -1.0
+    testArray[xyIndAllUnique[:, 1], xyIndAllUnique[:, 0]] = noAssetsClass
     particleAssets = np.where(~np.isnan(particleAssets), particleAssets, testArray)
 
     return particleAssets, particlesTimeArrays

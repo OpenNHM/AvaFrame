@@ -375,7 +375,11 @@ def test_createAssetsRasterFromParticleLocations():
 
     # call function to be tested
     particleAssets, particleTimeArrays = particleTools.createAssetsRasterFromParticleLocations(
-        particlesTimeArrays, dem, uniqueAssets, assetsValues
+        particlesTimeArrays,
+        dem,
+        uniqueAssets,
+        assetsValues,
+        -1,
     )
 
     particleAssetsTest = np.zeros((8, 10)) * np.nan
