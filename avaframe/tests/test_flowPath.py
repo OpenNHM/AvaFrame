@@ -454,10 +454,6 @@ def test_calcAndSaveThalwegData_saveRamBranch(tmp_path):
     assert outFile.is_file()
 
 
-import pathlib
-
-test_calcAndSaveThalwegData_saveRamBranch(pathlib.Path("/home/paula/Downloads/test"))
-
 def test_getGenerationList_threeGenerations_allGenerations():
     """ test getGenerationList (no generation arg) with a 3-generation genList,
     including a generation that reuses cell1 from generation 0
