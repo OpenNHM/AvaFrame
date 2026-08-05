@@ -248,14 +248,16 @@ To run
 particle assets information
 =============================
 :py:mod:`out3Plot.particleAnalysisPlots` can also be used to create a plot that shows the cells affected by the particle
-trajectories color-coded according to different assets classes (from high to low). This functionality is implemented only
-for :py:mod:`com1DFA.com1DFA` and relies on particle dictionaries that are saved for each simulation run. For this,
-adding *particles* to the ``resType`` and adjusting the desired saving time step in ``tSteps`` (see Note) in your local copy
-of ```com1DFACfg.ini`` is required. To reduce the amount of data that is saved, consider only exporting the required
-particle properties by setting ``exportParticlePorperties`` to: *ID|indXDEM|indYDEM|x|y|z|inCellDEM|nPart*.
+trajectories color-coded according to different assets classes (from high to low). Cells that are affected by particle
+trajectories but not interacting assets are also shown (semi-transparent white), their default value is -1. This
+functionality is implemented only for :py:mod:`com1DFA.com1DFA` and relies on particle dictionaries that are saved
+for each simulation run. For this, adding *particles* to the ``resType`` and adjusting the desired saving time
+step in ``tSteps`` (see Note) in your local copy of ``com1DFACfg.ini`` is required. To reduce the amount of data
+that is saved, consider only exporting the required particle properties by setting ``exportParticlePorperties``
+to: *ID|indXDEM|indYDEM|x|y|z|inCellDEM|nPart*.
 In addition, an assets raster file in ``avalancheDir/Inputs/INFRA`` is required. Classes have to be > 0,
 negative and zero values are treated as no data values. Preferably, the extent and resolution of the provided
-assets raster should match the extent and resolution of the simulation DEM. If extents or resolution do not match,
+assets raster should match the extent and resolution of the simulation DEM. If extent and/or resolution do not match,
 remeshing will be performed. However, this can potentially introduce geometrical artefacts in the assets layer
 (a corresponding warning will be written to the log-file). In order to avoid introducing new classes as a result
 of interpolation, the default setting in the corresponding run script (parameter ``remeshInterpMethod``)

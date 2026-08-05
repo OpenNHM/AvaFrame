@@ -16,6 +16,9 @@ import avaframe.in3Utils.fileHandlerUtils as fU
 from avaframe.in3Utils import logUtils
 
 # +++++++++REQUIRED+++++++++++++
+# set the code for parts of particle trajectories that do not affect any assets class
+# if not provided, default -1 is used
+noAssetsClass = -1
 # if particle locations are saved e.g. every second, the resulting assets raster might
 # show gaps as particles travelled further within this time step, to avoid these gaps
 # option to perform interpolation - can lead to errors if particle locations too spaced out
@@ -26,8 +29,14 @@ interpolateParticlesTrajectoriesFlag = True
 cellSizeFactor = 0.5
 resizeThreshold = 3
 meshCellSizeThreshold = 0.001
-useCompression = True
+useCompression = True # only active with .tif outputFileType, no .asc compression
 remeshInterpMethod = "nearest"
+# ++++++++++++++++++++++++++++++
+
+# +++++++++OPTIONAL+++++++++++++
+# choose whether outputFileType = '.tif', '.asc' or 'default'
+# 'default' resolves to the file type of the utilized input DEM
+outputFileType = '.tif'
 # ++++++++++++++++++++++++++++++
 
 # load avalanche directory
@@ -93,12 +102,25 @@ for index, row in inputsDF.iterrows():
 
     # derive info on which particles interacted with infrastructure
     particleAssets, particleTimeInfo = pT.createAssetsRasterFromParticleLocations(
-        particleTimeInfo, dem, uniqueAssets, assetsValues
+        particleTimeInfo,
+        dem,
+        uniqueAssets,
+        assetsValues,
+        noAssetsClass,
     )
+
+    if outputFileType in ['.asc', '.tif']:
+        _extMap = {".asc": "AAIGrid", ".tif": "GTiff"}
+        dem["header"]["driver"] = _extMap[outputFileType]
+    elif outputFileType != 'default':
+        msg = f"{outputFileType} is not a valid option for 'outputFileType' --> use any of ['default','.asc','.tif']"
+        raise ValueError(msg)
+
     # export raster
     rU.writeResultToRaster(
         dem["header"], particleAssets, (outDir / ("particleAssetsInfo_%s" % simName)), flip=True
     )
+    
 
     # create plot
     plotName = "particleAssetsInfo_%s" % simName
