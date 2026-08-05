@@ -5,11 +5,15 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.colors as mcolors
 import matplotlib.patheffects as pe
+from avaframe.runScripts.runComputeDist import outFile
+from matplotlib.gridspec import GridSpec
+from matplotlib.collections import LineCollection
 import logging
 import os
 import pathlib
 from matplotlib.colors import LightSource
 from PIL import Image
+from cmcrameri import cm as cmapCrameri
 
 import avaframe.in2Trans.rasterUtils as rasterUtils
 from avaframe.in3Utils import cfgUtils
@@ -75,7 +79,6 @@ def searchResFolder(avalanchedir, module="com4FlowPy"):
         simHash = ""
     elif len(resFolders) == 1:
         oneResFolder = True
-        print(str(resFolders[0]).split("res_", 1))
         simHash = str(resFolders[0]).split("res_", 1)[1]
     return oneResFolder, simHash
 
@@ -258,7 +261,7 @@ def addThalwegExtension(ax, avaProfileMass, rasterHeader):
         avaProfileMass["x"], avaProfileMass["y"], rasterHeader
     )
 
-    ax.plot(
+    topLine, = ax.plot(
         colProfile[: indStart + 1],
         rowProfile[: indStart + 1],
         "-b.",
@@ -268,7 +271,7 @@ def addThalwegExtension(ax, avaProfileMass, rasterHeader):
         lw=2.5,
         path_effects=[pe.Stroke(linewidth=2, foreground="b"), pe.Normal()],
     )
-    ax.plot(
+    bottomLine, = ax.plot(
         colProfile[indEnd:],
         rowProfile[indEnd:],
         "-g.",
@@ -278,7 +281,7 @@ def addThalwegExtension(ax, avaProfileMass, rasterHeader):
         lw=2.5,
         path_effects=[pe.Stroke(linewidth=2, foreground="g"), pe.Normal()],
     )
-    ax.plot(
+    centerLine, = ax.plot(
         colProfile[indStart: indEnd + 1],
         rowProfile[indStart: indEnd + 1],
         "-k.",
@@ -288,9 +291,118 @@ def addThalwegExtension(ax, avaProfileMass, rasterHeader):
         lw=2.5,
         path_effects=[pe.Stroke(linewidth=2, foreground="k"), pe.Normal()],
     )
+    return topLine, bottomLine, centerLine
 
 
-def makeGenerationVideo(cfg=None, avalancheDir=""):
+def getProfileData(dem, profilePickleData):
+    """
+    Compute travel distance (s), elevation (z) and get energy-height
+    (zDelta) values per generation.
+
+    Parameters
+    ----------
+    dem : dict
+        DEM dictionary containing header and the raster data
+    profilePickleData : dict
+        Thalweg data loaded from the pickle file, must contain the x, y and zDelta values
+        per generation/iteration, (in real-world coordinates.)
+
+    Returns
+    -------
+    profile: dict
+        contains numpy arrays with:
+        x: x-coordinates of thalweg
+        y: y-coordinates of thalweg
+        zDelta: zDelta values for each thalweg
+        s: Cumulative travel distance along the (x, y) trajectory, one
+           value per generation, starting at 0.
+        z: DEM elevation at each (x, y) position, one value per generation,
+           obtained via bilinear interpolation on the DEM.
+    """
+    x = np.asarray(profilePickleData["x"], dtype=np.float64)
+    y = np.asarray(profilePickleData["y"], dtype=np.float64)
+    zDelta = np.asarray(profilePickleData["zDelta"], dtype=np.float32)
+
+    # cumulative travel distance: s[0] = 0, then running sum of
+    # step-wise Euclidean distances between consecutive (x, y) points
+    dx = np.diff(x)
+    dy = np.diff(y)
+    stepDist = np.sqrt(dx ** 2 + dy ** 2)
+    s = np.concatenate([[0.0], np.cumsum(stepDist)]).astype(np.float32)
+
+    # project (x, y) onto the DEM to get elevation z, via bilinear interpolation
+    points = {"x": x, "y": y}
+    points, ioob = gT.projectOnRaster(dem, points, interp="bilinear")
+    if ioob > 0:
+        log.warning(f"{ioob} thalweg points were out of bounds of the DEM during elevation projection")
+    z = points["z"].astype(np.float32)
+
+    profile = {"x": x, "y": y, "z": z, "s": s, "zDelta": zDelta}
+
+    return profile
+
+
+def setup2DProfileAxis(ax2, sFull, zFull, zDeltaFull, sharedCmap, norm):
+    """
+    Set up a 2D profile axis (elevation and z + zDelta vs.
+    travel distance).
+
+    Parameters
+    ----------
+    ax2 : matplotlib.axes.Axes
+        Axes to set up.
+    sFull, zFull, zDeltaFull : numpy.ndarray
+        travel distance, elevation and zDelta arrays that are plotted.
+
+    Returns
+    -------
+    zLine, zVelLine : matplotlib.lines.Line2D
+        Line artists for the elevation profile and the z + zDelta
+        ("velocity altitude") profile, to be updated per frame.
+    currentProfilePoint : matplotlib.lines.Line2D
+        Marker artist for the current generation's position on the
+        profile.
+    """
+    # set general axis limits
+    validMask = ~np.isnan(zFull)
+    sMargin = 0.05 * (np.nanmax(sFull) - np.nanmin(sFull) + 1e-6)
+    zMin = np.nanmin(zFull[validMask])
+    zMax = np.nanmax((zFull + zDeltaFull)[validMask])
+    zMargin = 0.05 * (zMax - zMin + 1e-6)
+
+    ax2.set_xlim(np.nanmin(sFull) - sMargin, np.nanmax(sFull) + sMargin)
+    ax2.set_ylim(zMin - zMargin, zMax + zMargin)
+    ax2.set_xlabel("Travel distance (horizontally projected) [m]")
+    ax2.set_ylabel("Elevation [m]")
+    # ax2.set_title("Thalweg elevation and energy line")
+
+    ax2.hlines(zFull[validMask][-1], 0, sFull[-1],
+               colors="grey", linestyles="dotted", linewidths=1,
+               label="Runout length")
+    ax2.vlines(0, zFull[validMask][-1], zFull[validMask][0],
+               colors="grey", linestyles="dashed", linewidths=1,
+               label="Elevation drop")
+    (zLine,) = ax2.plot([], [], color="black", lw=2, label="Elevation z")
+    zVelDummy = ax2.plot([], [], color="blue", lw=2, label="Energy line height (+ z) \n(color indicates velocity)")
+
+    segments = np.empty((0, 2, 2))
+
+    (currentProfilePoint,) = ax2.plot([], [], "o", color="k", markersize=8,
+                                      markeredgecolor="white", markeredgewidth=1.5,
+                                      zorder=20)
+    ax2.legend(loc="upper right")
+    zVelLine = LineCollection(
+        segments,
+        cmap=sharedCmap,
+        norm=norm,
+        linewidth=3,
+    )
+    ax2.add_collection(zVelLine)
+
+    return zLine, zVelLine, currentProfilePoint
+
+
+def makeGenerationVideo(cfg=None, avalancheDir="", ax=None):
     """
     Create an animated GIF of com4FlowPy generation data for one release ID.
     The animation is saved as a GIF file to disk
@@ -317,6 +429,8 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
     cfgHS = cfg["HILLSHADE"]
     cfgGen = cfg["GENERAL"]
     cfgPath = cfg["PATH"]
+
+    showProfilePanel = cfgGen.getboolean("show2DProfilePanel", fallback=True)
 
     if avalancheDir == "":
         # Load avalanche directory from general configuration file
@@ -355,9 +469,14 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
 
     npzFile = videoDataDir / f"videoData_{videoDataVariableFile}_{str(relId)}.npz"
 
+    if showProfilePanel:
+        outFile2D = "2D"
+    else:
+        outFile2D = ""
+
     if cfgPath.get("outVideoPath", fallback="") == "" or cfgPath.get("outVideoPath", fallback="") is None:
         videoOutputDir = outDir / "reports"
-        outFile = videoOutputDir / f"videoData_{resHash}_{videoDataVariable}_{str(relId)}_{centerOf}.gif"
+        outFile = videoOutputDir / f"videoData{outFile2D}_{resHash}_{videoDataVariable}_{str(relId)}_{centerOf}.gif"
     else:
         outFile = cfgPath["outVideoPath"]
 
@@ -379,18 +498,16 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
             frameStackCurrent[gen] = (currArr * 2 * 9.81) ** 0.5
             frameStackHistory[gen] = (histArr * 2 * 9.81) ** 0.5
 
+    demDict = rasterUtils.readRaster(demFile)
+
     if centerOf.lower() == "coe":
         coRow = data["rowCoE"]
         coCol = data["colCoE"]
+        centerOfPickle = "CoE"
     else:
         coRow = data["rowCoF"]
         coCol = data["colCoF"]
-
-    demDict = rasterUtils.readRaster(demFile)
-    dem = np.flipud(demDict["rasterData"])
-    cellSize = demDict["header"]["cellsize"]
-    hillshade = addHillshadeSimple(dem, cellSize,
-                                   cfgHS)
+        centerOfPickle = "CoF"
 
     if gensPerFrame > 1:
         nFramesOut = int(np.ceil(len(frameStackHistory) / gensPerFrame))
@@ -399,11 +516,28 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
         coRow = coRow[::gensPerFrame][:nFramesOut]
         coCol = coCol[::gensPerFrame][:nFramesOut]
 
+    if showProfilePanel:
+        # read thalweg data and also use subset (generation per frame)
+        profilePicklePath = thalwegDataDir / f"thalwegData_{centerOfPickle}_{relId}.pickle"
+        thalwegData = np.load(profilePicklePath, allow_pickle=True)
+
+        profile = getProfileData(
+            demDict, thalwegData
+        )
+
+        if gensPerFrame > 1:
+            sProfile = profile["s"][::gensPerFrame][:nFramesOut]
+            zProfile = profile["z"][::gensPerFrame][:nFramesOut]
+            zDeltaProfile = profile["zDelta"][::gensPerFrame][:nFramesOut]
+
+    dem = np.flipud(demDict["rasterData"])
+    cellSize = demDict["header"]["cellsize"]
+    hillshade = addHillshadeSimple(dem, cellSize, cfgHS)
+
     # fixed color range, computed once from the GLOBAL max across all frames
     vmin = 0
     vmax = np.nanmax(frameStackHistory)
-
-    sharedCmap = plt.get_cmap(cfgGen.get("cmap"))
+    sharedCmap = cmapCrameri.batlow.reversed()
 
     norm = mcolors.Normalize(
         vmin=0,
@@ -423,84 +557,102 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
     historyPointsAlpha = cfgGen.getfloat("historyPointsAlpha")
     historyPointsSize = cfgGen.getfloat("historyPointsSize")
 
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(hillshade, cmap="gray", vmin=0, vmax=1)
+    if showProfilePanel:
+        fig = plt.figure(figsize=(14, 10))
 
-    imHistory = ax.imshow(np.where(frameStackHistory[0] > 0, frameStackHistory[0], np.nan),
-                          cmap=sharedCmap, norm=norm, alpha=historyAlpha)
-    imCurrent = ax.imshow(np.where(frameStackCurrent[0] > 0, frameStackCurrent[0], np.nan),
-                          cmap=sharedCmap, norm=norm, alpha=currentAlpha)
+        gs = GridSpec(
+            1, 2,
+            width_ratios=[1.0, 1.8],
+            wspace=0.5
+        )
 
-    thalwegLine, = ax.plot([], [], "-", color=thalwegColor, linewidth=thalwegWidth,
-                           alpha=0.8, label="Thalweg")
-    historyPoints = ax.scatter([], [], s=historyPointsSize, color=historyPointsColor,
-                               alpha=historyPointsAlpha, zorder=15,
-                               label="Center of flux (previous)")
-    currentPoint, = ax.plot([], [], "o", color=pointColor, markersize=pointSize,
-                            markeredgecolor="white", markeredgewidth=1.5,
-                            label="Center of flux (current generation)")
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[0, 1])
+
+    else:
+        fig, ax1 = plt.subplots(figsize=(8, 10))
+
+    # mapping panel
+    ax1.imshow(hillshade, cmap="gray", vmin=0, vmax=1)
+    imHistory = ax1.imshow(np.where(frameStackHistory[0] > 0, frameStackHistory[0], np.nan),
+                           cmap=sharedCmap, norm=norm, alpha=historyAlpha)
+    imCurrent = ax1.imshow(np.where(frameStackCurrent[0] > 0, frameStackCurrent[0], np.nan),
+                           cmap=sharedCmap, norm=norm, alpha=currentAlpha)
+
     imHistory.set_clim(vmin, vmax)
     imCurrent.set_clim(vmin, vmax)
 
-    titleText = ax.set_title("")
-    ax.legend(loc="upper right")
-    ax.set_axis_off()
+    thalwegLine, = ax1.plot([], [], "-", color=thalwegColor, linewidth=thalwegWidth,
+                            alpha=0.8, label="Thalweg (path so far)")
+    historyPoints = ax1.scatter([], [], s=historyPointsSize, color=historyPointsColor,
+                                alpha=historyPointsAlpha, zorder=15,
+                                label="Center of flux (history)")
+    currentPoint, = ax1.plot([], [], "o", color=pointColor, markersize=pointSize,
+                             markeredgecolor="white", markeredgewidth=1.5,
+                             label="Center of flux (current)")
 
-    # --- manual, fully static colorbar -------------------------------
-    # built as its own small axes with a fixed gradient image; never
-    # touched again after this point, so it is guaranteed not to change
-    fig.subplots_adjust(right=0.85)
-    cax = fig.add_axes([0.88, 0.15, 0.03, 0.7])  # [left, bottom, width, height]
+    titleText = ax1.set_title("")
+    ax1.legend(loc="lower left")
+    ax1.set_axis_off()
+
+    fig.canvas.draw()  # triggers layout computation
+
+    # get proper position for colorbar
+    p1 = ax1.get_position()
+    if showProfilePanel:
+        ax1.set_aspect("auto")
+        p2 = ax2.get_position()
+
+        ax1.set_position([
+            p1.x0,
+            p2.y0,
+            p1.width,
+            p2.height
+        ])
+        p1 = ax1.get_position()
+        gap = p2.x0 - p1.x1
+    else:
+        gap = 0.1
+
+    cax_width = 0.015
+    cax = fig.add_axes([
+        p1.x1 + 0.08 * gap,
+        p1.y0,
+        cax_width,
+        p1.height * 0.95,
+    ])
+
     gradient = np.linspace(vmin, vmax, 256).reshape(-1, 1)
-    cax.imshow(gradient, aspect="auto", cmap=sharedCmap,
-               origin="lower", extent=[0, 1, vmin, vmax])
+    cax.imshow(gradient, aspect="auto", cmap=sharedCmap, origin="lower",
+               extent=[0, 1, vmin, vmax])
     cax.set_xticks([])
     cax.yaxis.tick_right()
     cax.yaxis.set_label_position("right")
-
     cax.set_ylabel(clabelDict[cfgGen.get("videoDataVariable")])
-    # --------------------------------------------------------------
+
+    if showProfilePanel:
+        # --- right panel: growing z / zDelta profile ------------------------
+        zLine, zVelLine, currentProfilePoint = setup2DProfileAxis(ax2, sProfile, zProfile, zDeltaProfile, sharedCmap,
+                                                                  norm)
+
     contourHolder = {"artist": None}
-    frameArrays = []
+
 
     def update(gen):
-        """
-        Update all animated artists for a single animation frame (generation).
-
-        Parameters
-        ----------
-        gen : int
-            Index of the current animation frame, corresponding to the
-            (possibly subsampled) generation index.
-
-        Returns
-        -------
-        imHistory: matplotlib.artist.Artist
-            updated history imshow raster
-        imCurrent: matplotlib.artist.Artist
-            updated current imshow raster
-        thalwegLine: matplotlib.artist.Artist
-            updated thalweg line array
-        currentPoint: matplotlib.artist.Artist
-            updated current point
-        titleText: matplotlib.artist.Artist
-            updated title text
-        """
         history = frameStackHistory[gen]
         current = frameStackCurrent[gen]
 
         imHistory.set_data(np.where(history > 0, history, np.nan))
         imCurrent.set_data(np.where(current > 0, current, np.nan))
-
         imHistory.set_clim(vmin, vmax)
         imCurrent.set_clim(vmin, vmax)
 
         removeContour(contourHolder)
         mask = (current > 0).astype(np.float32)
         if mask.max() > 0:
-            contourHolder["artist"] = ax.contour(mask, levels=[0.5],
-                                                 colors=outlineColor,
-                                                 linewidths=outlineWidth)
+            contourHolder["artist"] = ax1.contour(mask, levels=[0.5],
+                                                  colors=outlineColor,
+                                                  linewidths=outlineWidth)
 
         validMask = ~np.isnan(coRow[: gen + 1])
         thalwegLine.set_data(coCol[: gen + 1][validMask], coRow[: gen + 1][validMask])
@@ -511,8 +663,39 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
 
         currentPoint.set_data([coCol[gen]], [coRow[gen]])
         titleText.set_text(f"Generation {gen * gensPerFrame}")
-        return imHistory, imCurrent, thalwegLine, currentPoint, titleText
 
+        artists = (imHistory, imCurrent, thalwegLine, historyPoints, currentPoint, titleText)
+
+        if showProfilePanel:
+            zLine.set_data(sProfile[: gen + 1], zProfile[: gen + 1])
+
+            x = sProfile[:gen + 1]
+            y = zProfile[:gen + 1] + zDeltaProfile[:gen + 1]
+
+            points = np.column_stack([x, y]).reshape(-1, 1, 2)
+
+            segments = np.concatenate(
+                [points[:-1], points[1:]],
+                axis=1,
+            )
+
+            zVelLine.set_segments(segments)
+
+            if videoDataVariable == "velocity":
+                values = np.sqrt(
+                    2 * 9.81 * zDeltaProfile[:gen]
+                )
+            else:
+                values = zDeltaProfile[:gen]
+
+            zVelLine.set_array(values)
+
+            currentProfilePoint.set_data([sProfile[gen]], [zProfile[gen] + zDeltaProfile[gen]])
+            artists += (zLine, zVelLine, currentProfilePoint)
+
+        return artists
+
+    frameArrays = []
     for gen in range(len(frameStackHistory)):
         update(gen)
         frameArrays.append(figureToRgbArray(fig))
@@ -520,16 +703,14 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
     # --- final extra frame: last generation state + thalweg extension ---
     if cfgGen.getboolean("showExtendedThalweg"):
         if cfgPath.get("extendedProfilePicklePath", "") == "":
-            if centerOf.lower() == "coe":
-                centerOfExt = "CoE"
-            else:
-                centerOfExt = "CoF"
-            extendedProfilePicklePath = thalwegDataDir / f"extended_thalwegData_{centerOfExt}_{relId}.pickle"
+            extendedProfilePicklePath = thalwegDataDir / f"extended_thalwegData_{centerOfPickle}_{relId}.pickle"
         else:
             extendedProfilePicklePath = cfgPath.get("extendedProfilePicklePath")
         avaProfileMass = loadExtendedProfile(extendedProfilePicklePath)
-        addThalwegExtension(ax, avaProfileMass, demDict["header"])
-        ax.legend(loc="upper right")
+        topLine, bottomLine, centerLine = addThalwegExtension(ax1, avaProfileMass, demDict["header"])
+        ax1.legend(
+            handles=[topLine, bottomLine, centerLine],
+            loc="lower left")
         fig.canvas.draw()
         frameArrays.append(figureToRgbArray(fig))  # just ONE extra frame now
     # -----------------------------------------------------------------
@@ -557,7 +738,7 @@ def makeGenerationVideo(cfg=None, avalancheDir=""):
         save_all=True,
         append_images=pilFrames[1:],
         duration=durations,
-        loop=1,  # play once, do not loop; use loop=0 for infinite looping
+        loop=0,  # play once, do not loop; use loop=0 for infinite looping
     )
 
     print(f"Video saved: {outFile}")
