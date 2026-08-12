@@ -116,7 +116,7 @@ def test_plane_parameter_extraction(scarp_test_data):
 
     # Extract plane parameters (as done in scarpAnalysisMain)
     planesZseed = list(map(float, SHPdata["zseed"]))
-    planesDip = list(map(float, SHPdata["dipdir"]))
+    planesDip = list(map(float, SHPdata["dipdir_azi"]))
     planesSlope = list(map(float, SHPdata["dipAngle"]))
 
     # Assertions
@@ -150,22 +150,22 @@ def test_plane_geometry_calculations():
     dip = 45.0  # degrees
 
     # Expected calculations
-    expected_betaX = math.tan(math.radians(slope)) * math.cos(math.radians(dip))
-    expected_betaY = math.tan(math.radians(slope)) * math.sin(math.radians(dip))
+    expected_betaX = -math.tan(math.radians(slope)) * math.sin(math.radians(dip))
+    expected_betaY = -math.tan(math.radians(slope)) * math.cos(math.radians(dip))
 
     # Assertions - these are the formulas used in calculateScarpWithPlanes
-    assert abs(expected_betaX - 0.408248) < 0.001, "betaX calculation should be correct"
-    assert abs(expected_betaY - 0.408248) < 0.001, "betaY calculation should be correct"
+    assert abs(expected_betaX + 0.408248) < 0.001, "betaX calculation should be correct"
+    assert abs(expected_betaY + 0.408248) < 0.001, "betaY calculation should be correct"
 
     # Test plane equation
     xSeed, ySeed, zSeed = 100.0, 200.0, 1000.0
     west, north = 150.0, 250.0  # Point coordinates
 
-    # Plane equation: z = zSeed + (north - ySeed) * betaY - (west - xSeed) * betaX
-    scarpVal = zSeed + (north - ySeed) * expected_betaY - (west - xSeed) * expected_betaX
+    # Plane equation: z = zSeed + (west - xSeed) * betaX + (north - ySeed) * betaY
+    scarpVal = zSeed + (west - xSeed) * expected_betaX + (north - ySeed) * expected_betaY
 
     # Manual calculation
-    expected_scarpVal = 1000.0 + (50.0 * expected_betaY) - (50.0 * expected_betaX)
+    expected_scarpVal = 1000.0 + (50.0 * expected_betaX) + (50.0 * expected_betaY)
 
     assert abs(scarpVal - expected_scarpVal) < 0.001, "Plane equation should be correct"
 
@@ -390,58 +390,20 @@ def test_scarpAnalysisMain_invalid_method(scarp_test_data, scarp_config, tmp_pat
         scarp.scarpAnalysisMain(scarp_config, str(test_dir))
 
 
-def test_scarpAnalysisMain_missing_required_attributes(scarp_test_data, tmp_path):
+def test_scarpAnalysisMain_missing_required_attributes():
     """Test that missing required plane attributes raises ValueError"""
-    # This test checks the error path when shapefile is missing required attributes
-    # We test this by examining that the code properly validates attribute existence
+    shpData = {"zseed": ["1000"], "dipdir_azi": [None], "dipAngle": ["30"]}
 
-    # For this test, we'd need to create a shapefile with missing attributes,
-    # which is complex. The code path is covered by the KeyError handling at lines 88-89
-    # in scarp.py. We verify the error message is descriptive.
-
-    # Create config
-    cfg = configparser.ConfigParser()
-    cfg["INPUT"] = {"useShapefiles": "True"}
-    cfg["SETTINGS"] = {"method": "plane"}
-
-    # The test data has correct attributes, so we can't test the error path easily
-    # without creating invalid shapefiles. We document this limitation.
-    assert True, "Error path for missing attributes tested through code inspection"
-
+    with pytest.raises(ValueError, match="dipdir_azi"):
+        scarp._extract_numeric_attributes(shpData, ["zseed", "dipdir_azi", "dipAngle"])
 
 def test_error_message_attribute_names():
-    """Test that error messages reference correct attribute names"""
-    # This test verifies that error messages in scarp.py reference
-    # the same attribute names that are actually used in the code
-
+    """Test that scarp.py references correct attribute names"""
     import avaframe.com6RockAvalanche.scarp as scarp_module
 
-    # Read the scarp.py file to check error messages
     scarp_path = pathlib.Path(scarp_module.__file__)
     scarp_content = scarp_path.read_text()
 
-    # Check line 90 error message
-    line_90_match = None
-    for i, line in enumerate(scarp_content.split("\\n"), 1):
-        if i == 90:
-            line_90_match = line
-            break
-
-    # The error message should reference 'dipAngle' not 'dipangle'
-    if line_90_match:
-        assert (
-            "'dipAngle'" in line_90_match or "'dipangle'" in line_90_match
-        ), f"Line 90 should reference dipAngle attribute: {line_90_match}"
-
-    # Check line 121 error message
-    line_121_match = None
-    for i, line in enumerate(scarp_content.split("\\n"), 1):
-        if i == 121:
-            line_121_match = line
-            break
-
-    # The error message should reference 'rotAngle' not 'rotangle'
-    if line_121_match:
-        assert (
-            "'rotAngle'" in line_121_match or "'rotangle'" in line_121_match
-        ), f"Line 121 should reference rotAngle attribute: {line_121_match}"
+    assert "dipdir_azi" in scarp_content, "scarp.py should reference dipdir_azi"
+    assert "dipAngle" in scarp_content, "scarp.py should reference dipAngle"
+    assert "rotAngle" in scarp_content, "scarp.py should reference rotAngle"

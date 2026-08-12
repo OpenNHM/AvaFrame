@@ -14,6 +14,70 @@ import avaframe.in2Trans.rasterUtils as IOf
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
+def _extract_numeric_attributes(shpData, requiredAttributes):
+    """Validate and extract required numeric shapefile attributes.
+
+    Parameters
+    ----------
+    shpData : dict
+        Shapefile data returned by SHP2Array.
+    requiredAttributes : list of str
+        Attribute names that must be present and contain numeric values.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping each required attribute name to a list of floats.
+
+    Raises
+    ------
+    ValueError
+        If an attribute is missing, set to None, or contains non-numeric values.
+    """
+    missingAttributes = [
+        attr for attr in requiredAttributes
+        if attr not in shpData
+        or shpData.get(attr) is None
+        or any(value is None for value in shpData[attr])
+    ]
+
+    if missingAttributes:
+        raise ValueError(
+            f"Required attribute(s) {missingAttributes} not found in shapefile. "
+            f"Required fields are: {requiredAttributes}."
+        )
+
+    try:
+        return {
+            attr: list(map(float, shpData[attr]))
+            for attr in requiredAttributes
+        }
+    except (TypeError, ValueError) as e:
+        raise ValueError(
+            f"Required shapefile attributes {requiredAttributes} must contain valid numeric values."
+        ) from e
+
+
+
+def _geological_azimuth_components(azimuth_deg):
+    """Return the horizontal unit vector of a geological dip direction.
+
+    Geological azimuths are measured clockwise from north:
+    0° = north, 90° = east, 180° = south, 270° = west.
+
+    Parameters
+    ----------
+    azimuth_deg : float
+        Geological dip-direction azimuth in degrees.
+
+    Returns
+    -------
+    tuple of float
+        Easting and northing components of the downslope unit vector.
+    """
+    azimuth_rad = math.radians(azimuth_deg % 360.0)
+    return math.sin(azimuth_rad), math.cos(azimuth_rad)
+
 
 def scarpAnalysisMain(cfg, baseDir):
     """Run the scarp analysis using parameters from an .ini cfguration file and input from a directory
@@ -80,14 +144,13 @@ def scarpAnalysisMain(cfg, baseDir):
     method = cfg["SETTINGS"]["method"].lower()
 
     if method == "plane":
-        # Read required attributes directly from the shapefile's attribute table
-        try:
-            planesZseed = list(map(float, SHPdata['zseed']))
-            planesDipDir = list(map(float, SHPdata['dipdir']))
-            planesDipAngle = list(map(float, SHPdata['dipAngle']))
-    
-        except KeyError as e:
-            raise ValueError(f"Required attribute '{e.args[0]}' not found in shapefile. Make sure 'zseed', 'dipdir', and 'dipangle' fields exist.")
+        # Read and validate required attributes from the shapefile's attribute table
+        requiredAttributes = ["zseed", "dipdir_azi", "dipAngle"]
+        planeAttributes = _extract_numeric_attributes(SHPdata, requiredAttributes)
+
+        planesZseed = planeAttributes["zseed"]
+        planesDipDir = planeAttributes["dipdir_azi"]
+        planesDipAngle = planeAttributes["dipAngle"]
 
         if not (len(planesZseed) == len(planesDipDir) == len(planesDipAngle) == SHPdata["nFeatures"]):
             raise ValueError("Mismatch between number of features and extracted plane attributes in the shapefile.")
@@ -109,16 +172,24 @@ def scarpAnalysisMain(cfg, baseDir):
         log.debug("Plane features extracted and combined: %s", features)
 
     elif method == "ellipsoid":
-        try:
-            ellipsoidsMaxDepth = list(map(float, SHPdata['maxdepth']))
-            ellipsoidsSemiMajor = list(map(float, SHPdata['semimajor']))
-            ellipsoidsSemiMinor = list(map(float, SHPdata['semiminor']))
-            ellipsoidsDipAngle = list(map(float, SHPdata['dipAngle']))
-            ellipsoidsDipDir = list(map(float, SHPdata['dipdir']))
-            ellipsoidsOffset = list(map(float, SHPdata['offset']))
-            ellipsoidsRotAngle = list(map(float, SHPdata['rotAngle']))
-        except KeyError as e:
-            raise ValueError(f"Required attribute '{e.args[0]}' not found in shapefile. Ensure the fields 'maxdepth', 'semimajor', 'semiminor', 'rotangle', 'dipdir', 'dipangle', and 'offset' exist.")
+        requiredAttributes = [
+            "maxdepth",
+            "semimajor",
+            "semiminor",
+            "dipAngle",
+            "dipdir_azi",
+            "offset",
+            "rotAngle",
+        ]
+        ellipsoidAttributes = _extract_numeric_attributes(SHPdata, requiredAttributes)
+
+        ellipsoidsMaxDepth = ellipsoidAttributes["maxdepth"]
+        ellipsoidsSemiMajor = ellipsoidAttributes["semimajor"]
+        ellipsoidsSemiMinor = ellipsoidAttributes["semiminor"]
+        ellipsoidsDipAngle = ellipsoidAttributes["dipAngle"]
+        ellipsoidsDipDir = ellipsoidAttributes["dipdir_azi"]
+        ellipsoidsOffset = ellipsoidAttributes["offset"]
+        ellipsoidsRotAngle = ellipsoidAttributes["rotAngle"]
 
         if not all(len(lst) == SHPdata["nFeatures"] for lst in [ellipsoidsMaxDepth, ellipsoidsSemiMajor, ellipsoidsSemiMinor, ellipsoidsDipAngle, ellipsoidsDipDir, ellipsoidsOffset, ellipsoidsRotAngle]):
             raise ValueError("Mismatch between number of shapefile features and ellipsoid parameters.")
@@ -229,7 +300,7 @@ def calculateScarpWithPlanes(elevData, periData, elevTransform, planes):
     elevTransform : Affine
         The affine transformation matrix of the raster (used to convert pixel to geographic coordinates).
     planes : str
-        Comma-separated string defining sliding planes (xseed, yseed, zseed, dip, slope).
+        Comma-separated string defining sliding planes (xseed, yseed, zseed, dip direction azimuth, dip angle).
 
     Returns
     -------
@@ -249,9 +320,11 @@ def calculateScarpWithPlanes(elevData, periData, elevTransform, planes):
     slope = [planes[4]]
 
     slopeRad = math.radians(slope[0])
-    dipRad   = math.radians(dip[0])
-    betaX = [ math.tan(slopeRad) * math.sin(dipRad) ]
-    betaY = [ math.tan(slopeRad) * math.cos(dipRad) ]
+    dipEast, dipNorth = _geological_azimuth_components(dip[0])
+    gradientMagnitude = math.tan(slopeRad)
+    # Elevation must decrease in the geological dip direction.
+    betaX = [-gradientMagnitude * dipEast]
+    betaY = [-gradientMagnitude * dipNorth]
 
     min_clipped = 0.0
 
@@ -263,17 +336,27 @@ def calculateScarpWithPlanes(elevData, periData, elevTransform, planes):
         slope.append(planes[5 * i + 4])
         
         slopeRad = math.radians(slope[i])
-        dipRad   = math.radians(dip[i])
-        betaX.append( math.tan(slopeRad) * math.sin(dipRad) )
-        betaY.append( math.tan(slopeRad) * math.cos(dipRad) )
+        dipEast, dipNorth = _geological_azimuth_components(dip[i])
+        gradientMagnitude = math.tan(slopeRad)
+        betaX.append(-gradientMagnitude * dipEast)
+        betaY.append(-gradientMagnitude * dipNorth)
 
     for row in range(n):
         for col in range(m):
             west, north = rasterio.transform.xy(elevTransform, row, col, offset='center')
 
-            scarpVal = zSeed[0] + (north - ySeed[0]) * betaY[0] - (west - xSeed[0]) * betaX[0]
+            scarpVal = (
+                zSeed[0]
+                + (west - xSeed[0]) * betaX[0]
+                + (north - ySeed[0]) * betaY[0]
+            )
             for k in range(1, nPlanes):
-                scarpVal = max(scarpVal, zSeed[k] + (north - ySeed[k]) * betaY[k] - (west - xSeed[k]) * betaX[k])
+                planeVal = (
+                    zSeed[k]
+                    + (west - xSeed[k]) * betaX[k]
+                    + (north - ySeed[k]) * betaY[k]
+                )
+                scarpVal = max(scarpVal, planeVal)
                 
             if periData[row, col] > 0:
                 val = min(elevData[row, col], scarpVal)
@@ -301,7 +384,7 @@ def calculateScarpWithEllipsoids(elevData, periData, elevTransform, ellipsoids):
         The affine transformation matrix of the raster.
     ellipsoids : str
         Comma-separated string defining ellipsoids with parameters:
-        (x_center, y_center, max_depth, semi_major, semi_minor, tilt, dir, offset)
+        (maxdepth, semimajor, semiminor, dipAngle, dipdir_azi, offset, rotangle)
 
     Returns
     -------
@@ -328,7 +411,8 @@ def calculateScarpWithEllipsoids(elevData, periData, elevTransform, ellipsoids):
         semiMajor.append(ellipsoids[9 * i + 3])
         semiMinor.append(ellipsoids[9 * i + 4])
         tilt.append(ellipsoids[9 * i + 5])
-        tiltDir.append(np.radians(ellipsoids[9 * i + 6]))  # tilt direction in radians
+        # Geological dip-direction azimuth in degrees (0° N, 90° E).
+        tiltDir.append(ellipsoids[9 * i + 6] % 360.0)
         offset.append(ellipsoids[9 * i + 7])
         dip.append(np.radians(ellipsoids[9 * i + 8]))      # rotation of base ellipse in radians
 
@@ -382,8 +466,11 @@ def calculateScarpWithEllipsoids(elevData, periData, elevTransform, ellipsoids):
 
                 if distance <= 1:
                     baseDepth = maxDepth[k] * (1 - distance)
+                    dipEast, dipNorth = _geological_azimuth_components(tiltDir[k])
+                    # Positive dipAngle increases release depth in the geological
+                    # dip direction. rotAngle only rotates the ellipse footprint.
                     tiltEffect = math.tan(math.radians(tilt[k])) * (
-                        dxRot * np.cos(tiltDir[k]) + dyRot * np.sin(tiltDir[k])
+                        dxPos * dipEast + dyPos * dipNorth
                     )
                     totalDepth = baseDepth + tiltEffect + z0
                     scarpVal = min(scarpVal, elevData[row, col] - totalDepth)
