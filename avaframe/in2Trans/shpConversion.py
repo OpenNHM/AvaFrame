@@ -59,7 +59,7 @@ def SHP2Array(infile, defname=None):
             number of features per line (parts)
         zseed
             np array with the height of each scarp plane-feature (as many values as features)
-        dipDir
+        dipDir_azimuth
             np array with the dip direction of each scarp plane-feature (as many values as features)
         dipAngle
             np array with the dip angle of each scarp plane-feature (as many values as features)
@@ -84,7 +84,7 @@ def SHP2Array(infile, defname=None):
     ci95 = None
     layerN = None
     zseed_value = None
-    dipdir_value = None
+    dipdirAzimuth_value = None
     dipAngle_value = None
     semiminor_value = None
     maxdepth_value = None
@@ -108,7 +108,7 @@ def SHP2Array(infile, defname=None):
     ci95List = []
     layerNameList = []
     zseedList = []
-    dipdirList = []
+    dipdirAzimuthList = []
     slopeList = []
     dipAngleList = []
     semiminorList = []
@@ -162,8 +162,8 @@ def SHP2Array(infile, defname=None):
                     dipAngle_value = value
                 if name == "zseed":
                     zseed_value = value
-                if name == "dipdir":
-                    dipdir_value = value
+                if name == "dipdir_azi":
+                    dipdirAzimuth_value = value
                 if name == "semiminor":
                     semiminor_value = value
                 if name == "maxdepth":
@@ -201,7 +201,7 @@ def SHP2Array(infile, defname=None):
         layerNameList.append(layerN)
         idList.append(str(rec.oid))
         zseedList.append(zseed_value)
-        dipdirList.append(dipdir_value)
+        dipdirAzimuthList.append(dipdirAzimuth_value)
         slopeList.append(slope)
         dipAngleList.append(dipAngle_value)
         semiminorList.append(semiminor_value)
@@ -236,7 +236,7 @@ def SHP2Array(infile, defname=None):
     SHPdata["nFeatures"] = len(Start)
     SHPdata["dipAngle"] = dipAngleList
     SHPdata["zseed"] = zseedList
-    SHPdata["dipdir"] = dipdirList
+    SHPdata["dipdir_azi"] = dipdirAzimuthList
     SHPdata["maxdepth"] = maxdepthList
     SHPdata["semimajor"] = semimajorList
     SHPdata["semiminor"] = semiminorList
