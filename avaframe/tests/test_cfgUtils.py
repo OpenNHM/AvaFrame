@@ -391,7 +391,7 @@ def test_readConfigurationInfoFromDone(tmp_path):
 
     assert len(simDF) == 9
 
-    simDF, simNameExisting = cfgUtils.readConfigurationInfoFromDone(configDir2, specDir="", latest=True)
+    simDF, simNameExisting = cfgUtils.readConfigurationInfoFromDone(configDir2, specDir="", latest=True, modName='com1DFA')
 
     assert len(simDF) == 3
 

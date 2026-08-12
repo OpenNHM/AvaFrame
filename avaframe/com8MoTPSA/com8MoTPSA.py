@@ -1,8 +1,6 @@
 import os
 import sys
-import platform
 import logging
-import numpy as np
 import pathlib
 import time
 import shutil
@@ -14,7 +12,6 @@ from multiprocessing import Pool
 import avaframe.com1DFA.com1DFA as com1DFA
 from avaframe.in3Utils import cfgUtils
 from avaframe.in2Trans import rasterUtils as rU
-from avaframe.ana4Stats import probAna
 from avaframe.in1Data import getInput as gI
 import avaframe.in3Utils.fileHandlerUtils as fU
 from avaframe.out1Peak import outPlotAllPeak as oP
