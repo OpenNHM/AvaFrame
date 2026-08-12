@@ -1172,7 +1172,7 @@ def test_createSample_morris():
 
     # Create test configuration
     testConfig = configparser.ConfigParser()
-    testConfig["PROBRUN"] = {"nSample": "4", "sampleSeed": "12345", "sampleMethod": "morris"}
+    testConfig["PROBRUN"] = {"nSample": "4", "sampleSeed": "12345", "sampleMethod": "morris", "morrisNumLevels": "6"}
 
     testParList = ["param1", "param2"]
 
