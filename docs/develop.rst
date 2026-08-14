@@ -263,6 +263,23 @@ Now, you are ready to go! Move to ``AvaFrame/avaframe`` and run: ::
 You can check out the markdown-style report of the comparison at:
 ``tests/reports/standardTestsReportPy.md``.
 
+--------
+
+Similarly, :py:mod:`runStandardTestsCom4FlowPy.py` runs all available benchmark tests
+for com4FlowPy. With this script, the com4FlowPy avalanche simulations are performed and a report of the comparison
+between simulation results and benchmark data is generated.
+
+To run the com4FlowPy standard tests, move to ``AvaFrame/avaframe`` and run: ::
+
+  pixi run python runStandardTestsCom4FlowPy.py
+
+The markdown-style report of the comparison is saved as:
+``tests/reports/standardTestsReportCom4FlowPy.md``.
+
+Adding a new benchmark test case is similar as for com1DFA,
+in the json file containing the benchmark infos, the ``TAGS`` need to contain
+``"com4FlowPy"``.
+
 
 How to add a friction model
 ----------------------------
