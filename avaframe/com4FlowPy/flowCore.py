@@ -569,12 +569,20 @@ def calculation(args):
         if varUmaxBool and varUmaxArray is not None:
             if varUmaxArray[row_idx, col_idx] > 0 and varUmaxArray[row_idx, col_idx] <= 8848:
                 max_z_delta = varUmaxArray[row_idx, col_idx]
+            else:
+                max_z_delta = args[6]
+
         if varAlphaBool and varAlphaArray is not None:
             if varAlphaArray[row_idx, col_idx] > 0 and varAlphaArray[row_idx, col_idx] <= 90:
                 alpha = varAlphaArray[row_idx, col_idx]
+            else:
+                alpha = args[3]
+
         if varExponentBool and varExponentArray is not None:
             if varExponentArray[row_idx, col_idx] > 0:
                 exp = varExponentArray[row_idx, col_idx]
+            else:
+                exp = args[4]
 
         if (nodata in dem_ng) or np.size(dem_ng) < 9:
             startcell_idx += 1
