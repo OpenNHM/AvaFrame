@@ -19,6 +19,7 @@ import avaframe.com4FlowPy.flowCore as flowCore
 import avaframe.com4FlowPy.splitAndMerge as SPAM
 import avaframe.in2Trans.rasterUtils as IOf
 import avaframe.runCom4FlowPy as runCom4FlowPy
+from avaframe.com4FlowPy import com4FlowPy
 
 import avaframe.runStandardTestsCom4FlowPy as runStandardTestsCom4
 
@@ -859,6 +860,372 @@ def testCompareRasters(monkeypatch):
         (referenceRasterPath, False),
     ]
 
+def test_validateInputArray():
+    praMask = (np.array([[1, 0], [1, 0]]) == 1)
+    dataValid = np.array([[255, 0], [128, -1]])
+    dataNan = np.array([[255.0, 0], [np.nan, -1]])
+    dataHigh = np.array([[255.0, 0], [10000.0, -1]])
+
+    assert com4FlowPy.validateInputArray(praMask, dataValid, maxValue=300)
+    assert not com4FlowPy.validateInputArray(praMask, dataNan, maxValue=300.0)
+    assert not com4FlowPy.validateInputArray(praMask, dataHigh, maxValue=300.0)
+
+
+def makeValidParamRanges(minAlphaValid=0.0, maxAlphaValid=90.0, maxZDeltaValid=20000.0,
+                         maxExpValid=600.0, minFluxThreshValid=1e-6, maxFluxThreshValid=1.0,
+                         maxUMaxValid=100.0):
+    """ build a valid parameter-ranges dict manually, with sensible defaults,
+    overridable per test via explicit keyword arguments.
+    """
+    return {
+        "minAlphaValid": minAlphaValid,
+        "maxAlphaValid": maxAlphaValid,
+        "maxZDeltaValid": maxZDeltaValid,
+        "maxExpValid": maxExpValid,
+        "minFluxThreshValid": minFluxThreshValid,
+        "maxFluxThreshValid": maxFluxThreshValid,
+        "maxUMaxValid": maxUMaxValid,
+    }
+
+
+def test_getValidParameterRanges():
+    """ test that getValidParameterRanges falls back to its documented defaults
+    when the .ini config section provides no overrides
+    """
+    cfgSetup = configparser.ConfigParser()
+    cfgSetup["GENERAL"] = {}
+
+    result = com4FlowPy.getValidParameterRanges(cfgSetup["GENERAL"])
+
+    assert result["maxZDeltaValid"] == pytest.approx(20000.0)
+    assert result["maxExpValid"] == pytest.approx(600.0)
+    assert result["minFluxThreshValid"] == pytest.approx(1e-6)
+    assert result["maxFluxThreshValid"] == pytest.approx(1.0)
+
+    cfgSetup = configparser.ConfigParser()
+    cfgSetup["GENERAL"] = {
+        "maxZDeltaValid": "15000",
+        "maxExpValid": "450",
+        "minFluxThreshValid": "1e-5",
+        "maxFluxThreshValid": "0.5",
+    }
+
+    result = com4FlowPy.getValidParameterRanges(cfgSetup["GENERAL"])
+
+    assert result["maxZDeltaValid"] == pytest.approx(15000.0)
+    assert result["maxExpValid"] == pytest.approx(450.0)
+    assert result["minFluxThreshValid"] == pytest.approx(1e-5)
+    assert result["maxFluxThreshValid"] == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
+
+def makeValidModelParameters(alpha=25.0, max_z=8000.0, exp=8, flux_threshold=0.003):
+    """ build a set of global model parameters that pass all checkGlobalParameters checks """
+    return {
+        "alpha": alpha,
+        "max_z": max_z,
+        "exp": exp,
+        "flux_threshold": flux_threshold,
+    }
+
+
+def makeModelPaths():
+    return {
+        "releasePathWork": "dummy_release.tif",
+        "varAlphaPath": "dummy_alpha.tif",
+        "varUmaxPath": "dummy_umax.tif",
+        "varExponentPath": "dummy_exp.tif",
+    }
+
+
+# ---------------------------------------------------------------------------
+# checkGlobalParameters
+# ---------------------------------------------------------------------------
+
+def test_checkGlobalParameters_alpha():
+    """ test that an alpha value below minAlphaValid raises ValueError """
+    modelParameters = makeValidModelParameters(alpha=-5.0)
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError, match="alpha"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """ test that an alpha value above maxAlphaValid raises ValueError """
+    modelParameters = makeValidModelParameters(alpha=95.0)
+
+    with pytest.raises(ValueError, match="alpha"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """ test that an alpha value  raises no ValueError """
+    modelParameters = makeValidModelParameters(alpha=45.0)
+    com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+def test_checkGlobalParameters_maxZ():
+    """ test that max_z values outside [0, maxZDeltaValid] raise ValueError """
+    modelParameters = makeValidModelParameters(max_z=-5)
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError, match="max_z"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    modelParameters = makeValidModelParameters(max_z=25000.0)
+
+    with pytest.raises(ValueError, match="max_z"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    modelParameters = makeValidModelParameters(max_z=200.0)
+
+    com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+def test_checkGlobalParameters_exp():
+    """ test that exp values outside [0, maxExpValid] raise ValueError """
+    modelParameters = makeValidModelParameters(exp=-1)
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError, match="exp"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    modelParameters = makeValidModelParameters(exp=700)
+
+    with pytest.raises(ValueError, match="exp"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """ test that exp at exactly 0 and at maxExpValid is accepted """
+
+    com4FlowPy.checkGlobalParameters(makeValidModelParameters(exp=8), makeModelPaths(), validParamRanges)
+
+
+def test_checkGlobalParameters_fluxThreshold():
+    """ test that flux_threshold values outside [minFluxThreshValid, maxFluxThreshValid] raise ValueError """
+    modelParameters = makeValidModelParameters(flux_threshold=0)
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError, match="flux_threshold"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    modelParameters = makeValidModelParameters(flux_threshold=5.0)
+
+    with pytest.raises(ValueError, match="flux_threshold"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """ test that flux_threshold at exactly the min and max valid values is accepted """
+
+    com4FlowPy.checkGlobalParameters(
+        makeValidModelParameters(flux_threshold=0.003),
+        makeModelPaths(), validParamRanges
+    )
+
+
+def test_checkGlobalParameters_errorMessageMentionsValidRange():
+    """ test that the raised error message includes the configured min/max bounds """
+    validParamRanges = makeValidParamRanges(minAlphaValid=5.0, maxAlphaValid=60.0)
+    modelParameters = makeValidModelParameters(alpha=100.0)
+
+    with pytest.raises(ValueError, match=r"5\.0 and 60\.0"):
+        com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+# ---------------------------------------------------------------------------
+# checkVariableInputParameters
+# ---------------------------------------------------------------------------
+
+def test_checkVariableInputParameters_allDisabled_doesNotRaise(monkeypatch):
+    """ test that when all 'var*Bool' flags are False, no raster is validated and no error is raised """
+    praRaster = np.array([[0, 1], [1, 0]])
+    monkeypatch.setattr(IOf, "readRaster", lambda path: {"rasterData": praRaster})
+
+    modelParameters = {
+        "varAlphaBool": False,
+        "varUmaxBool": False,
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges()
+
+    com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+def test_checkVariableInputParameters_varAlpha(monkeypatch):
+    """ test that a valid alpha raster passes validation without raising """
+    praRaster = np.array([[0, 1], [1, 0]])
+    alphaRaster = np.array([[np.nan, 25.0], [30.0, np.nan]])
+
+    def fakeReadRaster(path):
+        if "alpha" in path:
+            return {"rasterData": alphaRaster}
+        return {"rasterData": praRaster}
+
+    monkeypatch.setattr(IOf, "readRaster", fakeReadRaster)
+
+    modelParameters = {
+        "varAlphaBool": True,
+        "varUmaxBool": False,
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges()
+
+    com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """ test that an invalid alpha raster (per validateInputArray) raises ValueError """
+    alphaRaster = np.array([[np.nan, 200.0], [30.0, np.nan]])
+
+    monkeypatch.setattr(IOf, "readRaster", fakeReadRaster)
+
+    modelParameters = {
+        "varAlphaBool": True,
+        "varUmaxBool": False,
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError, match="alpha"):
+        com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+def test_checkVariableInputParameters_inPRA(monkeypatch):
+    """check invalid value in PRA"""
+    pra2Raster = np.array([[1, 1], [1, 0]])
+    alpha2Raster = np.array([[np.nan, 25.0], [30.0, np.nan]])
+
+    def fakeReadRaster(path):
+        if "alpha" in path:
+            return {"rasterData": alpha2Raster}
+        return {"rasterData": pra2Raster}
+
+    monkeypatch.setattr(IOf, "readRaster", fakeReadRaster)
+
+    modelParameters = {
+        "varAlphaBool": True,
+        "varUmaxBool": False,
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError):
+        com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+def test_checkVariableInputParameters_varUmax_typeUmax(monkeypatch):
+    """ test that when varUmaxType is 'umax', validateInputArray is called with maxUMaxValid
+    as the upper bound rather than maxZDeltaValid
+    """
+    praRaster = np.array([[1, 0]])
+    umaxRaster = np.array([[50.0, 50.0]])
+
+    monkeypatch.setattr(IOf, "readRaster", lambda path: {"rasterData": (
+        praRaster if "release" in path else umaxRaster
+    )})
+
+    modelParameters = {
+        "varAlphaBool": False,
+        "varUmaxBool": True,
+        "varUmaxType": "umax",
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges(maxUMaxValid=77.0, maxZDeltaValid=999.0)
+
+    com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """ test that an invalid u-max/zdelta raster raises ValueError mentioning its type """
+    praRaster = np.array([[1]])
+    umaxRaster = np.array([[999999.0]])
+
+    monkeypatch.setattr(IOf, "readRaster", lambda path: {"rasterData": (
+        praRaster if "release" in path else umaxRaster
+    )})
+
+    modelParameters = {
+        "varAlphaBool": False,
+        "varUmaxBool": True,
+        "varUmaxType": "umax",
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError, match="umax"):
+        com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """test np.nan value in PRA"""
+    praRaster = np.array([[1, 0]])
+    umaxRaster = np.array([[np.nan, 100]])
+
+    monkeypatch.setattr(IOf, "readRaster", lambda path: {"rasterData": (
+        praRaster if "release" in path else umaxRaster
+    )})
+
+    modelParameters = {
+        "varAlphaBool": False,
+        "varUmaxBool": True,
+        "varUmaxType": "umax",
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges()
+
+    with pytest.raises(ValueError, match="umax"):
+        com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+def test_checkVariableInputParameters_varUmax_typeZDelta_usesMaxZDeltaValid(monkeypatch):
+    """ test that when varUmaxType is anything other than 'umax' (e.g. 'zdelta'),
+    validateInputArray is called with maxZDeltaValid as the upper bound
+    """
+    praRaster = np.array([[1, 0]])
+    umaxRaster = np.array([[500.0, np.nan]])
+
+    monkeypatch.setattr(IOf, "readRaster", lambda path: {"rasterData": (
+        praRaster if "release" in path else umaxRaster
+    )})
+
+    modelParameters = {
+        "varAlphaBool": False,
+        "varUmaxBool": True,
+        "varUmaxType": "ZDelta",  # mixed case; function lowercases it internally
+        "varExponentBool": False,
+    }
+    validParamRanges = makeValidParamRanges(maxUMaxValid=77.0, maxZDeltaValid=999.0)
+
+    com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+
+def test_checkVariableInputParameters_varExponent(monkeypatch):
+    """ test that a valid exponent raster passes validation without raising """
+    praRaster = np.array([[1, 0]])
+    expRaster = np.array([[8.0, np.nan]])
+
+    monkeypatch.setattr(IOf, "readRaster", lambda path: {"rasterData": (
+        praRaster if "release" in path else expRaster
+    )})
+
+    modelParameters = {
+        "varAlphaBool": False,
+        "varUmaxBool": False,
+        "varExponentBool": True,
+    }
+    validParamRanges = makeValidParamRanges()
+
+    com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
+    """ test that an invalid exponent raster raises ValueError """
+    praRaster = np.array([[1, 0]])
+    expRaster = np.array([[900.0, np.nan]])
+
+    monkeypatch.setattr(IOf, "readRaster", lambda path: {"rasterData": (
+        praRaster if "release" in path else expRaster
+    )})
+
+    modelParameters = {
+        "varAlphaBool": False,
+        "varUmaxBool": False,
+        "varExponentBool": True,
+    }
+
+    with pytest.raises(ValueError, match="exp"):
+        com4FlowPy.checkVariableInputParameters(modelParameters, makeModelPaths(), validParamRanges)
+
 
 if __name__ == "__main__":
     test_add_os()
@@ -870,4 +1237,9 @@ if __name__ == "__main__":
     test_mergeDict(tmpDir)
     test_mergeDictToRaster(tmpDir)
     test_mergeDictToPolygon(tmpDir)
-    test_runCom4FlowPy()
+    test_runCom4FlowPy(tmpDir)
+    test_checkGlobalParameters_alpha()
+    test_checkGlobalParameters_maxZ()
+    test_checkGlobalParameters_exp()
+    test_checkGlobalParameters_fluxThreshold()
+    test_checkGlobalParameters_errorMessageMentionsValidRange()
