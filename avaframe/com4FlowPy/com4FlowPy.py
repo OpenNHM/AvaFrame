@@ -204,7 +204,8 @@ def com4FlowPyMain(cfgPath, cfgSetup):
     checkInputLayerDimensions(modelParameters, modelPaths)
 
     # check if input parameters are within physically sensible ranges
-    checkInputParameterValues(modelParameters, modelPaths)
+    validParamRanges = getValidParameterRanges(cfgSetup)
+    checkInputParameterValues(modelParameters, modelPaths, validParamRanges)
 
     # get information on cellsize and nodata value from demHeader
     rasterAttributes = {}
@@ -390,9 +391,8 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
         # return
         sys.exit(1)
 
-
-def checkInputParameterValues(modelParameters, modelPaths):
-    """check if the input parameters
+def checkInputParameterValues(modelParameters, modelPaths, validParamRanges):
+    """check if the input parameters are valid
     are valid and within physically sensible limits
     alpha, uMaxLimit/ zDeltaMaxLimit, exponent
     are within a physically sensible range
@@ -404,7 +404,9 @@ def checkInputParameterValues(modelParameters, modelPaths):
     modelPaths: dict
         contains paths to input files
     """
-    
+
+    log.info("checking input data validity")
+    # check if engine parameter provided in the .ini matches available options
     engine = modelParameters["engine"]
     validEngines = {"python","numba"}
 
@@ -413,57 +415,35 @@ def checkInputParameterValues(modelParameters, modelPaths):
             f"Invalid engine '{engine}'. "
             f"Valid engine options are {sorted(validEngines)}"
         )
+    
+    # checking value ranges of (global) input parameters
+    # alpha, max_z, exp, flux_threshold
+    checkGlobalParameters(modelParameters, modelPaths, validParamRanges)
+    # check spatially varying input parameters for validity and completeness
+    checkVariableInputParameters(modelParameters, modelPaths, validParamRanges)
 
-    alpha = modelParameters["alpha"]
-    if alpha < 0 or alpha > 90:
-        log.error("Error: Alpha value is not within a physically sensible range ([0,90]).")
-        sys.exit(1)
 
-    zDelta = modelParameters["max_z"]
-    if zDelta < 0 or zDelta > 8848:
-        log.error("Error: zDeltaMaxLimit value is not within a physically sensible range ([0,8848]).")
-        sys.exit(1)
+def validateInputArray(praMask, data, maxValue, minValue=0):
+    """validates the input array, by checking the required valued based on the provided pra
+        
+    Parameters
+    -----------
+    praMask: np.ndarray
+        pra input array 
+    data: np.ndarray
+        data array which will be tested
+    maxValue: int | float
+        max value, for range validation of data entires
+    minValue: int | float, optional
+        min value, for range validation of data entires, by default 0
 
-    exp = modelParameters["exp"]
-    if exp < 0:
-        log.error("Error: Exponent value is not within a physically sensible range (> 0).")
-        sys.exit(1)
-
-    _checkVarParams = True
-
-    if modelParameters["varAlphaBool"]:
-        data = IOf.readRaster(modelPaths["varAlphaPath"])
-        rasterValues = data["rasterData"]
-        rasterValues[rasterValues < 0] = np.nan  # handle different noData values
-        if np.any(rasterValues > 90, where=~np.isnan(rasterValues)):
-            log.error(
-                "Error: Not all Alpha-raster values are within a physically sensible range ([0,90]),\
-                 in respective startcells the general alpha angle is used."
-            )
-            _checkVarParams = False
-
-    if modelParameters["varUmaxBool"]:
-        data = IOf.readRaster(modelPaths["varUmaxPath"])
-        rasterValues = data["rasterData"]
-        rasterValues[rasterValues < 0] = np.nan
-        if modelParameters["varUmaxType"].lower() == "umax":
-            _maxVal = 1500  # ~sqrt(8848*2*9.81)
-        else:
-            _maxVal = 8848
-        if np.any(rasterValues > _maxVal, where=~np.isnan(rasterValues)):
-            log.error(
-                "Error: Not all zDeltaMaxLimit-raster values are within a physically sensible range \
-                ([0, 8848 m] or [0, 1500 m/s]), in respective startcells the general zDeltaMax value is used."
-            )
-            _checkVarParams = False
-
-    if _checkVarParams:
-        log.info("All input parameters are within a physically sensible range.")
-        log.info("========================")
-    else:
-        log.info("NOT ALL variable input parameter rasters are within physically sensible ranges.")
-        log.info("!!PLEASE RE-CHECK Input Rasters and handle Results with Care!!")
-        log.info("========================")
+    Returns
+    --------
+    bool
+        if input is valid
+    """
+    dataMask = data[praMask]
+    return (dataMask.min() >= minValue) and (dataMask.max() <= maxValue)
 
 
 def tileInputLayers(modelParameters, modelPaths, rasterAttributes, tilingParameters):
@@ -933,3 +913,200 @@ def defineNotAffectedCells(raster, affectedCells, noDataValue=-9999):
     """
     raster[affectedCells <= 0] = noDataValue
     return raster
+
+def getValidParameterRanges(cfgSetup):
+    """
+    read valid parameter ranges from cfgSetup
+    and provide default fallbacks if they are missing.
+
+    Parameters
+    -----------
+    cfgSetup: configparser.SectionProxy Object
+        "GENERAL" model configs (from .ini file)
+
+    Returns
+    -----------
+    validParamRanges: dict
+        dictionary with the parameter limits used by the input parameter
+        checker functions
+    """
+    validParamRanges = {}
+
+    # get valid data ranges from cfg - if they are not provided use default fallbacks
+    validParamRanges['minAlphaValid']      = cfgSetup.getfloat("minAlphaValid", 0)
+    validParamRanges['maxAlphaValid']      = cfgSetup.getfloat("maxAlphaValid", 90)
+    validParamRanges['maxUMaxValid']       = cfgSetup.getfloat("maxUMaxValid", 630)
+    validParamRanges['maxZDeltaValid']     = cfgSetup.getfloat("maxZDeltaValid", 20000)
+    validParamRanges['maxExpValid']        = cfgSetup.getfloat("maxExpValid", 600)
+    validParamRanges['minFluxThreshValid'] = cfgSetup.getfloat("minFluxThreshValid", 1e-6)
+    validParamRanges['maxFluxThreshValid'] = cfgSetup.getfloat("maxFluxThreshValid", 1)
+
+    log.info("retreiving valid parameter ranges:")
+    log.info(24*"-")
+    for key, val in validParamRanges.items():
+        log.info(f"{key}: {val}")
+    log.info("========================")
+
+    return validParamRanges
+
+def checkGlobalParameters(modelParameters, modelPaths, validParamRanges):
+    """
+    checks global input parameters for valid input ranges
+    
+    Parameters
+    -----------
+    modelParameters: dict
+        model input parameters (from .ini - file)
+    modelPaths: dict
+        contains paths to input files
+    validParameterRanges: dict
+        contains valid parameter ranges to be checked against
+
+    Returns
+    -----------
+    raises a ValueError if any check is unsuccessful
+    """
+
+    minAlphaValid      = validParamRanges['minAlphaValid']
+    maxAlphaValid      = validParamRanges['maxAlphaValid']
+    maxZDeltaValid     = validParamRanges['maxZDeltaValid']
+    maxExpValid        = validParamRanges['maxExpValid']
+    minFluxThreshValid = validParamRanges['minFluxThreshValid']
+    maxFluxThreshValid = validParamRanges['maxFluxThreshValid']
+
+    # checking value ranges of (global) input parameters
+    # alpha, max_z, exp, flux_threshold
+    alpha = modelParameters["alpha"]
+    if alpha < minAlphaValid or alpha > maxAlphaValid:
+        log.error(
+            f"Error: Alpha value is not within a physically sensible range ([{minAlphaValid}, {maxAlphaValid}])."
+        )
+        raise ValueError(
+            f"Invalid (global) model parameter 'alpha' provided: {alpha}\n"
+            f"please provide values for 'alpha' between {minAlphaValid} and {maxAlphaValid}.\n"
+            f"HINT: if you insist on using values outside of [{minAlphaValid}, {maxAlphaValid}] you can adapt "
+            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
+        )
+
+    zDelta = modelParameters["max_z"]
+    if zDelta < 0 or zDelta > maxZDeltaValid:
+        log.error(
+            f"Error: zDeltaMaxLimit value is not within a physically sensible range ([0,{maxZDeltaValid}])."
+        )
+        raise ValueError(
+            f"Invalid (global) model parameter 'max_z' provided: {zDelta} meters\n"
+            f"please provide values for 'max_z' between 0 and {maxZDeltaValid} meters.\n"
+            f"HINT: if you insist on using values outside of [0, {maxZDeltaValid}] you can adapt "
+            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
+        )
+
+    exp = modelParameters["exp"]
+    if exp < 0 or exp > maxExpValid:
+        log.error(
+            f"Error: Exponent value is not within a physically sensible range (> 0 and <={maxExpValid})."
+        )
+        raise ValueError(
+            f"Invalid (global) model parameter 'exp' provided: ({exp})\n"
+            f"please provide values for 'exp' between 0 and {maxExpValid}.\n"
+            f"HINT: if you insist on using values outside of [>0, <={maxExpValid}] you can adapt "
+            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
+        )
+
+    fluxTh = modelParameters["flux_threshold"]
+    if fluxTh < minFluxThreshValid or fluxTh > maxFluxThreshValid:
+        log.error(
+            f"Error: flux_threshold value is not within a physically sensible range ([{minFluxThreshValid}, {maxFluxThreshValid}])."
+        )
+        raise ValueError(
+            f"Invalid (global) model parameter 'flux_threshold' provided: {fluxTh}\n"
+            f"please provide values for 'flux_threshold' between {minFluxThreshValid} and {maxFluxThreshValid}.\n"
+            f"HINT: if you insist on using values outside of [{minFluxThreshValid}, {maxFluxThreshValid}] you can adapt "
+            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
+        )
+    log.info("global input parameters are complete and within the valid range.")
+
+
+def checkVariableInputParameters(modelParameters, modelPaths, validParamRanges):
+    """
+    checks spatially variable input parameters for valid input ranges and completness
+    
+    Parameters
+    -----------
+    modelParameters: dict
+        model input parameters (from .ini - file)
+    modelPaths: dict
+        contains paths to input files
+    validParameterRanges: dict
+        contains valid parameter ranges to be checked against
+
+    Returns
+    -----------
+    raises a ValueError if any check is unsuccessful
+    """
+    minAlphaValid  = validParamRanges['minAlphaValid']
+    maxAlphaValid  = validParamRanges['maxAlphaValid']
+    maxZDeltaValid = validParamRanges['maxZDeltaValid']
+    maxUMaxValid   = validParamRanges['maxUMaxValid']
+    maxExpValid    = validParamRanges['maxExpValid']
+
+    # read the release cells raster
+    pras = IOf.readRaster(modelPaths["releasePathWork"])["rasterData"]
+    # convert to binary following the > 0 convention used
+    praMask = (pras > 0)
+
+    if modelParameters["varAlphaBool"]:
+        data = IOf.readRaster(modelPaths["varAlphaPath"])
+        rasterValues = data["rasterData"]
+        isValid = validateInputArray(praMask, rasterValues, maxAlphaValid, minAlphaValid)
+
+        if not isValid:
+            log.error(
+                f"Error: Some Alpha-raster values are incomplete or outside a physically sensible range ([0,{maxAlphaValid}])"
+            )
+            raise ValueError(
+            f"Missing or invalid values for spatially varying model parameter 'alpha' found in {modelPaths['varAlphaPath']}\n"
+            f"please provide values for 'alpha' between {minAlphaValid} and {maxAlphaValid} for all release cells.\n"
+            f"HINT: if you insist on using values outside of [{minAlphaValid}, {maxAlphaValid}] you can adapt "
+            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
+        )
+
+    if modelParameters["varUmaxBool"]:
+        data = IOf.readRaster(modelPaths["varUmaxPath"])
+        rasterValues = data["rasterData"]
+        _type = modelParameters["varUmaxType"].lower()
+        if _type == "umax":
+            _maxVal = maxUMaxValid
+        else:
+            _maxVal = maxZDeltaValid
+        isValid = validateInputArray(praMask, rasterValues, _maxVal)
+
+        if not isValid:
+            log.error(
+                f"Error: Some raster values of type '{_type}' are incomplete or outside a physically sensible range."
+            )
+            raise ValueError(
+            f"Missing or invalid values for spatially varying model parameter '{_type}' found in {modelPaths['varUmaxPath']}\n"
+            f"please provide values for '{_type}' between 0 and {_maxVal} for all release cells.\n"
+            f"HINT: if you insist on using values outside of [0, {_maxVal}] you can adapt "
+            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
+        )
+    
+    if modelParameters["varExponentBool"]:
+        data = IOf.readRaster(modelPaths["varExponentPath"])
+        rasterValues = data["rasterData"]
+
+        isValid = validateInputArray(praMask, rasterValues, maxExpValid)
+
+        if not isValid:
+            log.error(
+                f"Error: Some raster values of type 'exp' are incomplete or outside the allowed range [0, {maxExpValid}]."
+            )
+            raise ValueError(
+            f"Missing or invalid values for spatially varying model parameter 'exp' found in {modelPaths['varExponentPath']}\n"
+            f"please provide values for 'exp' between 0 and {maxExpValid} for all release cells.\n"
+            f"HINT: if you insist on using values outside of [0, {maxExpValid}] you can adapt "
+            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
+        )
+
+    log.info("spatially variable input parameters are complete and within the valid range.")
+    log.info(24*"=")
