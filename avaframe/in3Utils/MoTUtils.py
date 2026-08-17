@@ -308,7 +308,11 @@ def setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir):
         updated configuration info for simulation with file paths to forest parameters
     """
 
-    if inputSimFiles["entResInfo"]["flagRes"] == "Yes" and inputSimFiles["entResInfo"]["bhd"] == "Yes":
+    if (
+        "res" in cfg["GENERAL"]["simTypeActual"]
+        and inputSimFiles["entResInfo"]["flagRes"] == "Yes"
+        and inputSimFiles["entResInfo"]["bhd"] == "Yes"
+    ):
         treeDiamFile = inputsDir / cfg["INPUT"]["bhdFile"]
         cfg["FOREST_EFFECTS"]["Forest effects"] = "yes"
         # TODO  Make this remeshed compatible
