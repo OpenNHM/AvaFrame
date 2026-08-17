@@ -3474,13 +3474,6 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                 cfgSim["INPUT"]["tauCFile"] = pathToFric
                 inputSimFiles["entResInfo"]["tauCRemeshed"] = remeshedFric
 
-            if inputSimFiles["entResInfo"]["bhd"] == "Yes":
-                pathToFric, pathToFricFull, remeshedFric = dP.checkExtentAndCellSize(
-                    cfgSim, inputSimFiles["bhdFile"], dem, "bhd"
-                )
-                cfgSim["INPUT"]["bhdFile"] = pathToFric
-                inputSimFiles["entResInfo"]["bhdRemeshed"] = remeshedFric
-
             # check if physical parameters = variable is chosen that friction fields have correct extent
             if cfgSim["Physical_parameters"]["Parameters"] == "auto":
                 for fric in ["mu", "k"]:
@@ -3491,17 +3484,17 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                         cfgSim["INPUT"]["%sFile" % fric] = pathToFric
                         inputSimFiles["entResInfo"]["%sRemeshed" % fric] = remeshedFric
 
-            # check if forest effects = auto is chosen that forest parameter fields have correct extent
+            # remesh bhd (tree diameter) raster if forest effects are used for a res or entres sim
             if "res" in row._asdict()["simTypeList"] and inputSimFiles["resFile"] is not None:
                 if (
                     cfgSim["FOREST_EFFECTS"]["Forest effects"] == "auto"
                     and inputSimFiles["entResInfo"]["bhd"] == "Yes"
                 ):
                     pathToForest, pathToForestFull, remeshedForest = dP.checkExtentAndCellSize(
-                        cfgSim, inputSimFiles["%sFile" % "bhd"], dem, "bhd"
+                        cfgSim, inputSimFiles["bhdFile"], dem, "bhd"
                     )
-                    cfgSim["INPUT"]["%sFile" % "bhd"] = pathToForest
-                    inputSimFiles["entResInfo"]["%sRemeshed" % "bhd"] = remeshedForest
+                    cfgSim["INPUT"]["bhdFile"] = pathToForest
+                    inputSimFiles["entResInfo"]["bhdRemeshed"] = remeshedForest
 
         # add info about entrainment file path to the cfg
         if "ent" in row._asdict()["simTypeList"] and inputSimFiles["entFile"] is not None:

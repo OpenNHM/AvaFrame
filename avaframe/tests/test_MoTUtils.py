@@ -512,6 +512,9 @@ def test_setVariableForestParameters_withForest(tmp_path):
     cfg["FOREST_EFFECTS"] = {
         "Forest effects": "auto"
     }
+    cfg["GENERAL"] = {
+        "simTypeActual": "res"
+    }
     cfg["File names"] = {
         "Forest density filename": "",
         "Tree diameter filename": ""
@@ -552,6 +555,9 @@ def test_setVariableForestParameters_noForest(tmp_path):
     cfg["FOREST_EFFECTS"] = {
         "Forest effects": "auto"
     }
+    cfg["GENERAL"] = {
+        "simTypeActual": "res"
+    }
     cfg["File names"] = {
         "Forest density filename": "",
         "Tree diameter filename": ""
@@ -570,6 +576,59 @@ def test_setVariableForestParameters_noForest(tmp_path):
     result = MoTUtils.setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir)
 
     # Verify forest effects disabled
+    assert result["FOREST_EFFECTS"]["Forest effects"] == "no"
+    assert result["File names"]["Forest density filename"] == "-"
+    assert result["File names"]["Tree diameter filename"] == "-"
+
+
+def test_setVariableForestParameters_nonResSim(tmp_path):
+    """Test forest disabled for a non-res sim type even if forest files are present"""
+    import configparser
+
+    inputsDir = tmp_path / "Inputs"
+    rastersDir = inputsDir / "RASTERS"
+    rastersDir.mkdir(parents=True)
+    workInputDir = tmp_path / "Work" / "Input"
+    workInputDir.mkdir(parents=True)
+
+    # Create mock bhd file
+    bhdFile = rastersDir / "test_bhd.asc"
+    bhdFile.write_text("mock bhd data")
+
+    # Create mock resistance file
+    resFile = inputsDir / "RES" / "resistance.shp"
+    resFile.parent.mkdir(parents=True)
+    resFile.write_text("mock resistance")
+
+    # Setup config
+    cfg = configparser.ConfigParser()
+    cfg["FOREST_EFFECTS"] = {
+        "Forest effects": "auto"
+    }
+    cfg["GENERAL"] = {
+        "simTypeActual": "null"
+    }
+    cfg["File names"] = {
+        "Forest density filename": "",
+        "Tree diameter filename": ""
+    }
+    cfg["INPUT"] = {
+        "bhdFile": "RASTERS/test_bhd.asc"
+    }
+
+    # Setup inputSimFiles with forest files present but non-res sim
+    inputSimFiles = {
+        "entResInfo": {
+            "flagRes": "Yes",
+            "bhd": "Yes"
+        },
+        "resFile": resFile
+    }
+
+    # Call function
+    result = MoTUtils.setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir)
+
+    # Verify forest effects disabled for non-res sim
     assert result["FOREST_EFFECTS"]["Forest effects"] == "no"
     assert result["File names"]["Forest density filename"] == "-"
     assert result["File names"]["Tree diameter filename"] == "-"
