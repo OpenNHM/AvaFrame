@@ -392,7 +392,9 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
 
 
 def checkInputParameterValues(modelParameters, modelPaths):
-    """check if the input parameters alpha, uMaxLimit/ zDeltaMaxLimit, exponent
+    """check if the input parameters
+    are valid and within physically sensible limits
+    alpha, uMaxLimit/ zDeltaMaxLimit, exponent
     are within a physically sensible range
 
     Parameters
@@ -402,6 +404,16 @@ def checkInputParameterValues(modelParameters, modelPaths):
     modelPaths: dict
         contains paths to input files
     """
+    
+    engine = modelParameters["engine"]
+    validEngines = {"python","numba"}
+
+    if engine not in validEngines:
+        raise ValueError(
+            f"Invalid engine '{engine}'. "
+            f"Valid engine options are {sorted(validEngines)}"
+        )
+
     alpha = modelParameters["alpha"]
     if alpha < 0 or alpha > 90:
         log.error("Error: Alpha value is not within a physically sensible range ([0,90]).")

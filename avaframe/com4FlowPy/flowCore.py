@@ -253,6 +253,8 @@ def run(optTuple):
             except ImportError:
                 log.warning("engine=numba requested but 'numba' is not installed — "
                             "falling back to the Python engine")
+    else:
+        log.info("Using python compute engine")
 
     log.info(
         "Multiprocessing starts, used Cores/Processes/Chunks: %i/%i/%i"
