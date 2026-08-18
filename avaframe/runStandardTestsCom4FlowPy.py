@@ -22,6 +22,13 @@ from avaframe.in3Utils import cfgUtils
 from avaframe.in3Utils import logUtils
 import avaframe.in2Trans.rasterUtils as rasterUtils
 
+def _checkNumbaInstalled() -> bool:
+    try:
+        import numba
+        return True
+    except ImportError:
+        return False
+
 
 def compareRasters(path, pathRef):
     """
@@ -80,9 +87,18 @@ def main():
 
     # filter benchmarks for tag standardTest
     filterType = 'TAGS'
+
     valuesList = ['standardTest', 'com4FlowPy']
     # looking for 'com4FlowPy' and 'standardTest' in TAGS list
-    testList = tU.filterBenchmarks(testDictList, filterType, valuesList, condition='and')
+    testListAll = tU.filterBenchmarks(testDictList, filterType, valuesList, condition='and')
+
+    valuesList = ['standardTest', 'com4FlowPy', 'numba']
+    testListNumba = tU.filterBenchmarks(testDictList, filterType, valuesList, condition='and')
+
+    if _checkNumbaInstalled():
+        testList = testListAll
+    else:
+        testList = [item for item in testListAll if item not in testListNumba]
 
     # Set directory for full standard test report
     outDir = _avaframeDir / 'tests' / 'reportsCom4FlowPy'
@@ -93,13 +109,16 @@ def main():
 
     _startDate = datetime.now()
     with open(reportFile, 'w') as pfile:
-
         # Write header
         pfile.write('# Standard Tests Report \n\n')
         pfile.write('Comparing __com4FlowPy__ simulations to selected benchmark results \n\n')
-        pfile.write(f'__tests started__ : {_startDate}\n\n')
+        pfile.write('* * * \n')
+        if _checkNumbaInstalled():
+            pfile.write('`numba` __found__: running all tests for python and numba engines &check;')
+        else:
+            pfile.write('`numba` __NOT found__:  skipping tests for numba engine &cross;')
+        pfile.write('\n* * * \n')
         
-
     log = logUtils.initiateLogger(outDir, logName)
     log.info('The following benchmark tests will be fetched ')
 
@@ -108,9 +127,10 @@ def main():
         for test in testList:
             pfile.write(f"- {test['NAME']}\n")
             log.info('%s' % test['NAME'])
-        pfile.write('\n* * * \n')
+        pfile.write('\n')
+        pfile.write(f'__tests started__ : {_startDate}\n\n')
+        pfile.write('* * * \n')
 
-    
     # create a temporary directory, where the outputs of all standard Tests are stored
     # clean-up is automatic - this way we don't pollute the avaframe/data/ directory
     with tempfile.TemporaryDirectory(prefix="avaframe_stdTests_") as tempDir:
@@ -145,14 +165,16 @@ def main():
                 pfile.write("|Model Output|Result of comparison|status\n")
                 pfile.write("|----:|:-----:|:---:|\n")
 
-            avaDir = test['AVADIR']
+            # define avaDir relative to _avaframeDir to allow execution of this script from different locations
+            # not just AvaFrame/avaframe directory
+            avaDir = str( _avaframeDir / pathlib.Path(test['AVADIR']) )
             cfgMain['MAIN']['avalancheDir'] = avaDir
 
             # Fetch benchmark test info
             refDir = pathlib.Path(_avaframeDir, '..', 'benchmarks', test['NAME'])
 
             # Clean input directory(ies) of old work and output files
-            initProj.cleanSingleAvaDir(avaDir, deleteOutput=False)
+            initProj.cleanSingleAvaDir(_avaframeDir / avaDir, deleteOutput=False)
 
             # Load input parameters from configuration file for standard tests
             benchmarkCfg = refDir / ('%s' % test['INI'])
@@ -165,7 +187,11 @@ def main():
             avalancheDir = cfgMain["MAIN"]["avalancheDir"]
             cfgPath = readFlowPyinputs(avalancheDir, cfg, log)
 
-            compDir = tmpTestsDir / pathlib.Path(avalancheDir)
+            # for the temporary output folder we cannot use the full path, but just the relative part of the path
+            # following the _avaframeDir path
+            avaDirTempOutPut = test['AVADIR']
+            # compDir = output location of outputs generated for each test within the temporary directory
+            compDir = tmpTestsDir / pathlib.Path(avaDirTempOutPut)
             
             cfgPath["customDirs"] = False
             cfgPath["resDir"] = compDir
