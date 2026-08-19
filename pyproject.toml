@@ -138,11 +138,6 @@ compilemot = "python avaframe/com9MoTVoellmy/_buildMoTVoellmy.py"
 numpy = "<2.0"
 qgis = "*"
 
-#Feature numba
-[tool.pixi.feature.numba.pypi-dependencies]
-avaframe = { path = "./", editable = true, extras = ["numba"] }
-
-
 #Environments
 [tool.pixi.environments]
 default = { features = ["dev"], solve-group = "default" }

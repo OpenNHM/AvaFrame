@@ -273,12 +273,17 @@ To run the com4FlowPy standard tests, move to ``AvaFrame/avaframe`` and run: ::
 
   pixi run python runStandardTestsCom4FlowPy.py
 
+To also run com4FlowPy standard tests for the new *numba engine* run the script from within the numba environment with: ::
+
+  pixi run -e numba python runStandardTestsCom4FlowPy.py
+
 The markdown-style report of the comparison is saved as:
 ``tests/reports/standardTestsReportCom4FlowPy.md``.
 
 Adding a new benchmark test case is similar as for com1DFA,
 in the json file containing the benchmark infos, the ``TAGS`` need to contain
-``"com4FlowPy"``.
+``"com4FlowPy"``, if a new test is targeting the *numba engine* ``"numba"`` should be additionally added to ``TAGS``.
+In any case existing benchmark tests can be consulted for guidance.
 
 
 How to add a friction model
