@@ -128,10 +128,17 @@ def normalize(x, y, z):
             z component of the normalized vector
     """
     norme = norm(x, y, z)
-    ind = np.where(norme > 0)
-    x[ind] = x[ind] / norme[ind]
-    y[ind] = y[ind] / norme[ind]
-    z[ind] = z[ind] / norme[ind]
+    # elementwise division by norme
+    factor = np.divide(
+        1.0,
+        norme,
+        out=np.zeros_like(norme, dtype=float),
+        where=norme > 0,
+    )
+
+    x = x * factor
+    y = y * factor
+    z = z * factor
 
     return x, y, z
 

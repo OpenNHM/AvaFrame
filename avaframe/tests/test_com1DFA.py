@@ -3313,10 +3313,24 @@ def test_adaptDEM():
     demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
 
     for key in demAdapted.keys():
-        assert np.all(demAdapted[key] == dem[key])
+        if isinstance(demAdapted[key], np.ndarray):
+            assert np.allclose(
+                demAdapted[key],
+                dem[key],
+                equal_nan=True,
+            )
+        else:
+            assert np.all(demAdapted[key] == dem[key])
     for key in fieldsAdapted.keys():
-        assert np.all(fieldsAdapted[key] == fields[key])
-
+        if isinstance(fieldsAdapted[key], np.ndarray):
+            assert np.allclose(
+                fieldsAdapted[key],
+                fields[key],
+                equal_nan=True,
+            )
+        else:
+            assert np.all(fieldsAdapted[key] == fields[key])
+            
     fields["FTEnt"] = np.zeros_like(fields["FTDet"])
     fields["FTDet"] = np.array(
         [

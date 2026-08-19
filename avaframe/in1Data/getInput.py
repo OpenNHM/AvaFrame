@@ -355,7 +355,7 @@ def getAndCheckInputFiles(inputDir, folder, inputType, fileExt="shp", fileSuffix
     inputType : str
         type of input (used for the logging messages).
     fileExt: str, list
-        file extension e.g. shp, asc, tif - optional; default is shp
+        file extension e.g. shp, asc, tif, csv - optional; default is shp
     fileSuffix: str
         file name part before extension
 
@@ -365,10 +365,12 @@ def getAndCheckInputFiles(inputDir, folder, inputType, fileExt="shp", fileSuffix
         path to file checked
     available: str
         Yes or No depending on if there is a  file available (if No, OutputFile is None)
+    fileTypeFormat: str
+        file type format
     """
     available = "No"
 
-    supportedFileFormats = [".shp", ".asc", ".tif"]
+    supportedFileFormats = [".shp", ".asc", ".tif", ".csv"]
 
     # Define the directory to search and the extensions
     if fileExt == "":
