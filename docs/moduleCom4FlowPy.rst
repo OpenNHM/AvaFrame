@@ -30,7 +30,7 @@ The motivational background and concepts behind the model, as well as a list of 
 :ref:`theoryCom4FlowPy:com4FlowPy theory`.
 
 
-Running the code
+Running the code [python engine]
 ----------------
 
 Generate an environment as described in :ref:`developinstall:Script Installation (Linux)` or
@@ -69,7 +69,19 @@ or setup model parameters/config, import and run ``runCom4FlowPy`` from an exter
 Setup of the ConfigParser object needs to reflect the structure of the ``avaframe/com4FlowPy/(local_)com4FlowPyCfg.ini``.
 In this context the configuration file can be overwritten, for more information see :ref:`complexUsage:Override configuration`.
 
-     
+Running the code [numba engine]
+----------------
+
+Running :py:mod:`com4FlowPy` with the new, optional *numba engine* (thx to `jmasseysykes <https://github.com/jmasseysykes>`_) instead of the standard *python engine*
+results in significant speed-ups (up to 30-45 times confirmed), while producing bit-level identical results for most applications (see the `PR <https://github.com/OpenNHM/AvaFrame/pull/1319>`_ for detailed discussion).
+
+In order to use the *numba engine* you have to select it in the ``avaframe/com4FlowPy/(local_)com4FlowPyCfg.ini`` by setting ``engine = numba`` and then run the model via command line in the numba environment::
+
+   pixi run -e numba python runCom4FlowPy.py
+
+.. Note::
+  - currently not all implemented functionalities are also available in the *numba engine* - if you use the options ``infra = True``, ``previewMode=True`` or define ``relIDCount`` or ``relIdPolygon`` in the list of desired model outputs ``outputFiles`` in the cfg, the model will fall back to the python engine, even if ``engine = numba`` is specified.
+  - All other cases (e.g. ``forest = True`` with all available ``forestModule`` options and ``forestInteraction = True``) are supported at this point.
 
 Configuration
 ----------------
