@@ -288,8 +288,8 @@ def setVariableEntrainmentParameters(cfg, inputSimFiles, workInputDir, inputsDir
 
 def setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir):
     """set file paths in cfg object for forest parameters.
-    if _nd, _bhd files found in Inputs/RASTERS have to be remeshed, copy remeshed files
-    to workInputDir with new file name ending _nd, _bhd
+    if a forest density file in Inputs/RES and a _bhd file in Inputs/RASTERS are
+    found, set the file paths and enable forest effects, otherwise disable them
 
     Parameters
     -----------
@@ -313,48 +313,14 @@ def setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir):
         and inputSimFiles["entResInfo"]["flagRes"] == "Yes"
         and inputSimFiles["entResInfo"]["bhd"] == "Yes"
     ):
+        forestDensityFile = inputsDir / cfg["INPUT"]["resFile"]
         treeDiamFile = inputsDir / cfg["INPUT"]["bhdFile"]
         cfg["FOREST_EFFECTS"]["Forest effects"] = "yes"
-        # TODO  Make this remeshed compatible
-        cfg["File names"]["Forest density filename"] = str(inputSimFiles["resFile"])
+        cfg["File names"]["Forest density filename"] = str(forestDensityFile)
         cfg["File names"]["Tree diameter filename"] = str(treeDiamFile)
     else:
         cfg["FOREST_EFFECTS"]["Forest effects"] = "no"
         cfg["File names"]["Forest density filename"] = "-"
         cfg["File names"]["Tree diameter filename"] = "-"
-
-    # forestParameters = {"nd": "Forest density filename", "bhd": "Tree diameter filename"}
-    # if inputSimFiles["entResInfo"]["nd"] == "Yes" and inputSimFiles["entResInfo"]["bhd"] == "Yes":
-    #
-    #     for forestParam in ["nd", "bhd"]:
-    #         forestFile = inputsDir / cfg["INPUT"]["%sFile" % forestParam]
-    #
-    #         # check first if remeshed files should be used
-    #         if (
-    #             "_remeshed" in cfg["INPUT"]["%sFile" % forestParam]
-    #             and inputSimFiles["entResInfo"]["%sRemeshed" % forestParam] == "Yes"
-    #         ):
-    #             forestFilePathNew = workInputDir / (
-    #                 forestFile.stem + "_%s" % forestParam + forestFile.suffix
-    #             )
-    #             shutil.copy2(forestFile, forestFilePathNew)
-    #             cfg["File names"][forestParameters[forestParam]] = str(forestFilePathNew)
-    #             log.info(
-    #                 "Remeshed %s file copied to %s and set for %s"
-    #                 % (forestParam, str(forestFilePathNew), forestParameters[forestParam])
-    #             )
-    #         else:
-    #             cfg["File names"][forestParameters[forestParam]] = str(forestFile)
-    #
-    #     cfg["FOREST_EFFECTS"]["Forest effects"] = "yes"
-    #
-    # else:
-    #     # TODO FSO implement if setting is variable or constant that if variable but file not found then error
-    #     message = "nd and bhd file not found in Inputs/RASTERS - check if file ending is correct (_nd, _bhd) - setting forest effects to no"
-    #     log.warning(message)
-    #
-    #     cfg["FOREST_EFFECTS"]["Forest effects"] = "no"
-    #     cfg["File names"]["Forest density filename"] = "-"
-    #     cfg["File names"]["Tree diameter filename"] = "-"
 
     return cfg

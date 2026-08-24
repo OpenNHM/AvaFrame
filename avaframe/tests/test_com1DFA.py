@@ -3769,3 +3769,76 @@ def test_checkForTif(tmp_path):
     inputSimFilesTest3 = getInput.getInputDataCom1DFA(avaTestDir3)
 
     com1DFA.checkForTif(com8, inputSimFilesTest3)
+
+
+def test_prepareVarSimDict_com8Forest(tmp_path):
+    """test com8 forest block in prepareVarSimDict remeshes and sets bhd/res paths"""
+
+    testDir = pathlib.Path(__file__).parents[0]
+    inputDir = testDir / ".." / "data" / "avaAlr" / "Inputs"
+    avaDir = pathlib.Path(tmp_path, "avaTestNew")
+    shutil.copytree(inputDir, avaDir / "Inputs")
+    avaDEM = avaDir / "Inputs" / "avaAlr.tif"
+
+    standardCfg = cfgUtils.getModuleConfig(com8)
+    standardCfg["GENERAL"]["simTypeList"] = "res"
+    standardCfg["GENERAL"]["avalancheDir"] = str(avaDir)
+    standardCfg["GENERAL"]["meshCellSize"] = "5."
+    standardCfg["GENERAL"]["secRelArea"] = "False"
+    standardCfg["GENERAL"]["relThFromFile"] = "False"
+    standardCfg["GENERAL"]["relTh"] = "1.0"
+    standardCfg["FOREST_EFFECTS"]["Forest effects"] = "auto"
+    standardCfg["INPUT"]["DEM"] = "avaAlr.tif"
+    standardCfg["INPUT"]["relThFile"] = ""
+
+    # create bhd and res rasters with same extent and cellsize as the DEM
+    demHeader = IOf.readRasterHeader(avaDEM)
+    zeros = np.zeros((demHeader["nrows"], demHeader["ncols"]))
+    bhdDir = pathlib.Path(avaDir, "Inputs", "RASTERS")
+    fU.makeADir(bhdDir)
+    bhdFile = IOf.writeResultToRaster(demHeader, zeros, bhdDir / "avaAlr_bhd", flip=True)
+    resDir = pathlib.Path(avaDir, "Inputs", "RES")
+    fU.makeADir(resDir)
+    resFile = IOf.writeResultToRaster(demHeader, zeros, resDir / "forest", flip=True)
+
+    relPath = pathlib.Path(avaDir, "Inputs", "REL", "relAlr.shp")
+    inputSimFiles = {
+        "relFiles": [relPath],
+        "entResInfo": {
+            "flagEnt": "No",
+            "flagRes": "Yes",
+            "entThFileType": ".shp",
+            "relThFileType": ".shp",
+            "resFileType": ".tif",
+            "secondaryRelThFileType": None,
+            "tauC": "No",
+            "mu": "No",
+            "k": "No",
+            "xi": "No",
+            "bhd": "Yes",
+        },
+        "demFile": avaDEM,
+        "damFile": None,
+        "secondaryRelFile": None,
+        "entFile": pathlib.Path(avaDir, "Inputs", "ENT", "entAlr.shp"),
+        "resFile": resFile,
+        "bhdFile": bhdFile,
+        "tauCFile": None,
+        "muFile": None,
+        "kFile": None,
+        "xiFile": None,
+        "timeDepRelCsv": None,
+    }
+    variationDict = {"releaseScenario": ["relAlr"]}
+
+    # call function to be tested
+    simDict = com1DFA.prepareVarSimDict(standardCfg, inputSimFiles, variationDict, module=com8)
+
+    # one sim expected - forest block sets bhd/res paths in cfg and remeshed flags
+    assert len(simDict) == 1
+    cfgSim = list(simDict.values())[0]["cfgSim"]
+    assert cfgSim["INPUT"]["bhdFile"] == "RASTERS/avaAlr_bhd.tif"
+    assert cfgSim["INPUT"]["resFile"] == "RES/forest.tif"
+    assert cfgSim["INPUT"]["resistanceScenario"] == "RES/forest.tif"
+    assert inputSimFiles["entResInfo"]["bhdRemeshed"] == "No"
+    assert inputSimFiles["entResInfo"]["resRemeshed"] == "No"
