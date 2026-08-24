@@ -3484,17 +3484,53 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                         cfgSim["INPUT"]["%sFile" % fric] = pathToFric
                         inputSimFiles["entResInfo"]["%sRemeshed" % fric] = remeshedFric
 
-            # remesh bhd (tree diameter) raster if forest effects are used for a res or entres sim
-            if "res" in row._asdict()["simTypeList"] and inputSimFiles["resFile"] is not None:
-                if (
-                    cfgSim["FOREST_EFFECTS"]["Forest effects"] == "auto"
-                    and inputSimFiles["entResInfo"]["bhd"] == "Yes"
-                ):
-                    pathToForest, pathToForestFull, remeshedForest = dP.checkExtentAndCellSize(
-                        cfgSim, inputSimFiles["bhdFile"], dem, "bhd"
-                    )
-                    cfgSim["INPUT"]["bhdFile"] = pathToForest
-                    inputSimFiles["entResInfo"]["bhdRemeshed"] = remeshedForest
+            # check if resistance files (resFile (forest density) and bhd file (tree diameter) have correct extent and
+            # cellsize if forest effects are used and remesh if necessary
+            # write this info to config and check if settings consistent 
+            if (
+                "res" in row._asdict()["simTypeList"]
+                and inputSimFiles["resFile"] is not None
+                and cfgSim["FOREST_EFFECTS"]["Forest effects"] in ["auto", "yes"]
+                and inputSimFiles["entResInfo"]["bhd"] == "Yes"
+            ):
+                pathToForest, pathToForestFull, remeshedForest = dP.checkExtentAndCellSize(
+                    cfgSim, inputSimFiles["bhdFile"], dem, "bhd"
+                )
+                cfgSim["INPUT"]["bhdFile"] = pathToForest
+                inputSimFiles["entResInfo"]["bhdRemeshed"] = remeshedForest
+
+                pathToRes, pathToResFull, remeshedRes = dP.checkExtentAndCellSize(
+                    cfgSim, inputSimFiles["resFile"], dem, "res"
+                )
+                cfgSim["INPUT"]["resFile"] = pathToRes
+                inputSimFiles["entResInfo"]["resRemeshed"] = remeshedRes
+                cfgSim["INPUT"]["resistanceScenario"] = str(
+                    pathlib.Path("RES", inputSimFiles["resFile"].name)
+                )
+            elif (
+                "res" in row._asdict()["simTypeList"]
+                and cfgSim["FOREST_EFFECTS"]["Forest effects"] == "yes"
+                and (inputSimFiles["entResInfo"]["bhd"] != "Yes" or inputSimFiles["resFile"] is None)
+            ):
+                message = "Chosen simType is res but either bhd or res file is missing"
+                log.error(message)
+                raise FileNotFoundError(message)
+            elif (
+                "res" in row._asdict()["simTypeList"] and cfgSim["FOREST_EFFECTS"]["Forest effects"] == "no"
+            ):
+                message = "Chosen simType is res but forest effects are set to: no"
+                log.error(message)
+                raise AssertionError(message)
+            elif (
+                "res" not in row._asdict()["simTypeList"]
+                and cfgSim["FOREST_EFFECTS"]["Forest effects"] == "yes"
+            ):
+                message = (
+                    "Chosen simType is set to: %s (no resistance) but forest effects are set to: yes"
+                    % row._asdict()["simTypeList"]
+                )
+                log.error(message)
+                raise AssertionError(message)
 
         # add info about entrainment file path to the cfg
         if "ent" in row._asdict()["simTypeList"] and inputSimFiles["entFile"] is not None:
@@ -3523,7 +3559,11 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                 log.info("Deposition is not entrainable when it's not an ent sim type.")
 
         # add info about resistance file path to the cfg
-        if "res" in row._asdict()["simTypeList"] and inputSimFiles["resFile"] is not None:
+        if (
+            "res" in row._asdict()["simTypeList"]
+            and inputSimFiles["resFile"] is not None
+            and (modName not in ["com8MoTPSA", "com9MoTVoellmy"])
+        ):
             if inputSimFiles["entResInfo"]["resFileType"] != ".shp":
                 pathToRes, pathToResFull, remeshedRes = dP.checkExtentAndCellSize(
                     cfgSim, inputSimFiles["resFile"], dem, "res"
