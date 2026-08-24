@@ -381,6 +381,17 @@ def com8MoTPSAPreprocess(simDict, inputSimFiles, cfgMain):
             log.error(message)
             raise AssertionError(message)
 
+        # if a file in Inputs/RES (forest density) and a _bhd file in Inputs/RASTERS
+        # (tree diameter) are found - enable forest effects, otherwise disable them
+        if cfg["FOREST_EFFECTS"]["Forest effects"] == "auto":
+            cfg = mT.setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir)
+        else:
+            message = "Currently only available option is auto for %s" % (
+                '["FOREST_EFFECTS"]["Forest effects"]'
+            )
+            log.error(message)
+            raise AssertionError(message)
+
         rcfFileName = cfgFileDir / (str(key) + ".rcf")
         currentModule = sys.modules[__name__]
         cfgUtils.writeCfgFile(avalancheDir, currentModule, cfg, str(key))

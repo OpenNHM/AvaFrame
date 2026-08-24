@@ -360,12 +360,6 @@ def com9MoTVoellmyPreprocess(simDict, inputSimFiles, cfgMain):
             )
             log.error(message)
             raise AssertionError(message)
-        # elif cfg["FOREST_EFFECTS"]["Forest effects"] == "no":
-        #     cfg["File names"]["Forest density filename"] = "-"
-        #     cfg["File names"]["Tree diameter filename"] = "-"
-        # else:
-        #     # if forest effects set to yes but files not found - error will be raised by setVariableForestParameters
-        #     cfg = mT.setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir)
 
         rcfFileName = cfgFileDir / (str(key) + ".rcf")
 

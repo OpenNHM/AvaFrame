@@ -502,10 +502,11 @@ def test_setVariableForestParameters_withForest(tmp_path):
     bhdFile = rastersDir / "test_bhd.asc"
     bhdFile.write_text("mock bhd data")
 
-    # Create mock resistance file
-    resFile = inputsDir / "RES" / "resistance.shp"
-    resFile.parent.mkdir(parents=True)
-    resFile.write_text("mock resistance")
+    # Create mock remeshed forest density file (path com1DFA writes to cfg["INPUT"]["resFile"])
+    resDir = inputsDir / "RES"
+    resDir.mkdir(parents=True)
+    resFile = resDir / "forest_density_remeshed.asc"
+    resFile.write_text("mock forest density")
 
     # Setup config
     cfg = configparser.ConfigParser()
@@ -520,22 +521,23 @@ def test_setVariableForestParameters_withForest(tmp_path):
         "Tree diameter filename": ""
     }
     cfg["INPUT"] = {
-        "bhdFile": "RASTERS/test_bhd.asc"
+        "bhdFile": "RASTERS/test_bhd.asc",
+        "resFile": "RES/forest_density_remeshed.asc",
     }
 
-    # Setup inputSimFiles with forest enabled
+    # Setup inputSimFiles with forest enabled; resFile is the original raw path
     inputSimFiles = {
         "entResInfo": {
             "flagRes": "Yes",
             "bhd": "Yes"
         },
-        "resFile": resFile
+        "resFile": tmp_path / "original_forest_density.asc"
     }
 
     # Call function
     result = MoTUtils.setVariableForestParameters(cfg, inputSimFiles, workInputDir, inputsDir)
 
-    # Verify forest effects enabled
+    # Verify forest effects enabled and remeshed forest density path used
     assert result["FOREST_EFFECTS"]["Forest effects"] == "yes"
     assert str(resFile) in result["File names"]["Forest density filename"]
     assert str(bhdFile) in result["File names"]["Tree diameter filename"]
