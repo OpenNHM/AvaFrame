@@ -220,7 +220,7 @@ def runOptimisation():
 
             if comModuleName.lower() == "com1dfa":
                 _, _, _, simDFNew = com1DFA.com1DFAMain(cfgMain, cfgInfo=cfgPath)
-                simNameNew = simDFNew.index[simDFNew["newSim"] == 1]["simName"].to_list()
+                simNameNew = simDFNew[simDFNew["newSim"] == 1]["simName"].to_list()
             elif comModuleName.lower() == "com8motpsa":
                 # Perform com8MoTPSA simulations
                 simNameNew = com8MoTPSA.com8MoTPSAMain(cfgMain, cfgInfo=cfgPath, returnSimName=True)
