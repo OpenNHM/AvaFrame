@@ -1266,3 +1266,50 @@ def test_getNormalMesh(capfd):
             atol=atol,
         )
         assert TestNZ
+
+
+def test_indicesToCoords_basic():
+    """ test indicesToCoords with simple round-number values """
+    header = {"cellsize": 10.0, "xllcenter": 0.0, "yllcenter": 0.0}
+
+    col = np.array([0.0, 1.0, 2.5])
+    row = np.array([0.0, 1.0, 2.5])
+
+    x, y = geoTrans.indicesToCoords(col, row, header)
+
+    # xllcorner = 0 - 5 = -5.0, yllcorner = -5.0
+    # x = xllcorner + col * cellsize = -5.0 + col*10.0
+    expectedX = np.array([-5.0, 5.0, 20.0])
+    expectedY = np.array([-5.0, 5.0, 20.0])
+
+    np.testing.assert_allclose(x, expectedX)
+    np.testing.assert_allclose(y, expectedY)
+
+
+def test_indicesToCoords_nonZeroLowerLeftCenter():
+    """ test indicesToCoords with a non-zero xllcenter/yllcenter """
+    header = {"cellsize": 5.0, "xllcenter": 100.0, "yllcenter": 200.0}
+
+    col = np.array([0.0, 2.0])
+    row = np.array([0.0, 3.0])
+
+    x, y = geoTrans.indicesToCoords(col, row, header)
+
+    # xllcorner = 100 - 2.5 = 97.5, yllcorner = 200 - 2.5 = 197.5
+    expectedX = 97.5 + col * 5.0
+    expectedY = 197.5 + row * 5.0
+
+    np.testing.assert_allclose(x, expectedX)
+    np.testing.assert_allclose(y, expectedY)
+
+
+def test_indicesToCoords_scalarInputs():
+    """ test indicesToCoords also works with plain Python floats (not just arrays) """
+    header = {"cellsize": 2.0, "xllcenter": 0.0, "yllcenter": 0.0}
+
+    x, y = geoTrans.indicesToCoords(5.0, 2.0, header)
+
+    # xllcorner = -1.0, yllcorner = -1.0
+    # x = -1.0 + 5.0*2.0 = 9.0, y = -1.0 + 2.0*2.0 = 3.0
+    assert x == pytest.approx(9.0)
+    assert y == pytest.approx(3.0)

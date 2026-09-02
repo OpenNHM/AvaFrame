@@ -291,7 +291,11 @@ def remeshData(rasterDict, cellSizeNew, remeshOption="griddata", interpMethod="c
         yGrid = yGrid[mask]
         z = zCopy[mask]
         zNew = sp.interpolate.griddata(
-            (xGrid, yGrid), z, (xGridNew, yGridNew), method=interpMethod, fill_value=header["nodata_value"]
+            (xGrid, yGrid),
+            z,
+            (xGridNew, yGridNew),
+            method=interpMethod,
+            fill_value=header["nodata_value"],
         )
     elif remeshOption == "RectBivariateSpline":
         if np.isnan(z).any():
@@ -482,7 +486,10 @@ def remeshRaster(rasterFile, cfgSim, typeIndicator="DEM", onlySearch=False, lega
     else:
         log.info("Using rasterio resampling")
         remeshedRaster = remeshDataRio(
-            rasterFile, cszRasterNew, cfgSim["GENERAL"]["remeshInterpMethod"], larger=False
+            rasterFile,
+            cszRasterNew,
+            cfgSim["GENERAL"]["remeshInterpMethod"],
+            larger=False,
         )
         flipArg = False
 
@@ -1591,7 +1598,13 @@ def rotateRaster(rasterDict, theta, deg=True):
 
     # project data on this new grid
     rotatedZ, _ = projectOnGrid(
-        xTheta, yTheta, rasterDict["rasterData"], csz=csz, xllc=xllc, yllc=yllc, interp="bilinear"
+        xTheta,
+        yTheta,
+        rasterDict["rasterData"],
+        csz=csz,
+        xllc=xllc,
+        yllc=yllc,
+        interp="bilinear",
     )
 
     rotatedRaster = {"header": header, "rasterData": rotatedZ}
@@ -2224,3 +2237,33 @@ def interpolateLineLinear(lineDict, distance):
     lineDict["y"] = Y1
 
     return lineDict
+
+
+def indicesToCoords(col, row, header):
+    """
+    transform indeces (row and col) to coordinates (x, y)
+    considering the flipped (upside down) rasters
+    TODO: is there already a function for this calculation??
+
+    Parameters
+    ----------
+    col: numpy array
+        column indices of cells belonging to path
+    row: numpy array
+        row indices of cells belonging to path
+    header: dict
+        header of a raster
+
+    Returns
+    ----------
+    x: numpy array
+        x coordinates (in m) of cells belonging to path
+    y: numpy array
+        y coordinates (in m) of cells belonging to path
+    """
+    cellsize = header["cellsize"]
+    xllcorner = header["xllcenter"] - cellsize / 2
+    yllcorner = header["yllcenter"] - cellsize / 2
+    x = xllcorner + col * cellsize
+    y = yllcorner + row * cellsize
+    return x, y
