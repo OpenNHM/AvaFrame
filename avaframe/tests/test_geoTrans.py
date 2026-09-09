@@ -721,7 +721,8 @@ def test_isCounterClockWise():
     path = mpltPath.Path(polygon)
     is_ccw = geoTrans.isCounterClockWise(path)
 
-    assert is_ccw is not True
+    assert type(is_ccw) is bool
+    assert is_ccw is False
 
 
 def test_isCounterClockWise_rotationInvariant():

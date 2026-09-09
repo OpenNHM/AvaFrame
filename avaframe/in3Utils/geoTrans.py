@@ -1014,7 +1014,7 @@ def isCounterClockWise(path):
     x = path.vertices[:, 0]
     y = path.vertices[:, 1]
     signedArea = np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)
-    return signedArea > 0
+    return bool(signedArea > 0)
 
 
 def getCellsAlongLine(header, lineDict, addBuffer=True):
