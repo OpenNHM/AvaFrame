@@ -1355,7 +1355,7 @@ def polygon2Raster(demHeader, Line, radius, th=""):
     # for this we need to know if the path is clockwise or counterclockwise
     # to decide if the radius should be positive or negative in contains_points
     is_ccw = isCounterClockWise(path)
-    r = radius * is_ccw - radius * (1 - is_ccw)
+    r = radius if is_ccw else -radius
     x = np.linspace(0, ncols - 1, ncols)
     y = np.linspace(0, nrows - 1, nrows)
     X, Y = np.meshgrid(x, y)
@@ -1481,7 +1481,7 @@ def pointInPolygon(demHeader, points, Line, radius):
     # for this we need to know if the path is clockwise or counter clockwise
     # to decide if the radius should be positif or negatif in contains_points
     is_ccw = isCounterClockWise(path)
-    r = radius * is_ccw - radius * (1 - is_ccw)
+    r = radius if is_ccw else -radius
     points2Check = np.stack((points["x"], points["y"]), axis=-1)
     mask = path.contains_points(points2Check, radius=r)
     mask = np.where(mask > 0, True, False)
