@@ -986,9 +986,21 @@ def prepareAngleProfile(beta, avaProfile, raiseWarning=True):
 
 
 def isCounterClockWise(path):
-    """Determines if a polygon path is mostly clockwise or counter clockwise
+    """Determines if a polygon path is clockwise or counter clockwise, via
+    the shoelace formula (exact for any simple polygon, convex or concave,
+    and independent of which vertex is listed first).
 
-    https://stackoverflow.com/a/45986805/15887086
+    The previous implementation (a majority vote on vertex angles measured
+    relative to vertex 0, see
+    https://stackoverflow.com/a/45986805/15887086) is not rotation-invariant:
+    for a range of polygons -- including some plain convex ones, not only
+    concave shapes -- it returns a different answer for the exact same
+    polygon depending on which vertex happens to be listed first, or on the
+    polygon's absolute orientation in the plane. Since polygon2Raster() uses
+    the sign of this result to decide whether its `radius` tolerance dilates
+    or shrinks the polygon before rasterizing it, a misjudged winding can
+    silently shrink a release/entrainment/resistance area instead of
+    dilating it.
 
     Parameters
     ----------
@@ -996,13 +1008,13 @@ def isCounterClockWise(path):
         polygon path
     Returns
     -------
-    isCounterCloc1: int
-        1 if the path is counter clockwise, 0 otherwise
+    isCounterClock: bool
+        True if the path is counter clockwise, False otherwise
     """
-    v = path.vertices - path.vertices[0, :]
-    a = np.arctan2(v[1:, 1], v[1:, 0])
-    isCounterClock = (a[1:] >= a[:-1]).astype(int).mean() >= 0.5
-    return isCounterClock
+    x = path.vertices[:, 0]
+    y = path.vertices[:, 1]
+    signedArea = np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)
+    return signedArea > 0
 
 
 def getCellsAlongLine(header, lineDict, addBuffer=True):
