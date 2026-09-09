@@ -724,6 +724,38 @@ def test_isCounterClockWise():
     assert is_ccw is not True
 
 
+def test_isCounterClockWise_rotationInvariant():
+    """isCounterClockWise must return the same answer for a given polygon
+    regardless of which vertex happens to be listed first -- winding is a
+    property of the polygon, not of vertex-list bookkeeping. Regression
+    test for a bug where the previous angle-vote heuristic disagreed with
+    itself depending on the starting vertex, for polygons as simple as a
+    plain square (not only concave shapes)."""
+
+    shapes = {
+        # convex square -- still affected at one starting vertex
+        "square": np.array([[0, 0], [0, 4], [4, 4], [4, 0]], dtype=float),
+        # single-notch L-shape -- concave, affected at one starting vertex
+        "lShape": np.array([[0, 0], [0, 4], [3, 4], [3, 2], [1, 2], [1, 0]], dtype=float),
+    }
+
+    for name, polygon in shapes.items():
+        nVertices = len(polygon)
+        expected = shp.LinearRing(polygon).is_ccw
+
+        results = set()
+        for start in range(nVertices):
+            rotated = np.roll(polygon, -start, axis=0)
+            path = mpltPath.Path(rotated)
+            results.add(bool(geoTrans.isCounterClockWise(path)))
+
+        assert results == {expected}, (
+            "%s: isCounterClockWise gave inconsistent answers (%s) across "
+            "%d equivalent starting vertices of the same polygon; expected "
+            "%s throughout" % (name, results, nVertices, expected)
+        )
+
+
 def test_checkOverlap():
     """test checkOverlap function with both crop set to False and True"""
     nRows = 5
