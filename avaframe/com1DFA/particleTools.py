@@ -59,7 +59,7 @@ def initialiseParticlesFromFile(cfg, avaDir, releaseScenario):
     return particles, hPartArray
 
 
-def placeParticles(hCell, aCell, indx, indy, csz, massPerPart, nPPK, rng, cfg, ratioArea):
+def placeParticles(hCell, aCell, indx, indy, csz, massPerPart, nPPK, rng, cfg, ratioArea, volCell=None):
     """Create particles in given cell
 
     Compute number of particles to create in a given cell.
@@ -88,6 +88,8 @@ def placeParticles(hCell, aCell, indx, indy, csz, massPerPart, nPPK, rng, cfg, r
         ratio between projected release area and real release area (used for the triangular initialization)
         limitations appear if there are multiple release areas feature (the ratio stands for the average of all release
         areas so it is not specific to each feature).
+    volCell: float
+        release volume in cell
     Returns
     -------
     xPart : 1D numpy array
@@ -106,7 +108,8 @@ def placeParticles(hCell, aCell, indx, indy, csz, massPerPart, nPPK, rng, cfg, r
     thresholdMassSplit = cfg.getfloat("thresholdMassSplit")
     initPartDistType = cfg["initPartDistType"].lower()
     massPerParticleDeterminationMethod = cfg["massPerParticleDeterminationMethod"]
-    volCell = aCell * hCell
+    if volCell is None:
+        volCell = aCell * hCell
     massCell = volCell * rho
     if initPartDistType == "random":
         if massPerParticleDeterminationMethod == "MPPKR":

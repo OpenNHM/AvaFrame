@@ -1571,11 +1571,21 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
             # set release thickness to a constant value for initialisation
             relRaster = np.where(relRaster > 0.0, cfg.getfloat("%sTh" % thName), 0.0)
             log.warning("%sThField!= 0, but relRaster set to %sTh value (from ini)" % (thName, thName))
+        # get release volumes
+        if "volRaster" in releaseLine:
+            volRaster = releaseLine["volRaster"]
+        else:
+            volRaster = None
         # loop on non empty cells
         for indRelx, indRely in zip(indRelX, indRelY):
             # compute number of particles for this cell
             hCell = relRaster[indRely, indRelx]
             aCell = areaRaster[indRely, indRelx]
+            if volRaster is not None:
+                volCell = volRaster[indRely, indRelx]
+            else:
+                volCell = None
+            #TODO: adapt for other massPerParticleDeterminationMethod?    
             xPart, yPart, mPart, n, aPart = particleTools.placeParticles(
                 hCell,
                 aCell,
@@ -1587,6 +1597,7 @@ def initializeParticles(cfg, releaseLine, dem, inputSimLines="", logName="", rel
                 rng,
                 cfg,
                 ratioArea,
+                volCell=volCell,
             )
             nPart = nPart + n
             partPerCell[indRely, indRelx] = n

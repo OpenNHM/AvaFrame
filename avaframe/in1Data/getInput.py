@@ -1199,9 +1199,9 @@ def getTimeDepRelCsv(timeDepRelCsv):
     Returns
     -----------
     timeDepRelValues: dict
-        contains time dependent release values: timestep, thickness, velocity
+        contains time dependent release values: timestep, release volume, thickness, velocity
     timeDepRelDF: dataframe
-        contains time dependent release values: timestep, thickness, velocity
+        contains time dependent release values: timestep, release volume, thickness, velocity
     """
     if timeDepRelCsv is None:
         message = "No csv file containing time dependent release values is provided"
@@ -1217,6 +1217,8 @@ def getTimeDepRelCsv(timeDepRelCsv):
         "timeStep": timeDepRelDF["timestep"].to_numpy(dtype=np.float64),
         "thickness": timeDepRelDF["thickness"].to_numpy(dtype=np.float64),
     }
+    if "relvolume" in timeDepRelDF.columns:
+        timeDepRelValues["relVolume"] = timeDepRelDF["relvolume"].to_numpy(dtype=np.float64)
     # TODO: rethink this actual status: we only allow velocity magnitude together with shape file location and only velocity components with x and y (from csv) locations
     for component in ["velocityx", "velocityy", "velocityz"]:
         if "x" not in timeDepRelDF.columns and component in timeDepRelDF.columns:
@@ -1260,7 +1262,7 @@ def timeDepRelCoordsToRaster(timeDepRelValues, index, demHeader, parameter="thic
     Parameters
     ----------
     timeDepRelValues: dict
-        contains time dependent release values: timestep, thickness, velocity, x and y coordinates
+        contains time dependent release values: timestep, release volume, thickness, velocity, x and y coordinates
     index: int
         index of timestep (row in csv file)
     demHeader: dict
@@ -1271,7 +1273,8 @@ def timeDepRelCoordsToRaster(timeDepRelValues, index, demHeader, parameter="thic
     Returns
     --------
     raster: np.array
-        thickness raster read from time dependent csv file (coordinates and thickness)
+        raster read from time dependent csv file (coordinates and parameter)
+        the parameter defined for the argument "parameter" is read (by default thickness)
     """
     if "x" not in timeDepRelValues:
         return None
@@ -1302,6 +1305,7 @@ def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
     - release - timesteps are unique (when no coordinates are provided)
     - the release - timesteps are not too close (that the particle density becomes too high)
     - provided release - thickness is larger than zero
+    - provided release - volume is zero or larger
     - provided velocity is zero or larger.
 
     Parameters
@@ -1367,12 +1371,22 @@ def checkTimeDepRelease(timeDepRelValues, timeDepRelCsv):
 
     # check that release thickness > 0
     for th in timeDepRelValues["thickness"]:
-        if th <= 0:
-            message = "For every release time step a thickness > 0 needs to be provided in %s" % (
+        if th < 0:
+            message = "For every release time step a positive release thickness needs to be provided in %s" % (
                 timeDepRelCsv
             )
             log.error(message)
             raise ValueError(message)
+
+    # check that release thickness > 0
+    if "relVolume" in timeDepRelValues.keys():
+        for relVol in timeDepRelValues["relVolume"]:
+            if relVol < 0:
+                message = "For every release time step a positive release volume needs to be provided in %s" % (
+                    timeDepRelCsv
+                )
+                log.error(message)
+                raise ValueError(message)
 
     if "velocity" in timeDepRelValues.keys():
         for vel in timeDepRelValues["velocity"]:

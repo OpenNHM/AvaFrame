@@ -78,9 +78,7 @@ def initializeTimeDepRelease(cfg, inputSimLines, particles, fields, dem, zPartAr
     return particles, fields, zPartArray0
 
 
-def addReleaseParticles(
-        cfg, particles, inputSimLines, timeDepRelValues, dem, zPartArray0, timeDepRelIndex
-):
+def addReleaseParticles(cfg, particles, inputSimLines, timeDepRelValues, dem, zPartArray0, timeDepRelIndex):
     """
     add new particles initialized by a time dependent release to particles that are in the flow already
 
@@ -113,9 +111,10 @@ def addReleaseParticles(
     relLine = copy.deepcopy(inputSimLines["releaseLine"])
     relLine["header"] = dem["originalHeader"].copy()
     if relLine["initializedFrom"] == "csvfile":
-        relLine["rasterData"] = gI.timeDepRelCoordsToRaster(
-            relLine["timeDepRelValues"], timeDepRelIndex, dem["originalHeader"], parameter="thickness"
-        )
+        for key, param in zip(["rasterData", "volRaster"], ["thickness", "relVolume"]):
+            relLine[key] = gI.timeDepRelCoordsToRaster(
+                relLine["timeDepRelValues"], timeDepRelIndex, dem["originalHeader"], parameter=param
+            )
         relThField = relLine["rasterData"]
     else:
         relThField = ""
@@ -131,39 +130,38 @@ def addReleaseParticles(
         # check if already existing particles are within the release polygon
         # it's possible that there are still a few particles in the polygon with low velocities
         # TODO: could think of a threshold of number of particles that are still allowed in the polygons?
-        mask = geoTrans.getParticlesInPolygon(particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel"))
+        mask = geoTrans.getParticlesInPolygon(
+            particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel")
+        )
         if np.sum(mask) > 0:
             message = (
-                    "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
-                    % (particles["t"] + particles["dt"])
+                "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
+                % (particles["t"] + particles["dt"])
             )
             log.error(message)
             raise ValueError(message)
 
     particlesRelease = com1DFA.initializeParticles(
-        cfg["GENERAL"],
-        relLine,
-        dem,
-        relThField=relThField,
-        timestep=particles["t"] + particles["dt"]
+        cfg["GENERAL"], relLine, dem, relThField=relThField, timestep=particles["t"] + particles["dt"]
     )
 
     if "velocity" in timeDepRelValues and "x" not in timeDepRelValues:
         particlesRelease = DFAfunC.updateInitialVelocity(cfg["GENERAL"], particlesRelease, dem, velocityMag)
 
-
-
     elif "velocityX" in timeDepRelValues and "x" in timeDepRelValues:
         for uComp, timedepParameter in zip(["ux", "uy", "uz"], ["velocityX", "velocityY", "velocityZ"]):
-            raster = gI.timeDepRelCoordsToRaster(relLine["timeDepRelValues"], timeDepRelIndex,
-                                                 dem["originalHeader"], parameter=timedepParameter
-                                                 )
+            raster = gI.timeDepRelCoordsToRaster(
+                relLine["timeDepRelValues"],
+                timeDepRelIndex,
+                dem["originalHeader"],
+                parameter=timedepParameter,
+            )
             rasterDict = {"header": dem["header"], "rasterData": raster}
-            particlesRelease, _ = geoTrans.projectOnRaster(rasterDict,
-                                                           particlesRelease, outData=uComp)
+            particlesRelease, _ = geoTrans.projectOnRaster(rasterDict, particlesRelease, outData=uComp)
 
         particlesRelease["uMag"] = np.sqrt(
-            particlesRelease["ux"] ** 2 + particlesRelease["uy"] ** 2 + particlesRelease["uz"] ** 2)
+            particlesRelease["ux"] ** 2 + particlesRelease["uy"] ** 2 + particlesRelease["uz"] ** 2
+        )
 
     particles = particleTools.mergeParticleDict(particles, particlesRelease)
     # save initial z position for travel angle computation
@@ -191,14 +189,12 @@ def defineReleaseLineFromCoordinates(relFile, timeDepRelValues, demHeader):
     relThFieldData: numpy array
         release thickness raster data
     """
-    releaseLine = {
-        "file": relFile,
-        "Name": [relFile.stem],
-        "initializedFrom": "csvfile"
-    }
+    releaseLine = {"file": relFile, "Name": [relFile.stem], "initializedFrom": "csvfile"}
     initialIndex = np.where(timeDepRelValues["timeStep"] == 0)[0]
-    releaseLine["rasterData"] = gI.timeDepRelCoordsToRaster(timeDepRelValues, initialIndex, demHeader,
-                                                            parameter="thickness")
+    for key, param in zip(["rasterData", "volRaster"], ["thickness", "relVolume"]):
+        releaseLine[key] = gI.timeDepRelCoordsToRaster(
+            timeDepRelValues, initialIndex, demHeader, parameter=param
+        )
     relThFieldData = releaseLine["rasterData"]
     # TODO: define thickness for output report, now mean of thickness values
     releaseLine["thickness"] = np.nanmean(np.where(relThFieldData == 0, np.nan, relThFieldData))
