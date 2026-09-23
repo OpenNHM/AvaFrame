@@ -2789,7 +2789,7 @@ def computeEulerTimeStep(
     startTime = time.time()
     # loop version of the compute force
     log.debug("Compute Force C")
-    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, resistanceType)
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, entrType, resistanceType)
     tCPUForce = time.time() - startTime
     tCPU["timeForce"] = tCPU["timeForce"] + tCPUForce
     # compute lateral force (SPH component of the calculation)
