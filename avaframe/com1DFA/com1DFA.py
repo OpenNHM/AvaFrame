@@ -2757,6 +2757,8 @@ def computeEulerTimeStep(
         computation time dictionary
     frictType: int
         indicator for chosen type of friction model
+    entrType: int
+        indicator for chosen type of entrainment model
     resistanceType: int
         identifier for chosen type of resistance model
 
