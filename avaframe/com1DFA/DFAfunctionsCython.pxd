@@ -8,6 +8,8 @@
 
 cpdef (double, double) computeEntMassAndForce(double, double, double, double, double, double, double)
 
+cpdef (double, double, double) computeEntMassAndForceTjem(double, double, double, double, double, double, double)
+
 cpdef double computeDetMass(double, double, double, double)
 
 cpdef double computeResForce(double, double, double, double, int, int)
