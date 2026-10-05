@@ -188,8 +188,8 @@ def test_analyzeDiffsRunoutLines(tmp_path):
     resAnalysisDF = pd.DataFrame(
         data={
             "runoutLineDiff_line": [np.nan],
-            "runoutLineDiff_line_pointsNotFoundInSim": [np.nan],
-            "runoutLineDiff_line_pointsNotFoundInRef": [np.nan],
+            "runoutLineDiff_line_pointsNotFoundInSim": [""],
+            "runoutLineDiff_line_pointsNotFoundInRef": [""],
             "runoutLineDiff_line_RMSE": [np.nan],
             "simName": ["simA"],
         }
