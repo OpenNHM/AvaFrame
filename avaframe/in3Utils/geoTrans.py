@@ -1753,8 +1753,8 @@ def snapPtsToLine(dbData, projstr, lineName, pointsList):
     """
 
     for pt in pointsList:
-        dbData[pt + "_" + projstr + "_snapped"] = np.empty(len(dbData))
-        dbData["distanceXY"] = np.empty(len(dbData))
+        # object dtype as the column holds shapely points
+        dbData[pt + "_" + projstr + "_snapped"] = np.empty(len(dbData), dtype=object)
 
     for index, row in dbData.iterrows():
         xycoor = np.asarray(dbData.loc[index, ("%s_%s_resampled" % (lineName, projstr))].coords.xy)
