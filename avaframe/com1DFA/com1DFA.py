@@ -2209,6 +2209,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
 
     # setup a result fields info data frame to save max values of fields and avalanche front
     resultsDF = setupresultsDF(resTypes, cfg["VISUALISATION"].getboolean("createRangeTimeDiagram"))
+    if cfg["VISUALISATION"].getboolean("outputHydrograph"):
+        outHydDF, outHydIdx, NzNormed = debF.setupOutHydrographDF(cfgGen, dem)
 
     # Add different time stepping options here
     log.debug("Use standard time stepping")
@@ -2310,6 +2312,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         else:
             rangeValue = ""
         resultsDF = addMaxValuesToDF(resultsDF, fields, t, resTypes, rangeValue=rangeValue)
+        if cfg["VISUALISATION"].getboolean("outputHydrograph"):
+            outHydDF = debF.collectOutputHydrograph(outHydDF, outHydIdx, NzNormed, fields, t)
 
         tCPU["nSave"] = nSave
         particles["t"] = t
@@ -2490,7 +2494,14 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # save resultsDF to file
     resultsDFPath = pathlib.Path(cfgGen["avalancheDir"], "Outputs", "com1DFA", "resultsDF_%s.csv" % simHash)
     resultsDF.to_csv(resultsDFPath)
-
+    if cfg["VISUALISATION"].getboolean("outputHydrograph"):
+        # save outputHydrographDF to file
+        outHydPath = pathlib.Path(cfgGen["avalancheDir"], "Outputs", "out1HelpDFHyd")
+        fU.makeADir(outHydPath)
+        outHydDF.to_csv(outHydPath / f"outputHydrographDF_{simHash}.csv")
+        # plot output hydrograph
+        debF.outputHydrographPlot(outHydDF, cfgGen, simHash=simHash)
+    
     if cfg["EXPORTS"].getboolean("exportData"):
         exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="final")
 
