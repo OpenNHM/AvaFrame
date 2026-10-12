@@ -152,6 +152,7 @@ def checkResType(fullCfg, section, key, value):
             "dmDet",
             "FTDet",
             "sfcChange",
+            "sfcChangeCum",
             "demAdapted",
             "timeInfo",
             "entrDepth",

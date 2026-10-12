@@ -1792,11 +1792,13 @@ def initializeFields(cfg, dem, particles, releaseLine):
     fields["Vy"] = np.zeros((nrows, ncols))  # velocity in y direction [m/s]
     fields["Vz"] = np.zeros((nrows, ncols))  # velocity in z direction [m/s]
     fields["dmDet"] = np.zeros((nrows, ncols))  # flowing mass change due to detrainment [kg]
+    fields["mStop"] = np.zeros((nrows, ncols))  # mass stopped in this time step [kg] (<= 0)
+    fields["mDet"] = np.zeros((nrows, ncols))  # mass detrained in this time step [kg] (<= 0)
     fields["FTStop"] = np.zeros((nrows, ncols))  # flow thickness that is stopped [m]
     fields["FTDet"] = np.zeros((nrows, ncols))  # flow thickness that is detrained [m]
     fields["FTEnt"] = np.zeros((nrows, ncols))  # flow thickness that is entrained [m]
     fields["sfcChange"] = np.zeros((nrows, ncols))  # depth that changes the surface [m]
-    fields["sfcChangeTotal"] = np.zeros((nrows, ncols))  # total depth that changed the surface [m]
+    fields["sfcChangeCum"] = np.zeros((nrows, ncols))  # total depth that changed the surface [m]
     fields["demAdapted"] = np.zeros((nrows, ncols))  # adapted topography [m]
     fields["timeInfo"] = np.zeros((nrows, ncols))  # first time
     # for optional fields, initialize with dummys (minimum size array). The cython functions then need something
@@ -2858,15 +2860,15 @@ def computeEulerTimeStep(
     # update field that indicates when cell was first affected by mass
     fields = com1DFATools.updateTimeField(fields, particles["t"])
 
-    # adapt DEM considering erosion and deposition
-    # only adapt DEM when in one grid cell the changing height > threshold
-    thresholdAdaptSfc = cfg.getfloat("thresholdAdaptSfc")
-    adaptStop = cfg.getboolean("adaptSfcStopped") and np.any(abs(fields["FTStop"]) > thresholdAdaptSfc)
-    adaptDet = cfg.getboolean("adaptSfcDetrainment") and np.any(abs(fields["FTDet"]) > thresholdAdaptSfc)
-    adaptEnt = cfg.getboolean("adaptSfcEntrainment") and np.any(abs(fields["FTEnt"]) > thresholdAdaptSfc)
-    if particles["t"] > 0:
-        if adaptStop or adaptDet or adaptEnt:
-            dem, fields = adaptDEM(dem, fields, cfg)
+    # adapt DEM considering erosion and deposition every time step
+    # (normals and area of the DEM are only updated if the surface changed more than thresholdAdaptSfc)
+    adaptSfc = (
+        cfg.getboolean("adaptSfcStopped")
+        or cfg.getboolean("adaptSfcDetrainment")
+        or cfg.getboolean("adaptSfcEntrainment")
+    )
+    if particles["t"] > 0 and adaptSfc:
+        dem, fields = adaptDEM(dem, fields, cfg)
 
     tCPUField = time.time() - startTime
     tCPU["timeField"] = tCPU["timeField"] + tCPUField
@@ -3216,7 +3218,7 @@ def exportFields(
             dmDet = fields["dmDet"]
             resField = dmDet / (cfg["GENERAL"].getfloat("rho") * dem["areaRaster"])
         elif TSave == "final" and resType == "sfcChange":
-            resField = fields["sfcChangeTotal"]
+            resField = fields["sfcChangeCum"]
         else:
             resField = fields[resType]
         if resType == "ppr":
@@ -3558,22 +3560,19 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
                 cfgSim["INPUT"]["entThFile"] = pathToEnt
                 inputSimFiles["entResInfo"]["entRemeshed"] = remeshedEnt
             cfgSim["INPUT"]["entrainmentScenario"] = str(pathlib.Path("ENT", inputSimFiles["entFile"].name))
-            if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
-                if cfgSim["GENERAL"]["entrainableDeposition"] == "True" and (
+
+        # entrainable deposition also works without entrainment area (only deposited mass is entrainable)
+        if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
+            if cfgSim["GENERAL"]["entrainableDeposition"] == "True" and (
                     cfgSim["GENERAL"]["adaptSfcEntrainment"] == "0"
                     or (
-                        cfgSim["GENERAL"]["adaptSfcStopped"] == "0"
-                        and cfgSim["GENERAL"]["adaptSfcDetrainment"] == "0"
+                            cfgSim["GENERAL"]["adaptSfcStopped"] == "0"
+                            and cfgSim["GENERAL"]["adaptSfcDetrainment"] == "0"
                     )
-                ):
-                    # set entrainable Deposition to False if entrainment or adapt Sfc are switched off
-                    message = f"When entrainable deposition is True, adaptSfcEntrainment and adaptSfcDeposition (or adaptSfcDetrainment) need to be 1."
-                    log.error(message)
-                    raise ValueError(message)
-        else:
-            if modName in ["com1DFA", "com5SnowSlide", "com6RockAvalanche"]:
-                cfgSim["GENERAL"]["entrainableDeposition"] = "False"
-                log.info("Deposition is not entrainable when it's not an ent sim type.")
+            ):
+                message = f"When entrainable deposition is True, adaptSfcEntrainment and adaptSfcStopped (or adaptSfcDetrainment) need to be 1."
+                log.error(message)
+                raise ValueError(message)
 
         # add info about resistance file path to the cfg
         if (
@@ -4000,7 +3999,8 @@ def adaptDEM(dem, fields, cfg):
             FTStop (flow thickness change due to stopping >= 0)
             FTEnt (flow thickness change due to entrainment <= 0)
             mStop (stopped mass <=0)
-            sfcChangeTotal (so far changed surface)
+            mDet (detrained mass <=0)
+            sfcChangeCum (so far changed surface)
             entrDepth (entrainable depth that is on top of the not erodable topography)
             entrMassRaster (entrainable mass)
             demNotErodableRaster (topography that is not erodable)
@@ -4015,22 +4015,28 @@ def adaptDEM(dem, fields, cfg):
         fields dictionary containing adapted DEM, adapted entrainable mass and depth raster
     """
 
-    ZDEM = dem["rasterData"].copy()
+    # mass and thickness change within the timestep
     FTDet = fields["FTDet"]  # >= 0
     FTStop = fields["FTStop"]  # >= 0
     FTEnt = fields["FTEnt"]  # <= 0
     mStop = fields["mStop"]  # <= 0
+    mDet = fields["mDet"]  # <= 0
 
-    sfcChangeTotal = fields["sfcChangeTotal"]
+    if np.all(FTDet == 0) and np.all(FTEnt == 0) and np.all(FTStop == 0):
+        # if there are no thickness changes, topography is not modified
+        return dem, fields
+
+    ZDEM = dem["rasterData"].copy()
+
+    sfcChangeCum = fields["sfcChangeCum"]
     sfcChange = np.zeros_like(FTDet)
-    ZDEMadapt = ZDEM
+    ZDEMadapt = copy.deepcopy(ZDEM)
 
     depthStop = np.zeros_like(ZDEM)
     depthDet = np.zeros_like(ZDEM)
     depthEnt = np.zeros_like(ZDEM)
 
-    _, _, NzNormed = DFAtls.normalize(dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy())
-
+    _, _, NzNormed = DFAtls.normalize(dem["Nx"], dem["Ny"], dem["Nz"])
     if cfg.getboolean("adaptSfcStopped"):
         # compute thickness to depth
         depthStop = FTStop / NzNormed
@@ -4047,23 +4053,35 @@ def adaptDEM(dem, fields, cfg):
         ZDEMadapt += depthEnt
         sfcChange += depthEnt
     if cfg.getboolean("entrainableDeposition"):
-        hErodable = fields["entrDepth"]
+        hErodable = copy.deepcopy(fields["entrDepth"])
         hErodable += depthStop
         hErodable += depthDet
         hErodable += depthEnt
-        ZDEMadapt = fields["demNotErodableRaster"] + hErodable
+        ZDEMadapt = fields["demNotErodableRaster"].copy() + hErodable
         fields["entrDepth"] = hErodable
-        fields["entrMassRaster"] -= mStop
+        # the entrained mass is considered in DFAFunctionsCython.pyx
+        # entrMassRaster shows mass per m²
+        fields["entrMassRaster"] -= mStop / dem['areaRaster']
+        fields["entrMassRaster"] -= mDet / dem['areaRaster']
+
+    # topography the normals and area of the DEM were computed with
+    ZDEMNormals = dem.get("rasterDataNormals", ZDEM)
 
     dem["rasterData"] = ZDEMadapt
-    fields["demAdapted"] = ZDEMadapt
+    fields["demAdapted"] = ZDEMadapt.copy()
 
-    num = cfg.getfloat("methodMeshNormal")
-    dem = geoTrans.getNormalMesh(dem, num=num)
-    dem = DFAtls.getAreaMesh(dem, num)
+    # only update normals and area of the DEM if the surface changed more than thresholdAdaptSfc
+    # since they were computed the last time
+    if np.any(abs(ZDEMadapt - ZDEMNormals) > cfg.getfloat("thresholdAdaptSfc")):
+        num = cfg.getfloat("methodMeshNormal")
+        dem = geoTrans.getNormalMesh(dem, num=num)
+        dem = DFAtls.getAreaMesh(dem, num)
+        dem["rasterDataNormals"] = ZDEMadapt
+    else:
+        dem["rasterDataNormals"] = ZDEMNormals
 
     fields["sfcChange"] = sfcChange
-    fields["sfcChangeTotal"] = sfcChangeTotal + sfcChange
+    fields["sfcChangeCum"] = sfcChangeCum + sfcChange
 
     return dem, fields
 

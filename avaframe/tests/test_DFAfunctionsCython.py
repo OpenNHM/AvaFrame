@@ -582,6 +582,196 @@ def test_updatePositionC():
     assert particles["massStopped"] == -np.sum(particles["stoppedParticles"]["m"])
 
 
+def _setupUpdatePositionStopping(explicitFriction, adaptSfcStopped, velMagMin="1.e-6"):
+    """setup inputs for updatePositionC to test stopping of particles
+
+    particle 0: no velocity and no driving force -> velocity after friction is exactly zero
+    particle 1: very small velocity and tiny friction -> velocity after friction is > 0 but < velMagMin
+        (only for the implicit friction method, the explicit method only reduces it by 1e-9)
+    particle 2: flowing particle
+    """
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "stopCrit": "0.01",
+        "stopCritIni": "0.1",
+        "stopCritIniSmall": "1.001",
+        "stopCritType": "kinEnergy",
+        "uFlowingThreshold": "0.1",
+        "gravAcc": "9.81",
+        "velMagMin": velMagMin,
+        "rho": "100.",
+        "interpOption": "2",
+        "explicitFriction": str(explicitFriction),
+        "centeredPosition": "1",
+        "reprojMethodPosition": "2",
+        "reprojectionIterations": "5",
+        "thresholdProjection": "0.001",
+        "dissDam": "1",
+        "snowSlide": "0",
+        "wetSnow": "0",
+        "adaptSfcStopped": str(adaptSfcStopped),
+        "adaptSfcDetrainment": "0",
+        "adaptSfcEntrainment": "0",
+    }
+
+    particles = {
+        "dt": 1.0,
+        "m": np.asarray([10.0, 10.0, 10.0], dtype=np.float64),
+        "idFixed": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYCor": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "trajectoryLengthXYZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "x": np.asarray([0.0, 1.0, 2.0], dtype=np.float64),
+        "y": np.asarray([2.0, 3.0, 4.0], dtype=np.float64),
+        "z": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ux": np.asarray([0.0, 1.0e-7, 1.0], dtype=np.float64),
+        "uy": np.asarray([0.0, 1.0e-7, 1.0], dtype=np.float64),
+        "uz": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "uAcc": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "kineticEne": 0.0,
+        "peakKinEne": 0.0,
+        "peakForceSPH": 0.0,
+        "forceSPHIni": 0.0,
+        "nPart": 3,
+        "peakMassFlowing": 0.0,
+        "iterate": True,
+        "totalEnthalpy": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "velocityMag": np.asarray([0.0, np.sqrt(2.0) * 1.0e-7, np.sqrt(2.0)], dtype=np.float64),
+        "h": np.asarray([1.0, 1.0, 1.0], dtype=np.float64),
+        "ID": np.array([0, 1, 2], dtype=np.int64),
+        "stoppedParticles": {},
+        "indXDEM": np.array([0, 0, 0], dtype=np.int32),
+        "indYDEM": np.array([0, 0, 0], dtype=np.int32),
+    }
+    particles["potentialEne"] = np.sum(9.81 * particles["z"] * particles["m"])
+
+    demHeader = {
+        "xllcenter": 0.0,
+        "yllcenter": 0.0,
+        "cellsize": 5.0,
+        "nodata_value": -9999,
+        "nrows": 10,
+        "ncols": 10,
+    }
+    dem = {"header": demHeader}
+    dem["rasterData"] = np.ones((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["outOfDEM"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64).flatten()
+    dem["Nx"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["Ny"] = np.zeros((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    dem["Nz"] = np.ones((demHeader["nrows"], demHeader["ncols"]), dtype=np.float64)
+    wallLineDict = {
+        "dam": 0,
+        "nIterDam": 1,
+        "cellsCrossed": np.zeros((demHeader["ncols"] * demHeader["nrows"]), dtype=np.int64),
+    }
+    for key in ["x", "y", "z", "xCrown", "yCrown", "zCrown", "xTangent", "yTangent", "zTangent"]:
+        wallLineDict[key] = np.ones((1)) * 1.0
+    for key in ["nPoints", "height", "slope", "restitutionCoefficient"]:
+        wallLineDict[key] = 0
+    dem["damLine"] = wallLineDict
+
+    force = {
+        "forceZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceFrict": np.asarray([10.0, 1.0e-8, 10.0], dtype=np.float64),
+        "dM": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "dMDet": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceX": np.asarray([0.0, 0.0, 50.0], dtype=np.float64),
+        "forceY": np.asarray([0.0, 0.0, 50.0], dtype=np.float64),
+        "forceSPHX": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceSPHY": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+        "forceSPHZ": np.asarray([0.0, 0.0, 0.0], dtype=np.float64),
+    }
+    fields = {"FT": np.zeros((2, 2))}
+
+    return cfg, particles, dem, force, fields
+
+
+def test_updatePositionC_stoppingImplicitFriction():
+    """test removing stopped particles in updatePositionC for implicit (explicitFriction = 0)
+    and explicit friction"""
+
+    # implicit friction: zero velocity and velocity <= velMagMin stop the particle
+    cfg, particles, dem, force, fields = _setupUpdatePositionStopping(0, 1)
+    particles = DFAfunC.updatePositionC(cfg["GENERAL"], particles, dem, force, fields, typeStop=0)
+
+    stopped = particles["stoppedParticles"]
+    assert particles["nPart"] == 1
+    assert np.array_equal(particles["ID"], np.array([2]))
+    assert np.array_equal(stopped["ID"], np.array([0.0, 1.0]))
+    assert np.array_equal(stopped["m"], np.array([10.0, 10.0]))
+    # stopped particles are stored with their position before the update
+    assert np.array_equal(stopped["x"], np.array([0.0, 1.0]))
+    assert np.array_equal(stopped["y"], np.array([2.0, 3.0]))
+    assert particles["massStopped"] == -20.0
+    assert particles["iterate"]
+    # the flowing particle is kept and its velocity is reduced with implicit friction: (1 + 50/10) / 2 = 3
+    assert np.isclose(particles["ux"][0], 3.0)
+    assert np.isclose(particles["uy"][0], 3.0)
+
+    # explicit friction: only particles with exactly zero velocity are stopped
+    cfg, particles, dem, force, fields = _setupUpdatePositionStopping(1, 1)
+    particles = DFAfunC.updatePositionC(cfg["GENERAL"], particles, dem, force, fields, typeStop=0)
+
+    stopped = particles["stoppedParticles"]
+    assert particles["nPart"] == 2
+    assert np.array_equal(particles["ID"], np.array([1, 2]))
+    assert np.array_equal(stopped["ID"], np.array([0.0]))
+    assert np.array_equal(stopped["m"], np.array([10.0]))
+    assert np.array_equal(stopped["x"], np.array([0.0]))
+    assert np.array_equal(stopped["y"], np.array([2.0]))
+    assert particles["massStopped"] == -10.0
+    assert particles["iterate"]
+
+    # no surface adaptation due to stopping: particles are never removed
+    cfg, particles, dem, force, fields = _setupUpdatePositionStopping(0, 0)
+    particles = DFAfunC.updatePositionC(cfg["GENERAL"], particles, dem, force, fields, typeStop=0)
+
+    assert particles["nPart"] == 3
+    assert np.array_equal(particles["ID"], np.array([0, 1, 2]))
+    assert len(particles["stoppedParticles"]["ID"]) == 0
+    assert particles["massStopped"] == 0.0
+    assert particles["iterate"]
+
+
+def runUpdatePosition(explicitFriction, uxIni):
+    """run updatePositionC with velMagMin = 1 where the velocity of particle 2 is set to uxIni
+    and the other particles are flowing fast"""
+    cfg, particles, dem, force, fields = _setupUpdatePositionStopping(explicitFriction, 1, velMagMin="1.0")
+    particles["ux"] = np.asarray([10.0, 10.0, uxIni], dtype=np.float64)
+    particles["uy"] = np.asarray([0.0, 0.0, 0.0], dtype=np.float64)
+    particles["velocityMag"] = np.abs(particles["ux"])
+    force["forceX"] = np.zeros(3)
+    force["forceY"] = np.zeros(3)
+    # implicit: u / (1 + dt * forceFrict / m) = u / 2, explicit: u - dt * forceFrict / m = u - 1
+    force["forceFrict"] = np.asarray([10.0, 10.0, 10.0], dtype=np.float64)
+    return DFAfunC.updatePositionC(cfg["GENERAL"], particles, dem, force, fields, typeStop=0)
+
+
+def test_updatePositionC_stoppingVelMagMin():
+    """test that with implicit friction particles with velocity <= velMagMin are stopped"""
+
+    # implicit friction halves the velocity: 2 m/s -> 1 m/s = velMagMin -> stopped
+    particles = runUpdatePosition(0, 2.0)
+    assert particles["nPart"] == 2
+    assert np.array_equal(particles["ID"], np.array([0, 1]))
+    assert np.array_equal(particles["stoppedParticles"]["ID"], np.array([2.0]))
+    assert particles["massStopped"] == -10.0
+
+    # implicit friction: 2.1 m/s -> 1.05 m/s, just above velMagMin -> not stopped
+    particles = runUpdatePosition(0, 2.1)
+    assert particles["nPart"] == 3
+    assert np.array_equal(particles["ID"], np.array([0, 1, 2]))
+    assert len(particles["stoppedParticles"]["ID"]) == 0
+    assert particles["massStopped"] == 0.0
+
+    # explicit friction: velocity 2 m/s -> 1 m/s, not zero -> not stopped even though it equals velMagMin
+    particles = runUpdatePosition(1, 2.0)
+    assert particles["nPart"] == 3
+    assert np.array_equal(particles["ID"], np.array([0, 1, 2]))
+    assert len(particles["stoppedParticles"]["ID"]) == 0
+    assert particles["massStopped"] == 0.0
+
+
 def test_updatePositionC_no_circular_reference():
     """updatePositionC must not create circular reference in stoppedParticles.
 

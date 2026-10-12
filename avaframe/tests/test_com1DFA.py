@@ -2134,7 +2134,7 @@ def test_initializeFields():
     #    print("compute TA", fields["computeTA"])
     #    print("compute P", fields["computeP"])
 
-    assert len(fields) == 25
+    assert len(fields) == 26
     assert fields["computeTA"] is False
     assert fields["computeKE"] is False
     assert fields["computeP"]
@@ -2158,7 +2158,7 @@ def test_initializeFields():
     assert np.sum(fields["FTStop"]) == 0.0
     assert np.sum(fields["FTEnt"]) == 0.0
     assert np.sum(fields["timeInfo"]) == 0.0
-    assert np.sum(fields["sfcChangeTotal"]) == 0.0
+    assert np.sum(fields["sfcChangeCum"]) == 0.0
 
     cfg["REPORT"] = {}
     cfg["GENERAL"] = {
@@ -2169,7 +2169,7 @@ def test_initializeFields():
     }
     # call function to be tested
     particles, fields = com1DFA.initializeFields(cfg, dem, particles, "")
-    assert len(fields) == 25
+    assert len(fields) == 26
     assert fields["computeTA"]
     assert fields["computeKE"]
     assert fields["computeP"] is False
@@ -2601,17 +2601,20 @@ def test_prepareVarSimDict(tmp_path, caplog):
         for key in testCfg[section]:
             assert simDict[simName1]["cfgSim"][section][key] == testCfg[section][key]
 
+    # entrainable deposition without entrainment area requires adaptive surface
     standardCfg["GENERAL"]["entrainableDeposition"] = "True"
+    with pytest.raises(ValueError) as e:
+        assert com1DFA.prepareVarSimDict(standardCfg, inputSimFiles, variationDict)
+    assert "When entrainable deposition is True" in str(e.value)
+
+    # entrainable deposition is kept for a null simulation
+    standardCfg["GENERAL"]["adaptSfcEntrainment"] = "1"
+    standardCfg["GENERAL"]["adaptSfcStopped"] = "1"
+    standardCfg["GENERAL"]["adaptSfcDetrainment"] = "0"
     simDict = com1DFA.prepareVarSimDict(standardCfg, inputSimFiles, variationDict)
-
-    for key in testDict[simName1]:
-        #        print(simDict)
-        #        print(simDict[simName1][key])
-        assert simDict[simName1][key] == testDict[simName1][key]
-
-    for section in testCfg.sections():
-        for key in testCfg[section]:
-            assert simDict[simName1]["cfgSim"][section][key] == testCfg[section][key]
+    for simName in simDict:
+        assert simDict[simName]["simType"] == "null"
+        assert simDict[simName]["cfgSim"]["GENERAL"]["entrainableDeposition"] == "True"
 
 
 def test_initializeSimulation(tmp_path):
@@ -3291,6 +3294,7 @@ def test_adaptDEM():
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
+        "thresholdAdaptSfc": 0.1,
         "adaptSfcStopped": 0,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 0,
@@ -3326,9 +3330,10 @@ def test_adaptDEM():
         "FTStop": np.zeros_like(data),
         "FTEnt": np.zeros_like(data),
         "demAdapted": data,
-        "sfcChangeTotal": np.zeros_like(data),
+        "sfcChangeCum": np.zeros_like(data),
         "sfcChange": np.zeros_like(data),
         "mStop": np.zeros_like(data),
+        "mDet": np.zeros_like(data),
         "entrDepth": np.zeros_like(data),
         "entrMassRaster": np.zeros_like(data),
     }
@@ -3342,7 +3347,7 @@ def test_adaptDEM():
     fieldsInput = fields.copy()
 
     demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
-    for key in demAdapted.keys():
+    for key in dem.keys():
         assert np.all(demAdapted[key] == dem[key])
     for key in fieldsAdapted.keys():
         assert np.all(fieldsAdapted[key] == fields[key])
@@ -3350,6 +3355,7 @@ def test_adaptDEM():
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
+        "thresholdAdaptSfc": 0.1,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 1,
         "adaptSfcEntrainment": 1,
@@ -3358,7 +3364,7 @@ def test_adaptDEM():
 
     # all rasters for depth changes are zero
     demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
-    for key in demAdapted.keys():
+    for key in dem.keys():
         assert np.all(demAdapted[key] == dem[key])
     for key in fieldsAdapted.keys():
         assert np.all(fieldsAdapted[key] == fields[key])
@@ -3369,7 +3375,7 @@ def test_adaptDEM():
 
     demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
 
-    for key in demAdapted.keys():
+    for key in dem.keys():
         if key == "rasterData":
             assert np.all(demAdapted[key] == dem[key] + 1 / NzNormed)
         elif key == "header":
@@ -3380,7 +3386,7 @@ def test_adaptDEM():
             assert np.all(fieldsAdapted[key] == fields[key] + 1 / NzNormed)
         elif key == "sfcChange":
             assert np.all(fieldsAdapted[key] == fields["FTDet"] / NzNormed)
-        elif key == "sfcChangeTotal":
+        elif key == "sfcChangeCum":
             assert np.all(fieldsAdapted[key] == fields["FTDet"] / NzNormed)
         else:
             assert np.all(fieldsAdapted[key] == fields[key])
@@ -3388,6 +3394,7 @@ def test_adaptDEM():
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
+        "thresholdAdaptSfc": 0.1,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 1,
@@ -3398,7 +3405,7 @@ def test_adaptDEM():
     demInput = dem.copy()
     demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
 
-    for key in demAdapted.keys():
+    for key in dem.keys():
         assert np.all(demAdapted[key] == dem[key])
     for key in fieldsAdapted.keys():
         assert np.all(fieldsAdapted[key] == fields[key])
@@ -3406,6 +3413,7 @@ def test_adaptDEM():
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
+        "thresholdAdaptSfc": 0.1,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 1,
         "adaptSfcEntrainment": 1,
@@ -3418,7 +3426,7 @@ def test_adaptDEM():
 
     demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
 
-    for key in demAdapted.keys():
+    for key in dem.keys():
         if isinstance(demAdapted[key], np.ndarray):
             assert np.allclose(
                 demAdapted[key],
@@ -3469,11 +3477,12 @@ def test_adaptDEM():
     assert np.all(demAdapted["Nz"] == dem["Nz"])
     assert np.any(dem["areaRaster"] != demAdapted["areaRaster"])
     assert np.all(fieldsAdapted["sfcChange"] == fields["FTDet"] / NzNormed)
-    assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
+    assert np.all(fieldsAdapted["sfcChangeCum"] == fields["FTDet"] / NzNormed)
 
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
+        "thresholdAdaptSfc": 0.1,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 1,
@@ -3525,10 +3534,42 @@ def test_adaptDEM():
     assert np.all(demAdapted["Nz"] == dem["Nz"])
     assert np.any(dem["areaRaster"] != demAdapted["areaRaster"])
     assert np.all(fieldsAdapted["sfcChange"] == fields["FTDet"] / NzNormed)
-    assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
+    assert np.all(fieldsAdapted["sfcChangeCum"] == fields["FTDet"] / NzNormed)
     assert np.all(fieldsAdapted["demNotErodableRaster"] == fields["demNotErodableRaster"])
     assert np.all(fieldsAdapted["entrDepth"] == fields["FTStop"] / NzNormed)
-    assert np.all(fieldsAdapted["entrMassRaster"] == -fields["mStop"])
+    # entrMassRaster is mass per m²
+    assert np.all(fieldsAdapted["entrMassRaster"] == -fields["mStop"] / dem["areaRaster"])
+
+    # surface change below thresholdAdaptSfc: topography, entrainable depth and mass are updated
+    # but normals and area of the DEM are not
+    fields["FTStop"] = 0.06 * fields["FTStop"]
+    fields["mStop"] = 0.06 * fields["mStop"]
+    fields["entrDepth"] = np.zeros_like(fields["FTDet"])
+    fields["entrMassRaster"] = np.zeros_like(fields["FTDet"])
+    fields["sfcChangeCum"] = np.zeros_like(fields["FTDet"])
+    fieldsInput = fields.copy()
+    demInput = dem.copy()
+    demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
+
+    assert np.allclose(demAdapted["rasterData"], dem["rasterData"] + fields["FTStop"] / NzNormed)
+    assert np.allclose(fieldsAdapted["entrDepth"], fields["FTStop"] / NzNormed)
+    assert np.allclose(fieldsAdapted["entrMassRaster"], -fields["mStop"] / dem["areaRaster"])
+    assert np.allclose(fieldsAdapted["sfcChange"], fields["FTStop"] / NzNormed)
+    assert np.all(demAdapted["Nx"] == dem["Nx"])
+    assert np.all(demAdapted["Ny"] == dem["Ny"])
+    assert np.all(demAdapted["Nz"] == dem["Nz"])
+    assert np.all(demAdapted["areaRaster"] == dem["areaRaster"])
+    assert np.all(demAdapted["rasterDataNormals"] == dem["rasterData"])
+
+    # second small change: summed up change since the last normal computation is > thresholdAdaptSfc
+    demAdapted2, fieldsAdapted2 = com1DFA.adaptDEM(demAdapted, fieldsAdapted, cfg["GENERAL"])
+
+    assert np.allclose(demAdapted2["rasterData"], dem["rasterData"] + 2 * fields["FTStop"] / NzNormed)
+    assert np.allclose(fieldsAdapted2["entrDepth"], 2 * fields["FTStop"] / NzNormed)
+    assert np.allclose(fieldsAdapted2["sfcChangeCum"], 2 * fields["FTStop"] / NzNormed)
+    assert np.any(demAdapted2["Nx"] != dem["Nx"])
+    assert np.any(demAdapted2["areaRaster"] != dem["areaRaster"])
+    assert np.all(demAdapted2["rasterDataNormals"] == demAdapted2["rasterData"])
 
 
 def test_tSteps_output_behavior(tmp_path, caplog):
