@@ -273,6 +273,12 @@ def addParticles(particles, nAdd, ind, mNew, xNew, yNew, zNew):
     # update total number of particles and number of IDs used so far
     particles["nPart"] = particles["nPart"] + nAdd
     particles["nID"] = nID + nAdd
+    # entrained and detrained mass of the current time step are split like the mass,
+    # so that the sum over the parent and the new particles stays the same
+    massRatio = mNew / particles["m"][ind]
+    for key in ["dmEnt", "dmDet"]:
+        if key in particles:
+            particles[key][ind] = particles[key][ind] * massRatio
     # log.info('Spliting particle %s in %s' % (ind, nAdd))
     for key in particles:
         # update splitted particle mass
@@ -465,6 +471,10 @@ def mergePartArea(particles, cfg, dem):
                     particles[key][ind] = (
                         mPart[ind] * particles[key][ind] + mPart[neighbourInd] * particles[key][neighbourInd]
                     ) / mNew
+                # entrained and detrained mass of the current time step are summed up
+                for key in ["dmEnt", "dmDet"]:
+                    if key in particles:
+                        particles[key][ind] = particles[key][ind] + particles[key][neighbourInd]
                 particles["m"][ind] = mNew
                 # ToDo: mabe also update h
 
