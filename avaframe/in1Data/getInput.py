@@ -350,7 +350,7 @@ def getAndCheckInputFiles(inputDir, folder, inputType, fileExt="shp", fileSuffix
 
     If fileExt is empty, only suffix will be checked.
 
-    If a file is found, it is checked to be of an allowed extension; currently .shp .asc and .tif are supported.
+    If a file is found, it is checked to be of an allowed extension; currently .shp .asc, .tif and .csv are supported.
 
     Parameters
     ----------
@@ -415,7 +415,7 @@ def getAndCheckInputFiles(inputDir, folder, inputType, fileExt="shp", fileSuffix
 
         if OutputFile.suffix not in supportedFileFormats:
             message = (
-                "Unsupported file format found for OutputFile %s; shp, asc, tif are allowed" % OutputFile
+                "Unsupported file format found for OutputFile %s; shp, asc, tif, csv are allowed" % OutputFile
             )
             log.error(message)
             raise AssertionError(message)
