@@ -1796,7 +1796,7 @@ def initializeFields(cfg, dem, particles, releaseLine):
     fields["FTDet"] = np.zeros((nrows, ncols))  # flow thickness that is detrained [m]
     fields["FTEnt"] = np.zeros((nrows, ncols))  # flow thickness that is entrained [m]
     fields["sfcChange"] = np.zeros((nrows, ncols))  # depth that changes the surface [m]
-    fields["sfcChangeTotal"] = np.zeros((nrows, ncols))  # total depth that changed the surface [m]
+    fields["sfcChangeCum"] = np.zeros((nrows, ncols))  # total depth that changed the surface [m]
     fields["demAdapted"] = np.zeros((nrows, ncols))  # adapted topography [m]
     fields["timeInfo"] = np.zeros((nrows, ncols))  # first time
     # for optional fields, initialize with dummys (minimum size array). The cython functions then need something
@@ -3205,7 +3205,7 @@ def exportFields(
             dmDet = fields["dmDet"]
             resField = dmDet / (cfg["GENERAL"].getfloat("rho") * dem["areaRaster"])
         elif TSave == "final" and resType == "sfcChange":
-            resField = fields["sfcChangeTotal"]
+            resField = fields["sfcChangeCum"]
         else:
             resField = fields[resType]
         if resType == "ppr":
@@ -3989,7 +3989,7 @@ def adaptDEM(dem, fields, cfg):
             FTStop (flow thickness change due to stopping >= 0)
             FTEnt (flow thickness change due to entrainment <= 0)
             mStop (stopped mass <=0)
-            sfcChangeTotal (so far changed surface)
+            sfcChangeCum (so far changed surface)
             entrDepth (entrainable depth that is on top of the not erodable topography)
             entrMassRaster (entrainable mass)
             demNotErodableRaster (topography that is not erodable)
@@ -4010,7 +4010,7 @@ def adaptDEM(dem, fields, cfg):
     FTEnt = fields["FTEnt"]  # <= 0
     mStop = fields["mStop"]  # <= 0
 
-    sfcChangeTotal = fields["sfcChangeTotal"]
+    sfcChangeCum = fields["sfcChangeCum"]
     sfcChange = np.zeros_like(FTDet)
     ZDEMadapt = ZDEM
 
@@ -4052,7 +4052,7 @@ def adaptDEM(dem, fields, cfg):
     dem = DFAtls.getAreaMesh(dem, num)
 
     fields["sfcChange"] = sfcChange
-    fields["sfcChangeTotal"] = sfcChangeTotal + sfcChange
+    fields["sfcChangeCum"] = sfcChangeCum + sfcChange
 
     return dem, fields
 

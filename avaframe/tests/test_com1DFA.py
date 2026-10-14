@@ -2158,7 +2158,7 @@ def test_initializeFields():
     assert np.sum(fields["FTStop"]) == 0.0
     assert np.sum(fields["FTEnt"]) == 0.0
     assert np.sum(fields["timeInfo"]) == 0.0
-    assert np.sum(fields["sfcChangeTotal"]) == 0.0
+    assert np.sum(fields["sfcChangeCum"]) == 0.0
 
     cfg["REPORT"] = {}
     cfg["GENERAL"] = {
@@ -3326,7 +3326,7 @@ def test_adaptDEM():
         "FTStop": np.zeros_like(data),
         "FTEnt": np.zeros_like(data),
         "demAdapted": data,
-        "sfcChangeTotal": np.zeros_like(data),
+        "sfcChangeCum": np.zeros_like(data),
         "sfcChange": np.zeros_like(data),
         "mStop": np.zeros_like(data),
         "entrDepth": np.zeros_like(data),
@@ -3380,7 +3380,7 @@ def test_adaptDEM():
             assert np.all(fieldsAdapted[key] == fields[key] + 1 / NzNormed)
         elif key == "sfcChange":
             assert np.all(fieldsAdapted[key] == fields["FTDet"] / NzNormed)
-        elif key == "sfcChangeTotal":
+        elif key == "sfcChangeCum":
             assert np.all(fieldsAdapted[key] == fields["FTDet"] / NzNormed)
         else:
             assert np.all(fieldsAdapted[key] == fields[key])
@@ -3469,7 +3469,7 @@ def test_adaptDEM():
     assert np.all(demAdapted["Nz"] == dem["Nz"])
     assert np.any(dem["areaRaster"] != demAdapted["areaRaster"])
     assert np.all(fieldsAdapted["sfcChange"] == fields["FTDet"] / NzNormed)
-    assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
+    assert np.all(fieldsAdapted["sfcChangeCum"] == fields["FTDet"] / NzNormed)
 
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
@@ -3525,7 +3525,7 @@ def test_adaptDEM():
     assert np.all(demAdapted["Nz"] == dem["Nz"])
     assert np.any(dem["areaRaster"] != demAdapted["areaRaster"])
     assert np.all(fieldsAdapted["sfcChange"] == fields["FTDet"] / NzNormed)
-    assert np.all(fieldsAdapted["sfcChangeTotal"] == fields["FTDet"] / NzNormed)
+    assert np.all(fieldsAdapted["sfcChangeCum"] == fields["FTDet"] / NzNormed)
     assert np.all(fieldsAdapted["demNotErodableRaster"] == fields["demNotErodableRaster"])
     assert np.all(fieldsAdapted["entrDepth"] == fields["FTStop"] / NzNormed)
     assert np.all(fieldsAdapted["entrMassRaster"] == -fields["mStop"])

@@ -338,7 +338,8 @@ The result types that can be chosen to be exported are (all correspond to fields
 * TA - travel angle
 * dmDet - detrained mass
 * FTDet - thickness of detrained mass computed based on dmDet / (rho * area of cell)
-* sfcChange - flow depth that changed the surface topography due to detrainment, stopping and entrainment
+* sfcChange - change in surface elevation due to detrainment, stopping and entrainment (output files at a specific timestep represent the changed depth occurred during that timestep, the peakFile contains the total change over the entire simulation.)
+* sfcChangeCum - accumulated change in surface elevation due to detrainment, stopping and entrainment (up to the respective timestep)
 * demAdapted - adapted DEM considering stopping/ detrainment/ entrainment
 * timeInfo - time step at which a cell was first affected by flow
 * particles (:ref:`com1DFAAlgorithm:Particle properties`)

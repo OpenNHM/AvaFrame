@@ -884,17 +884,18 @@ def updatePositionC(cfg, particles, dem, force, fields, int typeStop=0):
     massEntrained = massEntrained + dM[k]
     massDetrained = massDetrained + dMDet[k]
 
-    # Stop particles with velocity = 0
-    if adaptSfcStopped == 1 and uMagNew == 0:
-        xStoppedArray = np.append(xStoppedArray, xArray[k])
-        yStoppedArray = np.append(yStoppedArray, yArray[k])
-        mStoppedArray = np.append(mStoppedArray, mass[k])
-        idStoppedArray = np.append(idStoppedArray, ID[k])
-        uMagStoppedArray = np.append(uMagStoppedArray, uMagNew)
-        massStopped = massStopped + mass[k]
-        notStopParticle[k] = 0  # particle is deleted
-        nStop = nStop + 1
-        continue
+    # Stop particles with velocity = 0 or velocity = velMagMin (implicitFriction)
+    if adaptSfcStopped == 1:
+        if uMagNew == 0 or (uMagNew <= velMagMin * 1.1 and explicitFriction == 0):
+            xStoppedArray = np.append(xStoppedArray, xArray[k])
+            yStoppedArray = np.append(yStoppedArray, yArray[k])
+            mStoppedArray = np.append(mStoppedArray, mass[k])
+            idStoppedArray = np.append(idStoppedArray, ID[k])
+            uMagStoppedArray = np.append(uMagStoppedArray, uMagNew)
+            massStopped = massStopped + mass[k]
+            notStopParticle[k] = 0  # particle is deleted
+            nStop = nStop + 1
+            continue
 
     # update position
     if centeredPosition:
