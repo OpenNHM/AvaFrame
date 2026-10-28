@@ -585,7 +585,8 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
   cdef double dm = 0.0
   cdef double areaEntrPart = 0.0
 
-  if entrMassCell > 0:
+  # avoid very small uMag so as not to divide by 0
+  if entrMassCell > 0 and uMag > velMagMin:
 
       # erosion: erode according to shear strength of snow cover
 
