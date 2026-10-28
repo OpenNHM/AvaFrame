@@ -569,6 +569,10 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
       particle speed (velocity magnitude)
   tau : float
       bottom shear stress
+  entShearStrength: float
+    shear strength of the entrainable snow mass
+  rhoEnt: float
+    entrainement density
 
   Returns
   -------
@@ -576,12 +580,7 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
       entrained mass
   areaEntrPart : float
       Area for entrainment energy loss computation
-  entShearStrength: float
-    shear strength of the entrainable snow mass
-  rhoEnt: float
-    entrainement density
   """
-  cdef double width, ABotSwiped
   # compute entrained mass
   cdef double dm = 0.0
   cdef double areaEntrPart = 0.0
@@ -589,13 +588,15 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
   if entrMassCell > 0:
 
       # erosion: erode according to shear strength of snow cover
-      # in contrast to MoTVoellmy tau_c here is not scaled with the flow density
+
+      # in contrast to MoTVoellmy tauC here is not scaled with the flow density
       # because com1DFA does not scale shear stress at the bottom of the avalanche with the flow density while MoTVoellmy does
-      tau_c = entShearStrength
-      dm = max(0, tau - tau_c) * areaPart * dt / uMag
+      tauC = entShearStrength
+
+      dm = max(0.0, tau - tauC) * areaPart * dt / uMag
       areaEntrPart = areaPart
       if dm > 0:
-        tau = min(tau, tau_c)
+        tau = min(tau, tauC)
 
   return dm, areaEntrPart, tau
 
