@@ -2198,7 +2198,6 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     entrModel = cfgGen["entrModel"].lower()
     entrType = entrModelsList.index(entrModel) + 1
     log.debug("Entrainment Model used: %s, %s" % (entrModelsList[entrType - 1], entrType))
-    print("Entrainment Model used: %s, %s" % (entrModelsList[entrType - 1], entrType))
 
     # turn resistance model into integer
     ResModel = cfgGen["ResistanceModel"].lower()
