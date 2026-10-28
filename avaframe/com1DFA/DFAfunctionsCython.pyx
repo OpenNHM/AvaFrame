@@ -378,6 +378,15 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
           else:
             tau = 0.0
 
+      # compute entrained mass and if wetSnow case compute total enthalpy of particles with entrainment
+      entrMassCell = entrMassRaster[indCellY, indCellX]
+      if entrMassCell > 0.0:
+        # compute entrained mass
+        if entrType == 1:
+            dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
+        if entrType == 2:
+            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, entShearStrength, rhoEnt)
+
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
       forceBotTang = - areaPart * tau
@@ -392,14 +401,6 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
           uMagRes = uMag
         forceFrict[k] = forceFrict[k] - forceBotTang/uMagRes
 
-      # compute entrained mass and if wetSnow case compute total enthalpy of particles with entrainment
-      entrMassCell = entrMassRaster[indCellY, indCellX]
-      if entrMassCell > 0.0:
-        # compute entrained mass
-        if entrType == 1:
-            dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
-        if entrType == 2:
-            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, entShearStrength, rhoEnt)
         # speed loss due to energy loss due to entrained mass
         dEnergyEntr = areaEntrPart * entShearResistance + dm * entDefResistance
 
