@@ -27,7 +27,7 @@ import avaframe.in3Utils.geoTrans as geoTrans
 log = logging.getLogger(__name__)
 
 
-def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType):
+def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int resistanceType):
   """ compute forces acting on the particles (without the SPH component)
 
   Cython implementation implementation
@@ -44,6 +44,8 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
       dictionary with dem information
   frictType: int
     identifier for friction law to be used
+  entrType: int
+    identifier for entrainment law to be used
   resistanceType: int
     identifier for resistance model to be used
 
@@ -73,6 +75,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double BSamosAtMedium = cfg.getfloat('Bsamosatmedium')
   cdef double RSamosAtMedium = cfg.getfloat('Rsamosatmedium')
   cdef double entEroEnergy = cfg.getfloat('entEroEnergy')
+  cdef double entShearStrength = cfg.getfloat('entShearStrength')
   cdef double entShearResistance = cfg.getfloat('entShearResistance')
   cdef double entDefResistance = cfg.getfloat('entDefResistance')
   cdef double rho = cfg.getfloat('rho')
@@ -375,6 +378,14 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           else:
             tau = 0.0
 
+      # select entrainment model
+      # compute entrained mass and update tau (in case of TJEM)
+      entrMassCell = entrMassRaster[indCellY, indCellX]
+      if entrMassCell > 0.0:
+        if entrType == 1:
+            dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
+        if entrType == 2:
+            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, entShearStrength, rhoEnt)
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
       forceBotTang = - areaPart * tau
@@ -389,14 +400,12 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           uMagRes = uMag
         forceFrict[k] = forceFrict[k] - forceBotTang/uMagRes
 
-      # compute entrained mass and if wetSnow case compute total enthalpy of particles with entrainment
-      entrMassCell = entrMassRaster[indCellY, indCellX]
+      # continue calculating entrainment
       if entrMassCell > 0.0:
-        # compute entrained mass
-        dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
         # speed loss due to energy loss due to entrained mass
         dEnergyEntr = areaEntrPart * entShearResistance + dm * entDefResistance
 
+        # if wetSnow case compute total enthalpy of particles with entrainment
         if frictType == 4 and dm > 0.0:
           # enthalpy change due to entrained mass
           entrEnthCell = entrEnthRaster[indCellY, indCellX]
@@ -541,6 +550,56 @@ cpdef (double, double) computeEntMassAndForce(double dt, double entrMassCell,
           areaEntrPart = entrMassCell / rhoEnt
 
   return dm, areaEntrPart
+
+cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entrMassCell,
+                                              double areaPart, double uMag,
+                                              double tau, double entShearStrength,
+                                              double rhoEnt):
+  """ compute force component due to entrained mass
+
+  Parameters
+  ----------
+  dt: float
+    time step
+  entrMassCell : float
+      available mass for entrainement
+  areaPart : float
+      particle area
+  uMag : float
+      particle speed (velocity magnitude)
+  tau : float
+      bottom shear stress
+  entShearStrength: float
+    shear strength of the entrainable snow mass
+  rhoEnt: float
+    entrainement density
+
+  Returns
+  -------
+  dm : float
+      entrained mass
+  areaEntrPart : float
+      Area for entrainment energy loss computation
+  """
+  # compute entrained mass
+  cdef double dm = 0.0
+  cdef double areaEntrPart = 0.0
+
+  # avoid very small uMag so as not to divide by 0
+  if entrMassCell > 0 and uMag > velMagMin:
+
+      # erosion: erode according to shear strength of snow cover
+
+      # in contrast to MoTVoellmy tauC here is not scaled with the flow density
+      # because com1DFA does not scale shear stress at the bottom of the avalanche with the flow density while MoTVoellmy does
+      tauC = entShearStrength
+
+      dm = max(0.0, tau - tauC) * areaPart * dt / uMag
+      areaEntrPart = areaPart
+      if dm > 0:
+        tau = min(tau, tauC)
+
+  return dm, areaEntrPart, tau
 
 
 cpdef double computeDetMass(double dt, double detCell,
