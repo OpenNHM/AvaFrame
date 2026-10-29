@@ -2192,7 +2192,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     # derive entrainment type
     # turn entrainment model into integer
     entrModelsList = [
-        "samosAT",
+        "samosat",
         "tjem",
     ]
     entrModel = cfgGen["entrModel"].lower()
