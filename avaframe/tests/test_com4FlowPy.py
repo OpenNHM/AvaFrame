@@ -1026,7 +1026,7 @@ def test_checkGlobalParameters_errorMessageMentionsValidRange():
     validParamRanges = makeValidParamRanges(minAlphaValid=5.0, maxAlphaValid=60.0)
     modelParameters = makeValidModelParameters(alpha=100.0)
 
-    with pytest.raises(ValueError, match=r"5\.0 and 60\.0"):
+    with pytest.raises(ValueError, match=r"5\.0° and 60\.0°"):
         com4FlowPy.checkGlobalParameters(modelParameters, makeModelPaths(), validParamRanges)
 
 
@@ -1257,19 +1257,264 @@ def test_calcDistMin3D():
     assert cell.minDistXYZ == pytest.approx((dx**2 + dy**2 + dz**2) ** 0.5)
 
 
-if __name__ == "__main__":
-    test_add_os()
-    test_reverseTopology()
-    test_backTracking()
-    test_calculation()
-    tmpDir = pathlib.Path(__file__).parent / "data" / "testCom4"
-    test_tileRaster(tmpDir)
-    test_mergeDict(tmpDir)
-    test_mergeDictToRaster(tmpDir)
-    test_mergeDictToPolygon(tmpDir)
-    test_runCom4FlowPy(tmpDir)
-    test_checkGlobalParameters_alpha()
-    test_checkGlobalParameters_maxZ()
-    test_checkGlobalParameters_exp()
-    test_checkGlobalParameters_fluxThreshold()
-    test_checkGlobalParameters_errorMessageMentionsValidRange()
+# ---------------------------------------------------------------------------
+# checkForestInputParameters
+# ---------------------------------------------------------------------------
+
+def makeForestParameters(
+    forestModule="forestFriction",
+    minAddedFriction=0.0,
+    maxAddedFriction=10.0,
+    velThForFriction=0.0,
+    minDetrainment=0.0,
+    maxDetrainment=0.5,
+    velThForDetrain=0.0,
+    skipForestDist=0.0,
+    fFrLayerType="absolute",
+):
+    """ build a valid forest-parameters dict that passes all checks by default """
+    return {
+        "forestModule": forestModule,
+        "minAddedFriction": minAddedFriction,
+        "maxAddedFriction": maxAddedFriction,
+        "velThForFriction": velThForFriction,
+        "minDetrainment": minDetrainment,
+        "maxDetrainment": maxDetrainment,
+        "velThForDetrain": velThForDetrain,
+        "skipForestDist": skipForestDist,
+        "fFrLayerType": fFrLayerType,
+    }
+
+
+def makeForestModelPaths():
+    """ build a paths dict including the forest raster path """
+    paths = makeModelPaths()
+    paths["forestPath"] = "dummy_forest.tif"
+    return paths
+
+
+def _makeForestReadRaster(forestRaster, releaseRaster=None, alphaRaster=None):
+    """ returns a fake IOf.readRaster that routes the forest/alpha/release rasters """
+    def fakeReadRaster(path):
+        if "forest" in path:
+            return {"rasterData": forestRaster}
+        if "alpha" in path:
+            return {"rasterData": alphaRaster if alphaRaster is not None else np.array([[0.0]])}
+        return {"rasterData": releaseRaster if releaseRaster is not None else np.array([[0.0]])}
+    return fakeReadRaster
+
+
+def test_checkForestInputParameters_validFriction(monkeypatch):
+    """ a valid forestFriction setup with global alpha passes without raising """
+    forestRaster = np.array([[0.5, 0.0], [0.2, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestFriction")
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_validVariableAlpha(monkeypatch):
+    """ variable-alpha path (release mask applied to alpha raster) passes without raising """
+    releaseRaster = np.array([[0.0, 1.0], [1.0, 0.0]])
+    alphaRaster = np.array([[np.nan, 25.0], [30.0, np.nan]])
+    forestRaster = np.array([[0.5, 0.0], [0.2, 0.0]])
+    monkeypatch.setattr(
+        IOf, "readRaster", _makeForestReadRaster(forestRaster, releaseRaster, alphaRaster)
+    )
+
+    forestParameters = makeForestParameters(forestModule="forestFriction", maxAddedFriction=10.0)
+    modelParameters = {"varAlphaBool": True}
+
+    # alphaMax = max of alpha under release mask = 30 -> 30 + 10 = 40 < 90 -> ok
+    com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_validDetrainment(monkeypatch):
+    """ a valid forestDetrainment setup passes without raising """
+    forestRaster = np.array([[0.5, 0.0], [0.2, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestDetrainment")
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_validFrictionLayerAbsolute(monkeypatch):
+    """ forestFrictionLayer + absolute with FSI within [0, 90] passes without raising """
+    forestRaster = np.array([[30.0, 0.0], [45.0, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestFrictionLayer", fFrLayerType="absolute")
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_validFrictionLayerRelative(monkeypatch):
+    """ forestFrictionLayer + relative with alpha + max(FSI) < 90 passes without raising """
+    forestRaster = np.array([[30.0, 0.0], [40.0, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestFrictionLayer", fFrLayerType="relative")
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    # alpha 30 + max(FSI) 40 = 70 < 90 -> ok
+    com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_variableAlpha_alphaMaxTooHigh(monkeypatch):
+    """ variable-alpha path: alphaMax + maxAddedFriction >= 90 raises ValueError """
+    releaseRaster = np.array([[0.0, 1.0], [1.0, 0.0]])
+    alphaRaster = np.array([[np.nan, 85.0], [80.0, np.nan]])
+    forestRaster = np.array([[0.5, 0.0], [0.2, 0.0]])
+    monkeypatch.setattr(
+        IOf, "readRaster", _makeForestReadRaster(forestRaster, releaseRaster, alphaRaster)
+    )
+
+    forestParameters = makeForestParameters(forestModule="forestFriction", maxAddedFriction=10.0)
+    modelParameters = {"varAlphaBool": True}
+
+    # alphaMax = 85 -> 85 + 10 = 95 >= 90 -> raise
+    with pytest.raises(ValueError, match="90"):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+@pytest.mark.parametrize("kwargs, match", [
+    ({"maxAddedFriction": 70.0}, "90"),          # alpha 30 + 70 = 100 >= 90
+    ({"velThForFriction": -1.0}, "velThForFriction"),
+    ({"minAddedFriction": 12.0, "maxAddedFriction": 5.0}, "minAddedFriction"),
+    ({"skipForestDist": -5.0}, "skipForestDist"),
+])
+def test_checkForestInputParameters_friction_invalid(monkeypatch, kwargs, match):
+    """ forestFriction invalid parameter combinations raise ValueError """
+    forestRaster = np.array([[0.5, 0.0], [0.2, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestFriction", **kwargs)
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    with pytest.raises(ValueError, match=match):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+@pytest.mark.parametrize("forestRaster, match", [
+    (np.array([[0.5, 2.0], [0.2, 0.0]]), "FSI"),        # value > 1
+    (np.array([[1.5, 0.0], [0.2, 0.0]]), "FSI"),        # masked value > 1
+])
+def test_checkForestInputParameters_friction_invalidFSI(monkeypatch, forestRaster, match):
+    """ FSI values above 1 raise ValueError for forestFriction """
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestFriction")
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    with pytest.raises(ValueError, match=match):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_negFSItolerated(monkeypatch):
+    """ FSI <= 0 carries no forest info (masked out) and does not raise """
+    forestRaster = np.array([[0.5, -3.0], [0.2, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestFriction")
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+@pytest.mark.parametrize("kwargs, match", [
+    ({"velThForDetrain": -1.0}, "velThForDetrain"),
+    ({"minDetrainment": 0.8, "maxDetrainment": 0.2}, "minDetrainment"),
+    ({"minDetrainment": -0.1}, "range"),
+    ({"maxDetrainment": 1.5}, "range"),
+])
+def test_checkForestInputParameters_detrainment_invalid(monkeypatch, kwargs, match):
+    """ forestDetrainment invalid parameter combinations raise ValueError """
+    forestRaster = np.array([[0.5, 0.0], [0.2, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(forestModule="forestDetrainment", **kwargs)
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    with pytest.raises(ValueError, match=match):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+@pytest.mark.parametrize("forestRaster, fFrLayerType, match", [
+    (np.array([[30.0, 95.0], [45.0, 0.0]]), "absolute", "forestFrictionLayer"),
+    (np.array([[30.0, 70.0], [45.0, 0.0]]), "relative", "90"),      # alpha 30 + 70 = 100
+    (np.array([[30.0, 60.0], [0.0, 0.0]]), "relative", "90"),       # alpha 30 + 60 = 90 (boundary >=)
+])
+def test_checkForestInputParameters_frictionLayer_invalid(monkeypatch, forestRaster, fFrLayerType, match):
+    """ forestFrictionLayer invalid FSI values / ranges raise ValueError """
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(
+        forestModule="forestFrictionLayer", fFrLayerType=fFrLayerType
+    )
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    with pytest.raises(ValueError, match=match):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_frictionLayer_unknownType(monkeypatch):
+    """ an unknown fFrLayerType raises ValueError """
+    forestRaster = np.array([[30.0, 0.0], [45.0, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(
+        forestModule="forestFrictionLayer", fFrLayerType="relative2"
+    )
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    with pytest.raises(ValueError, match="forestFrictionLayerType"):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+
+def test_checkForestInputParameters_frictionLayer_negVelLim(monkeypatch):
+    """ forestFrictionLayer with a negative velocity threshold raises ValueError """
+    forestRaster = np.array([[30.0, 0.0], [45.0, 0.0]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(forestRaster))
+
+    forestParameters = makeForestParameters(
+        forestModule="forestFrictionLayer", velThForFriction=-2.0
+    )
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+
+    with pytest.raises(ValueError, match="velThForFriction"):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+def test_checkForestInputParameters_forestRasterEmpty(monkeypatch):
+    """
+    forest raster (FSI) is provided, but empty
+    i.e. all forest cells have FSI <=0
+    should raise ValueError.
+    """
+    FSIRaster = np.array([[-9999,0.],[-9999,0.]])
+    monkeypatch.setattr(IOf, "readRaster", _makeForestReadRaster(FSIRaster))
+
+    forestParameters=makeForestParameters(
+        forestModule = "forestFriction",
+        minAddedFriction = 0,
+        maxAddedFriction = 23,
+        velThForFriction = 45,
+    )
+    modelParameters = {"varAlphaBool": False, "alpha": 30.0}
+    with pytest.raises(ValueError, match="All values in the provided forest layer"):
+        com4FlowPy.checkForestInputParameters(forestParameters, modelParameters, makeForestModelPaths())
+
+def test_updatedCheckInputParameterValues():
+    """
+    test intended behavior of com4FlowPy.checkInputParameterValues()
+    if we set 'forestBool' to True and don't provide forestParameters, then
+    we should get a value error.
+    """
+    modelParams = {'forestBool':True}
+    with pytest.raises(ValueError, match="['forestBool']"):
+        com4FlowPy.checkInputParameterValues(modelParameters=modelParams, modelPaths={}, validParamRanges={})
+

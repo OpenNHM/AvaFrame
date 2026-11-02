@@ -205,7 +205,10 @@ def com4FlowPyMain(cfgPath, cfgSetup):
 
     # check if input parameters are within physically sensible ranges
     validParamRanges = getValidParameterRanges(cfgSetup)
-    checkInputParameterValues(modelParameters, modelPaths, validParamRanges)
+    if modelParameters["forestBool"]:
+        checkInputParameterValues(modelParameters, modelPaths, validParamRanges, forestParams)
+    else:
+        checkInputParameterValues(modelParameters, modelPaths, validParamRanges)
 
     # get information on cellsize and nodata value from demHeader
     rasterAttributes = {}
@@ -391,36 +394,64 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
         # return
         sys.exit(1)
 
-def checkInputParameterValues(modelParameters, modelPaths, validParamRanges):
+def checkInputParameterValues(modelParameters, modelPaths, validParamRanges, forestParameters=None):
     """check if the input parameters are valid
-    are valid and within physically sensible limits
-    alpha, uMaxLimit/ zDeltaMaxLimit, exponent
-    are within a physically sensible range
-
+    and within physically sensible limits.
+    currently the function checks:
+    - alpha, exp, flux_threshold, max_z/u_max (for global and spatially varying parameters)
+    - if "forestBool" (calculation with a forest-module), also forestModule Parameters and input data are checked.
+    
     Parameters
     -----------
     modelParameters: dict
         model input parameters (from .ini - file)
     modelPaths: dict
         contains paths to input files
+    validParamRanges: dict
+        contains valid parameter ranges (from .ini - file)
+    forestParameters: dict
+        (optional) if modelParameters["forstBool"] == True then this dict has to be provided
+        otherwhise the function will fail with a ValueError
+    
+    Returns
+    -----------
+    Function raises ValueErrors and writes error message to logFile if a check fails.
+    Upon successful check an affirmative message is written to the logfile
     """
 
-    log.info("checking input data validity")
+    log.info("checking completeness and validity of input data")
+
+    if modelParameters["forestBool"]:
+        if forestParameters is None:
+            _msg = (
+                "If modelParameters['forestBool']=='True' you have to provide forestParameters dictionary "
+                "when calling com4FlowPy.checkInputParameterValues()."
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+        else:
+            # if forest functionality is used - also check these input parameters and files
+            checkForestInputParameters(forestParameters, modelParameters, modelPaths)
+
+    
     # check if engine parameter provided in the .ini matches available options
     engine = modelParameters["engine"]
     validEngines = {"python","numba"}
 
     if engine not in validEngines:
-        raise ValueError(
-            f"Invalid engine '{engine}'. "
+        _msg = (
+            f"Invalid engine '{engine}' defined in config >> "
             f"Valid engine options are {sorted(validEngines)}"
         )
+        log.error(_msg)
+        raise ValueError(_msg)
     
     # checking value ranges of (global) input parameters
     # alpha, max_z, exp, flux_threshold
     checkGlobalParameters(modelParameters, modelPaths, validParamRanges)
     # check spatially varying input parameters for validity and completeness
     checkVariableInputParameters(modelParameters, modelPaths, validParamRanges)
+    
 
 
 def validateInputArray(praMask, data, maxValue, minValue=0):
@@ -433,9 +464,9 @@ def validateInputArray(praMask, data, maxValue, minValue=0):
     data: np.ndarray
         data array which will be tested
     maxValue: int | float
-        max value, for range validation of data entires
+        max value, for range validation of data entries
     minValue: int | float, optional
-        min value, for range validation of data entires, by default 0
+        min value, for range validation of data entries, by default 0
 
     Returns
     --------
@@ -978,51 +1009,40 @@ def checkGlobalParameters(modelParameters, modelPaths, validParamRanges):
     # alpha, max_z, exp, flux_threshold
     alpha = modelParameters["alpha"]
     if alpha < minAlphaValid or alpha > maxAlphaValid:
-        log.error(
-            f"Error: Alpha value is not within a physically sensible range ([{minAlphaValid}, {maxAlphaValid}])."
+        _msg = (
+            f"Invalid (global) model parameter 'alpha' provided ({alpha}°) >> "
+            f"please provide values for 'alpha' between {minAlphaValid}° and {maxAlphaValid}°."
         )
-        raise ValueError(
-            f"Invalid (global) model parameter 'alpha' provided: {alpha}\n"
-            f"please provide values for 'alpha' between {minAlphaValid} and {maxAlphaValid}.\n"
-            f"HINT: if you insist on using values outside of [{minAlphaValid}, {maxAlphaValid}] you can adapt "
-            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
-        )
+        log.error(_msg)
+        raise ValueError(_msg)
 
     zDelta = modelParameters["max_z"]
     if zDelta < 0 or zDelta > maxZDeltaValid:
-        log.error(
-            f"Error: zDeltaMaxLimit value is not within a physically sensible range ([0,{maxZDeltaValid}])."
+        _msg = (
+            f"Provided (global) 'max_z' value is not within a physically sensible range ([0, {maxZDeltaValid}]) >> "
+            f"please provide values for 'max_z' between 0 and {maxZDeltaValid} meters."
         )
-        raise ValueError(
-            f"Invalid (global) model parameter 'max_z' provided: {zDelta} meters\n"
-            f"please provide values for 'max_z' between 0 and {maxZDeltaValid} meters.\n"
-            f"HINT: if you insist on using values outside of [0, {maxZDeltaValid}] you can adapt "
-            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
-        )
+        log.error(_msg)
+        raise ValueError(_msg)
 
     exp = modelParameters["exp"]
     if exp < 0 or exp > maxExpValid:
-        log.error(
-            f"Error: Exponent value is not within a physically sensible range (> 0 and <={maxExpValid})."
+        _msg = (
+            f"Error: (global) 'exp' value is not within a physically sensible range (> 0 and <={maxExpValid}) >> "
+            f"please provide values for 'exp' between 0 and {maxExpValid}."
         )
-        raise ValueError(
-            f"Invalid (global) model parameter 'exp' provided: ({exp})\n"
-            f"please provide values for 'exp' between 0 and {maxExpValid}.\n"
-            f"HINT: if you insist on using values outside of [>0, <={maxExpValid}] you can adapt "
-            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
-        )
+        log.error(_msg)
+        raise ValueError(_msg)
 
     fluxTh = modelParameters["flux_threshold"]
     if fluxTh < minFluxThreshValid or fluxTh > maxFluxThreshValid:
-        log.error(
-            f"Error: flux_threshold value is not within a physically sensible range ([{minFluxThreshValid}, {maxFluxThreshValid}])."
-        )
-        raise ValueError(
-            f"Invalid (global) model parameter 'flux_threshold' provided: {fluxTh}\n"
+        _msg = (
+            f"Error: 'flux_threshold' value is not within a physically sensible range ([{minFluxThreshValid}, {maxFluxThreshValid}]) >> "
             f"please provide values for 'flux_threshold' between {minFluxThreshValid} and {maxFluxThreshValid}.\n"
-            f"HINT: if you insist on using values outside of [{minFluxThreshValid}, {maxFluxThreshValid}] you can adapt "
-            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
         )
+        log.error(_msg)
+        raise ValueError(_msg)
+
     log.info("global input parameters are complete and within the valid range.")
 
 
@@ -1060,15 +1080,12 @@ def checkVariableInputParameters(modelParameters, modelPaths, validParamRanges):
         isValid = validateInputArray(praMask, rasterValues, maxAlphaValid, minAlphaValid)
 
         if not isValid:
-            log.error(
-                f"Error: Some Alpha-raster values are incomplete or outside a physically sensible range ([0,{maxAlphaValid}])"
+            _msg = (
+                f"Error: Some Alpha-raster values are incomplete or outside a physically sensible range ([0,{maxAlphaValid}]) >> "
+                f"please provide values for 'alpha' between {minAlphaValid}° and {maxAlphaValid}° for all release cells."
             )
-            raise ValueError(
-            f"Missing or invalid values for spatially varying model parameter 'alpha' found in {modelPaths['varAlphaPath']}\n"
-            f"please provide values for 'alpha' between {minAlphaValid} and {maxAlphaValid} for all release cells.\n"
-            f"HINT: if you insist on using values outside of [{minAlphaValid}, {maxAlphaValid}] you can adapt "
-            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
-        )
+            log.error(_msg)
+            raise ValueError(_msg)
 
     if modelParameters["varUmaxBool"]:
         data = IOf.readRaster(modelPaths["varUmaxPath"])
@@ -1081,15 +1098,12 @@ def checkVariableInputParameters(modelParameters, modelPaths, validParamRanges):
         isValid = validateInputArray(praMask, rasterValues, _maxVal)
 
         if not isValid:
-            log.error(
-                f"Error: Some raster values of type '{_type}' are incomplete or outside a physically sensible range."
+            _msg = (
+                f"Error: Some raster values of type '{_type}' are incomplete or outside a physically sensible range >> "
+                f"please provide values for '{_type}' between 0 and {_maxVal} for all release cells."
             )
-            raise ValueError(
-            f"Missing or invalid values for spatially varying model parameter '{_type}' found in {modelPaths['varUmaxPath']}\n"
-            f"please provide values for '{_type}' between 0 and {_maxVal} for all release cells.\n"
-            f"HINT: if you insist on using values outside of [0, {_maxVal}] you can adapt "
-            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
-        )
+            log.error(_msg)
+            raise ValueError(_msg)
     
     if modelParameters["varExponentBool"]:
         data = IOf.readRaster(modelPaths["varExponentPath"])
@@ -1098,15 +1112,194 @@ def checkVariableInputParameters(modelParameters, modelPaths, validParamRanges):
         isValid = validateInputArray(praMask, rasterValues, maxExpValid)
 
         if not isValid:
-            log.error(
-                f"Error: Some raster values of type 'exp' are incomplete or outside the allowed range [0, {maxExpValid}]."
+            _msg = (
+                f"Error: Some raster values of type 'exp' are incomplete or outside the allowed range [0, {maxExpValid}]. >> "
+                f"please provide values for 'exp' between 0 and {maxExpValid} for all release cells."
             )
-            raise ValueError(
-            f"Missing or invalid values for spatially varying model parameter 'exp' found in {modelPaths['varExponentPath']}\n"
-            f"please provide values for 'exp' between 0 and {maxExpValid} for all release cells.\n"
-            f"HINT: if you insist on using values outside of [0, {maxExpValid}] you can adapt "
-            "the values in 'getValidParameterRanges()' in com4FlowPy/com4FlowPy.py"
-        )
+            log.error(_msg)
+            raise ValueError(_msg)
 
     log.info("spatially variable input parameters are complete and within the valid range.")
+    log.info(24*"=")
+
+def checkForestInputParameters(forestParameters, modelParameters, modelPaths):
+    """
+    checks forest related input parameters for valid input ranges and completness
+    
+    Parameters
+    -----------
+    forestParameters: dict
+        forest related input parameters (from .ini - file)
+    modelParameters: dict
+        model input parameters (from .ini - file)
+    modelPaths: dict
+        contains paths to input files (here forest related files)
+
+    Returns
+    -----------
+    raises a ValueError if any check is unsuccessful
+    """
+    _module = forestParameters["forestModule"]
+
+    _minAF = forestParameters['minAddedFriction']
+    _maxAF = forestParameters['maxAddedFriction']
+    _velLimFr = forestParameters['velThForFriction']
+    _minDET = forestParameters['minDetrainment']
+    _maxDET = forestParameters['maxDetrainment']
+    _velLimDt = forestParameters['velThForDetrain']
+
+    if forestParameters['skipForestDist'] < 0:
+        _msg = (
+            f"Invalid value for 'skipForestDist': {forestParameters['skipForestDist']} found in config >> "
+            "please provide non-negative scalar values for the parameter"
+        )
+        log.error(_msg)
+        raise ValueError(_msg)
+
+    if modelParameters['varAlphaBool']:
+        # if variable alpha is used, then we derive the max value
+        _pras = IOf.readRaster(modelPaths["releasePathWork"])["rasterData"]
+        _praMask = (_pras > 0)
+        _data = IOf.readRaster(modelPaths["varAlphaPath"])
+        _rasterValues = _data["rasterData"]
+        _alphaMax = np.max(_rasterValues[_praMask])
+    else:
+        # if global alpha is used, we just use this value
+        _alphaMax = modelParameters["alpha"]
+
+    fsi = IOf.readRaster(modelPaths["forestPath"])["rasterData"]
+
+    if _module == 'forestFriction' or _module == 'forestDetrainment':
+        # FSI <= 0 is assumed to be 0/noData in flowClass.py
+        # convert to binary following the > 0 convention used
+        fsiMask = (fsi > 0)
+        # check if the provided FSI-Layer / Forest Array is not empty
+        if not np.any(fsiMask):
+            _msg = (
+                f"All values in the provided forest layer {modelPaths['forestPath']} are <= 0. >> "
+                "if you want to disable forest interaction, define 'forest=False' in the config file; "
+                "otherwhise provide a forest layer with valid forest cells (>0)."
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+        
+        # check if FSI is provided and in correct scaling (0,...,1)
+        isValid = validateInputArray(fsiMask, fsi, 1)
+
+        if not isValid:
+            _msg = (
+                f"Invalid forest Parameters ('FSI') found in  {modelPaths['forestPath']} >> "
+                "please provide FSI in a scaling/range between 0 and 1 for all forest cells,"
+                "when using 'forestFriction' or 'forestDetrainment' options."
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+        
+        # check that alpha + addedFriction is <= 90°
+        if _alphaMax + _maxAF >= 90:
+            _msg = (
+                "maximum total friction (alpha + 'forestFriction') exceeding 90° "
+                f"(maximum) alpha (no forest) provided = {_alphaMax}°, "
+                f"maximum forest Friction provided = {_maxAF}° >> "
+                "please use parameter combinations, that do not exceed max. 90°"
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+
+        # check if velocity limit is non-negative
+        if _velLimFr < 0:
+            _msg = (
+                f"Invalid forest Parameters ('velThForFriction': {_velLimFr}) provided in com4FlowPy config >> "
+                "please provide velocity limits that are >= 0 m/s."
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+        
+        # check that minAddedFriction <= maxAddedFriction
+        if _minAF > _maxAF:
+            _msg = (
+                "Invalid forest Parameters provided in com4FlowPy config >> "
+                "'minAddedFriction' has to be <= 'maxAddedFriction'"
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+
+        if _module == 'forestDetrainment':          
+            # velLimit is simple -- just hast to be >= 0 m/s
+            if _velLimDt < 0:
+                _msg = (
+                    "Invalid forest Parameters ('velThForDetrain') provided in com4FlowPy config >> "
+                    "please provide velocity limits that are >= 0 m/s."
+                )
+                log.error(_msg)
+                raise ValueError(_msg)
+            
+            # minAF has to be smaller max AF ...
+            if _minDET > _maxDET:
+                _msg = (
+                    "Invalid forest Parameters provided in com4FlowPy config >> "
+                    "'minDetrainmentFor' has to be <= 'maxDetrainmentFor'"
+                )
+                log.error(_msg)
+                raise ValueError(_msg)
+            
+            # added detrainment has to be between 0 and 1
+            if _minDET < 0 or _maxDET > 1:
+                _msg = (
+                    "invalid 'forestDetrainment' parameters >> "
+                    "min and max values should be provided in the range [0, ..., 1]"  
+                )
+                log.error(_msg)
+                raise ValueError(_msg)
+
+    elif _module == "forestFrictionLayer":
+        fsiMask = (fsi > 0)
+        # check if FSI is provided and in correct scaling (0,...,1)
+
+        # check if velocity limit is non-negative
+        if _velLimFr < 0:
+            _msg = (
+                "Invalid forest Parameters ('velThForFriction') provided in com4FlowPy config >> "
+                "please provide velocity limits that are >= 0 m/s."
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+                        
+        if forestParameters["fFrLayerType"] == 'absolute':
+            isValid = validateInputArray(fsiMask, fsi, 90)
+            if not isValid:
+                _msg = (
+                    f"Invalid forest Parameters ('forestFrictionLayer') found in  {modelPaths['forestPath']} >> "
+                    "Please provide 'absolute' 'forestFrictionLayer' in a range between 0 and 90 for all forest cells."
+                )
+                log.error(_msg)
+                raise ValueError(_msg)
+
+        elif forestParameters["fFrLayerType"] == 'relative':
+            _dAlphaForMax = np.max(fsi[fsiMask])
+            if (_alphaMax + _dAlphaForMax) >= 90 or (_alphaMax + _dAlphaForMax) < 0:
+                _msg = (
+                    f"Invalid forest Parameters ('forestFrictionLayer') found in  {modelPaths['forestPath']} >> "
+                    "please provide 'relative' 'forestFrictionLayer' values so that absolute forest friction values "
+                    "stay within a range between 0 and 90 for all forest cells."
+                )
+                log.error(_msg)
+                raise ValueError(_msg)
+        else:
+            _msg = (
+                "unknown value for 'forestFrictionLayerType' provided >> "
+                "please specify either 'absolute' or 'relative'"               
+            )
+            log.error(_msg)
+            raise ValueError(_msg)
+    
+    else:
+        _msg = (
+            f"invalid 'forestModule' defined in config ({_module}) >> "
+            "valid choices ['forestFriction','forestDetrainment','forestFrictionLayer']"
+        )
+        log.error(_msg)
+        raise ValueError(_msg)
+
+    log.info("forest related input parameters are complete and within valid ranges.")
     log.info(24*"=")
