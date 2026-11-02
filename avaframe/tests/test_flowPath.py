@@ -50,7 +50,7 @@ def test_Path_init_withGenList():
     assert p.relId == 7
     assert p.alpha == 27.0
     assert p.exp == 8
-    assert p.maxZDelta == 150.0
+    assert p.maxZDeltaInput == 150.0
     assert p.numberGen == 2
 
     # pathRaster: countArray values kept where >0, else nan
@@ -77,6 +77,7 @@ def test_Path_init_withoutGenList():
         "col": [1, 2, 3],
         "flux": [0.1, 0.2, 0.3],
         "zdelta": [10.0, 20.0, 30.0],
+        "gamma": [0.0, 20.0, 25.0],
         "travelLengthMax": [5.0, 10.0, 15.0],
     }
     exampleCell = makeCell(alpha=30.0, exp=9, max_z_delta=200.0)
@@ -88,10 +89,11 @@ def test_Path_init_withoutGenList():
     assert p.colList == listsRelId["col"]
     assert p.fluxList == listsRelId["flux"]
     assert p.zdeltaList == listsRelId["zdelta"]
+    assert p.gammaList == listsRelId["gamma"]
     assert p.travelLengthList == listsRelId["travelLengthMax"]
     assert p.alpha == 30.0
     assert p.exp == 9
-    assert p.maxZDelta == 200.0
+    assert p.maxZDeltaInput == 200.0
     assert p.numberGen == 3
 
 
@@ -338,7 +340,7 @@ def test_saveDict_withRelId(tmp_path):
     p = _minimalPath()
     p.alpha = 27.456
     p.exp = 8
-    p.maxZDelta = 123.456
+    p.maxZDeltaInput = 123.456
     p.numberGen = 4
     p.relId = 42
 
@@ -356,7 +358,7 @@ def test_saveDict_withRelId(tmp_path):
 
     assert data["alpha"] == pytest.approx(27.5, abs=0.05)  # rounded to 1 decimal
     assert data["exponent"] == 8
-    assert data["zDeltaMax"] == pytest.approx(123.5, abs=0.05)
+    assert data["zDeltaMaxInput"] == pytest.approx(123.5, abs=0.05)
     assert data["numberGen"] == 4
     np.testing.assert_allclose(data["x"], [1.0, 2.0, 3.0])
     np.testing.assert_allclose(data["s"], [0.0, 10.0, 20.0])
@@ -416,6 +418,7 @@ def test_calcAndSaveThalwegData_saveRamBranch(tmp_path):
         "col": [[1, 2, 3]],
         "flux": [[1.0, 1.0, 1.0]],
         "zdelta": [[10.0, 20.0, 30.0]],
+        "gamma": [[0.0, 20.0, 25.0]],
         "travelLengthMax": [[0.0, 5.0, 10.0]],
     }
     exampleCell = makeCell(alpha=25.0, exp=8, max_z_delta=100.0)
@@ -450,8 +453,17 @@ def test_calcAndSaveThalwegData_saveRamBranch(tmp_path):
     # genList should have been emptied to save RAM
     assert p.genList == []
 
+    # equal flux weights -> gamma is the plain mean of [0, 20, 25]
+    assert p.gammaCoF == pytest.approx(15.0)
+
     outFile = tmp_path / "thalwegData_CoF_3.pickle"
     assert outFile.is_file()
+    with open(outFile, "rb") as f:
+        data = pickle.load(f)
+    assert data["gamma"] == pytest.approx(15.0)
+    # zDeltaMax (maximum zDelta per generation) is always saved with thalwegSaveRam
+    np.testing.assert_allclose(data["zDeltaMax"], [30.0])
+    assert data["zDeltaMaxInput"] == pytest.approx(100.0)
 
 
 def test_getGenerationList_threeGenerations_allGenerations():
@@ -554,3 +566,53 @@ def test_calcThalwegCenterof_threeGenerations():
     # gen 2: sum=1.0, weighted avg = 1.0 (single value)
     np.testing.assert_allclose(variableSum, [3.0, 12.0, 1.0])
     np.testing.assert_allclose(coVar, [5.0 / 3.0, 50.0 / 12.0, 1.0])
+
+
+# ---------------------------------------------------------------------------
+# calcZDeltaMaxGeneration
+# ---------------------------------------------------------------------------
+
+def test_calcZDeltaMaxGeneration_withGenList():
+    """ test that zDeltaMaxGen is the maximum zDelta of the cells of every generation """
+    dem = np.zeros((5, 5))
+    countArray = np.zeros((5, 5))
+    genList = [[makeCell(z_delta=0.0)], [makeCell(z_delta=20.0), makeCell(z_delta=50.0)], [makeCell(z_delta=10.0)]]
+
+    p = Path(dem, 0, 0, genList, makeRasterAttributes(), countArray, relId=1)
+
+    np.testing.assert_allclose(p.calcZDeltaMaxGeneration(), [0.0, 50.0, 10.0])
+
+
+def test_calcZDeltaMaxGeneration_saveRam():
+    """ test that zDeltaMaxGen is computed from the RAM-saving zdelta lists (genList is None) """
+    dem = np.zeros((5, 5))
+    countArray = np.zeros((5, 5))
+    listsRelId = {
+        "row": [[1], [2, 3]],
+        "col": [[1], [2, 3]],
+        "flux": [[1.0], [0.5, 0.5]],
+        "zdelta": [[0.0], [30.0, 80.0]],
+        "gamma": [[0.0], [20.0, 30.0]],
+        "travelLengthMax": [[0.0], [5.0, 5.0]],
+    }
+
+    p = Path(dem, 0, 0, None, makeRasterAttributes(), countArray, relId=1,
+             listsRelId=listsRelId, exampleCell=makeCell())
+
+    np.testing.assert_allclose(p.calcZDeltaMaxGeneration(), [0.0, 80.0])
+
+
+def test_saveDict_withZDeltaMaxGen(tmp_path):
+    """ test that zDeltaMaxGen is written to the pickle file (key zDeltaMax) besides zDeltaMaxInput """
+    p = _minimalPath()
+    p.relId = 3
+    p.xCoF = np.array([1.0])
+    p.maxZDeltaInput = 270.0
+    p.zDeltaMaxGen = np.array([0.0, 42.5])
+
+    p.saveDict(tmp_path, ["CoF"], ["x"])
+
+    with open(tmp_path / "thalwegData_CoF_3.pickle", "rb") as f:
+        data = pickle.load(f)
+    np.testing.assert_allclose(data["zDeltaMax"], [0.0, 42.5])
+    assert data["zDeltaMaxInput"] == 270.0

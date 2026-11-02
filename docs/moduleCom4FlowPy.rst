@@ -224,7 +224,7 @@ The thalweg can be calculated using one of three center definitions at each iter
 * center of flux
 * center of velocity altitude (``zDelta``)
 
-Each output dictionary always contains the Flow-Py input parameters ``alpha``, ``zDeltaMax``,
+Each output dictionary always contains the Flow-Py input parameters ``alpha``, ``zDeltaMaxInput`` (``max_z``),
 and ``exponent`` used for the path simulation. Additional variables can be specified using the
 ``thalwegVariables`` parameter.
 The following variables are available:
@@ -242,6 +242,7 @@ The following variables are available:
 * ``flowEnergyArray`` - flow energy of the path (2 dimensional array)
 * ``zDeltaArray`` - velocity altitude of the path (2 dimensional array)
 * ``fluxArray`` - flux of the path (2 dimensional array)
+* ``zDeltaMax`` - maximum velocity altitude of every generation
 
 When a thalweg is computed and ``thalwegReleaseArea is True``, a GIF of the evolution of the flow path and the thalweg can be created.
 The data for the GIF are stored, when a respective ``videoRelId`` is selected.

@@ -444,6 +444,9 @@ def extendProfileTop(extTopOption, particlesIni, profile, dem=None, cfg=None, co
     profile: dict
         extended profile
     """
+    xExtTop = None
+    yExtTop = None
+    zExtTop = None
     if extTopOption == 0:
         # get highest particle
         indTop = np.argmax(particlesIni["z"])
