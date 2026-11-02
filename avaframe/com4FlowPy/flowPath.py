@@ -53,15 +53,16 @@ class Path:
             self.colList = listsRelId["col"]
             self.fluxList = listsRelId["flux"]
             self.zdeltaList = listsRelId["zdelta"]
+            self.gammaList = listsRelId["gamma"]
             self.travelLengthList = listsRelId["travelLengthMax"]
             self.alpha = exampleCell.alpha
             self.exp = exampleCell.exp
-            self.maxZDelta = exampleCell.max_z_delta
+            self.maxZDeltaInput = exampleCell.max_z_delta
             self.numberGen = len(self.rowList)
         else:
             self.alpha = genList[0][0].alpha
             self.exp = genList[0][0].exp
-            self.maxZDelta = genList[0][0].max_z_delta
+            self.maxZDeltaInput = genList[0][0].max_z_delta
             self.numberGen = len(genList)
 
         self.zDeltaGeneration = []
@@ -244,6 +245,25 @@ class Path:
                 sumZd, coZd = self.calcThalwegCenterof(values, self.zDeltaGenList)
                 setattr(self, f"{varName}CoZd", coZd)
 
+    def calcZDeltaMaxGeneration(self):
+        """calculate the maximum zDelta of every generation (over all cells of the generation)
+
+        Returns
+        ----------
+        zDeltaMaxGen: numpy array
+            maximum zDelta per generation [m] (0 for an empty generation)
+        """
+        if self.genList is None:
+            zDeltaGenList = self.zdeltaList
+        else:
+            zDeltaGenList = self.getGenerationList("zDelta")
+        zDeltaMaxGen = np.zeros(len(zDeltaGenList))
+        for gen, zDeltaGen in enumerate(zDeltaGenList):
+            # an empty generation keeps 0
+            if len(zDeltaGen) > 0:
+                zDeltaMaxGen[gen] = max(zDeltaGen)
+        return zDeltaMaxGen
+
     def correctIndicesTile(self, row, col):
         """
         correct row and col from the tile to the whole DEM extent
@@ -286,10 +306,13 @@ class Path:
         thalwegData = {
             "alpha": round(self.alpha, 1),
             "exponent": self.exp,
-            "zDeltaMax": round(self.maxZDelta, 1),
+            "zDeltaMaxInput": round(self.maxZDeltaInput, 1),
             # 'crs': self.crs,
             "numberGen": self.numberGen,
         }
+        # maximum zDelta of every generation
+        if getattr(self, "zDeltaMaxGen", None) is not None:
+            thalwegData["zDeltaMax"] = self.zDeltaMaxGen
         variables = variables
         centerOfs = centerOfs
 
@@ -333,11 +356,14 @@ class Path:
         if thalwegParameters["thalwegSaveRam"]:
             # only compute thalweg location for coF
             # TODO: do we only want to compute coF or also coE and coZd?
-            variables = ["x", "y", "travelLength", "zdelta"]
+            variables = ["x", "y", "travelLength", "zdelta", "gamma"]
             cos = ["cof"]
+            # zDeltaMax (maximum zDelta per generation) is always saved
+            saveZDeltaMax = True
         else:
             cos = eval(thalwegParameters["thalwegCenterOf"])
-            variables = eval(thalwegParameters["thalwegVariables"])
+            saveZDeltaMax = "zDeltaMax" in eval(thalwegParameters["thalwegVariables"])
+            variables = [var for var in eval(thalwegParameters["thalwegVariables"]) if var != "zDeltaMax"]
         centerOfs = []
 
         for co in cos:
@@ -366,9 +392,12 @@ class Path:
             _, self.colCoF = self.calcThalwegCenterof(self.colList, self.fluxList)
             _, self.rowCoF = self.calcThalwegCenterof(self.rowList, self.fluxList)
             _, self.zdeltaCoF = self.calcThalwegCenterof(self.zdeltaList, self.fluxList)
+            _, self.gammaCoF = self.calcThalwegCenterof(self.gammaList, self.fluxList)
             _, self.travelLengthCoF = self.calcThalwegCenterof(self.travelLengthList, self.fluxList)
         else:
             self.getCenterofs(variables, centerOfs)
+        if saveZDeltaMax:
+            self.zDeltaMaxGen = self.calcZDeltaMaxGeneration()
         # empty generation list to safe RAM
         self.genList = []
         for co in centerOfs:

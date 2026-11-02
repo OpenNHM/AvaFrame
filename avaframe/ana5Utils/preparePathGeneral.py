@@ -52,7 +52,7 @@ def preparePathGeneralMain(profile, cfgDFAPath, dem):
     profileExtended = DFAPathGeneration.resamplePath(cfgDFAPath["PATH"], dem, profileExtended)
 
     # add input parameters to extended profile if they exist
-    for inputPara in ["alpha", "exponent", "zDeltaMax"]:
+    for inputPara in ["alpha", "exponent", "zDeltaMaxInput"]:
         if inputPara in profile.keys():
             profileExtended[inputPara] = profile[inputPara]
 

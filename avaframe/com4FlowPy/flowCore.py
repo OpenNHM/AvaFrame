@@ -13,7 +13,6 @@ import gc
 import psutil
 import time
 import pickle
-from itertools import zip_longest
 
 from multiprocessing import Pool
 
@@ -689,6 +688,7 @@ def calculation(args):
     rowListRelId = []
     fluxListRelId = []
     zdeltaListRelId = []
+    gammaListRelId = []
     travelLengthMaxListRelId = []
     startcell_idx = 0
     if calcThalweg:
@@ -766,6 +766,7 @@ def calculation(args):
                 rowThalwegLists = []
                 fluxThalwegLists = []
                 zdeltaThalwegLists = []
+                gammaThalwegLists = []
                 travelLengthMaxThalwegLists = []
 
             for gen, cellList in enumerate(genList):
@@ -774,6 +775,7 @@ def calculation(args):
                     rowThalwegGen = []
                     fluxThalwegGen = []
                     zdeltaThalwegGen = []
+                    gammaThalwegGen = []
                     travelLengthMaxThalwegGen = []
                 for idx, cell in enumerate(cellList):
                     if relIdBool:
@@ -976,6 +978,7 @@ def calculation(args):
                         rowThalwegGen.append(cell.rowindex)
                         fluxThalwegGen.append(cell.flux)
                         zdeltaThalwegGen.append(cell.z_delta)
+                        gammaThalwegGen.append(cell.max_gamma)
                         travelLengthMaxThalwegGen.append(cell.min_distance)
 
                 if len(childList) > 0:
@@ -989,6 +992,7 @@ def calculation(args):
                         rowThalwegLists.append(rowThalwegGen)
                         fluxThalwegLists.append(fluxThalwegGen)
                         zdeltaThalwegLists.append(zdeltaThalwegGen)
+                        gammaThalwegLists.append(gammaThalwegGen)
                         travelLengthMaxThalwegLists.append(travelLengthMaxThalwegGen)
 
                         # empty last generation in genList to save RAM
@@ -997,34 +1001,16 @@ def calculation(args):
 
             if calcThalweg and thalwegParameters["calcRelID"]:
                 if thalwegParameters["thalwegSaveRam"]:
-                    colListRelId = [
-                        (colThisCell or []) + (colBefore or [])
-                        for colThisCell, colBefore in zip_longest(colListRelId, colThalwegLists)
-                    ]
-                    rowListRelId = [
-                        (rowThisCell or []) + (rowBefore or [])
-                        for rowThisCell, rowBefore in zip_longest(rowListRelId, rowThalwegLists)
-                    ]
-                    fluxListRelId = [
-                        (fluxThisCell or []) + (fluxBefore or [])
-                        for fluxThisCell, fluxBefore in zip_longest(fluxListRelId, fluxThalwegLists)
-                    ]
-                    zdeltaListRelId = [
-                        (zdeltaThisCell or []) + (zdeltaBefore or [])
-                        for zdeltaThisCell, zdeltaBefore in zip_longest(zdeltaListRelId, zdeltaThalwegLists)
-                    ]
-                    travelLengthMaxListRelId = [
-                        (travelLengthMaxThisCell or []) + (travelLengthMaxBefore or [])
-                        for travelLengthMaxThisCell, travelLengthMaxBefore in zip_longest(
-                            travelLengthMaxListRelId, travelLengthMaxThalwegLists
-                        )
-                    ]
+                    colListRelId = mergeGenerationLists(colListRelId, colThalwegLists)
+                    rowListRelId = mergeGenerationLists(rowListRelId, rowThalwegLists)
+                    fluxListRelId = mergeGenerationLists(fluxListRelId, fluxThalwegLists)
+                    zdeltaListRelId = mergeGenerationLists(zdeltaListRelId, zdeltaThalwegLists)
+                    gammaListRelId = mergeGenerationLists(gammaListRelId, gammaThalwegLists)
+                    travelLengthMaxListRelId = mergeGenerationLists(travelLengthMaxListRelId,
+                                                                    travelLengthMaxThalwegLists)
                 else:
-                    # zip the generationLists within one release Id
-                    generationListRelId = [
-                        (generationThisCell or []) + (generationBefore or [])
-                        for generationThisCell, generationBefore in zip_longest(generationListRelId, genList)
-                    ]
+                    # merge the generationLists within one release Id
+                    generationListRelId = mergeGenerationLists(generationListRelId, genList)
 
                 # check if the next startcell has the same startcellId
                 if startcell_idx + 1 < len(row_list):
@@ -1043,6 +1029,7 @@ def calculation(args):
                             "col": colListRelId,
                             "flux": fluxListRelId,
                             "zdelta": zdeltaListRelId,
+                            "gamma": gammaListRelId,
                             "travelLengthMax": travelLengthMaxListRelId,
                         }
                         path = Path(
@@ -1062,6 +1049,7 @@ def calculation(args):
                         rowListRelId = []
                         fluxListRelId = []
                         zdeltaListRelId = []
+                        gammaListRelId = []
                         travelLengthMaxListRelId = []
                         listsRelId = {}
 
@@ -1504,6 +1492,35 @@ def reverseTopology(topologyDict):
             reverseGraph[child].append(parentNode)
 
     return reverseGraph
+
+
+def mergeGenerationLists(accumulatedLists, newLists):
+    """
+    merge the generation lists of a new startcell into the accumulated generation lists
+    of a release area (in place): generation i of newLists is appended to generation i
+    of accumulatedLists; additional generations are appended as new lists
+
+    Parameters
+    -----------
+    accumulatedLists : list
+        list of lists (one per generation) collected for the release area so far
+    newLists : list
+        list of lists (one per generation) of the current startcell
+
+    Returns
+    -----------
+    accumulatedLists : list
+        the (in place) updated accumulatedLists
+    """
+    for gen, newValues in enumerate(newLists):
+        if gen < len(accumulatedLists):
+            # if generation exists already in accumulatedLists, add values to the respective generation list
+            accumulatedLists[gen].extend(newValues)
+        else:
+            # if generation does not exist, add new generation list to accumulatedLists
+            accumulatedLists.append(list(newValues))
+
+    return accumulatedLists
 
 
 def saveGenerationVideoData(genList, relId, dem, rasterAttributes,
