@@ -153,9 +153,9 @@ def _bfs_single(dem, forest, H, W, nodata, row_start, col_start,
                     palt = dem[r + dyp, c + dxp]
                     dz = abs(palt - altitude)
                     _dy = abs(dyp) * cellsize
-                    # NOTE: replicates flowClass.calcDistMin (calc3D) which uses dy twice
-                    # (upstream quirk); only affects the skipForestDist gate, =0 in tuned configs.
-                    dd3 = math.sqrt(_dy * _dy + _dy * _dy + dz * dz) + q_pmd3d[q_pos, p]
+                    _dx = abs(dxp) * cellsize
+                    # NOTE: now fixed to use dx^2+dy^2+dz2 analog to fix in flowClass.py #1342
+                    dd3 = math.sqrt(_dx * _dx + _dy * _dy + dz * dz) + q_pmd3d[q_pos, p]
                     if dd3 < best3d:
                         best3d = dd3
             min_distance = best
