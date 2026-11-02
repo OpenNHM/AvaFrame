@@ -205,7 +205,7 @@ def com4FlowPyMain(cfgPath, cfgSetup):
 
     # check if input parameters are within physically sensible ranges
     validParamRanges = getValidParameterRanges(cfgSetup)
-    checkInputParameterValues(modelParameters, modelPaths, validParamRanges)
+    checkInputParameterValues(modelParameters, forestParams, modelPaths, validParamRanges)
 
     # get information on cellsize and nodata value from demHeader
     rasterAttributes = {}
@@ -391,7 +391,7 @@ def checkInputLayerDimensions(modelParameters, modelPaths):
         # return
         sys.exit(1)
 
-def checkInputParameterValues(modelParameters, modelPaths, validParamRanges):
+def checkInputParameterValues(modelParameters, forestParameters, modelPaths, validParamRanges):
     """check if the input parameters are valid
     are valid and within physically sensible limits
     alpha, uMaxLimit/ zDeltaMaxLimit, exponent
@@ -421,6 +421,9 @@ def checkInputParameterValues(modelParameters, modelPaths, validParamRanges):
     checkGlobalParameters(modelParameters, modelPaths, validParamRanges)
     # check spatially varying input parameters for validity and completeness
     checkVariableInputParameters(modelParameters, modelPaths, validParamRanges)
+    # if forest functionality is used - also check these input parameters and files
+    if modelParameters["forestBool"]:
+        checkForestInputParameters(forestParameters, modelParameters, modelPaths)
 
 
 def validateInputArray(praMask, data, maxValue, minValue=0):
@@ -1109,4 +1112,152 @@ def checkVariableInputParameters(modelParameters, modelPaths, validParamRanges):
         )
 
     log.info("spatially variable input parameters are complete and within the valid range.")
+    log.info(24*"=")
+
+def checkForestInputParameters(forestParameters, modelParameters, modelPaths):
+    """
+    checks forest related input parameters for valid input ranges and completness
+    
+    Parameters
+    -----------
+    forestParameters: dict
+        forest related input parameters (from .ini - file)
+    modelParameters: dict
+        model input parameters (from .ini - file)
+    modelPaths: dict
+        contains paths to input files (here forest related files)
+
+    Returns
+    -----------
+    raises a ValueError if any check is unsuccessful
+    """
+    _module = forestParameters["forestModule"]
+
+    _minAF = forestParameters['minAddedFriction']
+    _maxAF = forestParameters['maxAddedFriction']
+    _velLimFr = forestParameters['velThForFriction']
+    _minDET = forestParameters['minDetrainment']
+    _maxDET = forestParameters['maxDetrainment']
+    _velLimDt = forestParameters['velThForDetrain']
+
+
+    if forestParameters['skipForestDist'] < 0:
+        raise ValueError(
+        f"Invalid value for 'skipForestDist' founcd in config"
+        f"provide non-negative scalar values for the parameter"
+        )
+
+    if modelParameters['varAlphaBool']:
+        # if variable alpha is used, then we derive the max value
+        _pras = IOf.readRaster(modelPaths["releasePathWork"])["rasterData"]
+        _praMask = (_pras > 0)
+        _data = IOf.readRaster(modelPaths["varAlphaPath"])
+        _rasterValues = _data["rasterData"]
+        _alphaMax = np.max(_rasterValues[_praMask])
+    else:
+        # if global alpha is used, we just use this value
+        _alphaMax = modelParameters["alpha"]
+
+    fsi = IOf.readRaster(modelPaths["forestPath"])["rasterData"]
+
+    if _module == 'forestFriction' or _module == 'forestDetrainment':
+        # FSI <= 0 is assumed to be 0/noData in flowClass.py
+        # read the FSI raster
+        
+        # convert to binary following the > 0 convention used
+        fsiMask = (fsi > 0)
+        # check if FSI is provided and in correct scaling (0,...,1)
+        isValid = validateInputArray(fsiMask, fsi, 1)
+
+        if not isValid:
+            log.error(
+                f"Error: (some) provided FSI values are outside the allowed range [0, ..., 1]"
+            )
+            raise ValueError(
+            f"Invalid forest Parameters ('FSI') found in  {modelPaths['forestPath']}\n"
+            f"Please provide FSI in a scaling/range between 0 and 1 for all forest cells,\n"
+            f"when using 'forestFriction' or 'forestDetrainment' options."
+            )
+        
+        # check that alpha + addedFriction is <= 90°
+        if _alphaMax + _maxAF >= 90:
+            raise ValueError(
+            f"maximum total friction (alpha + 'forestFriction') exceeding 90°"
+            f"(maximum) alpha (no forest) provided = {_alphaMax}°\n"
+            f"maximum forest Friction provided = {_maxAF}°\n"
+            f"please use parameter combinations, that do not exceed max. 90°"
+            )
+
+        # check if velocity limit is non-negative
+        if _velLimFr < 0:
+            raise ValueError(
+            f"Invalid forest Parameters ('velThForFriction') provided in com4FlowPy config \n"
+            f"Please provide velocity Limits that are >= 0 m/s."
+            )
+
+        # check that minAddedFriction <= maxAddedFriction
+        if _minAF > _maxAF:
+            raise ValueError(
+            f"Invalid forest Parameters provided in com4FlowPy config \n"
+            f"'minAddedFriction' has to be <= 'maxAddedFriction'"
+            )
+
+        if _module == 'forestDetrainment':          
+            # velLimit is simple -- just hast to be >= 0 m/s
+            if _velLimDt < 0:
+                raise ValueError(
+                f"Invalid forest Parameters ('velThForDetrain') provided in com4FlowPy config \n"
+                f"Please provide velocity Limits that are >= 0 m/s."
+                )
+            # minAF has to be smaller max AF ...
+            if _minDET > _maxDET:
+                raise ValueError(
+                f"Invalid forest Parameters provided in com4FlowPy config \n"
+                f"'minDetrainmentFor' has to be <= 'maxDetrainmentFor'"
+                )
+            
+            # added detrainment has to be between 0 and 1
+            if _minDET < 0 or _maxDET > 1:
+                raise ValueError(
+                f"invalid 'forestDetrainment' parameters.\n"
+                f"min and max values should be provided in the range [0, ..., 1]"    
+                )
+
+    elif forestParameters["forestModule"] == "forestFrictionLayer":
+        fsiMask = (fsi > 0)
+        # check if FSI is provided and in correct scaling (0,...,1)
+
+        # check if velocity limit is non-negative
+        if _velLimFr < 0:
+            raise ValueError(
+            f"Invalid forest Parameters ('velThForFriction') provided in com4FlowPy config \n"
+            f"Please provide velocity Limits that are >= 0 m/s."
+            )
+                        
+        if forestParameters["fFrLayerType"] == 'absolute':
+            isValid = validateInputArray(fsiMask, fsi, 90)
+            if not isValid:
+                log.error(
+                    f"Error: (some) provided 'forestFrictionLayer' values are outside the allowed range [0, ..., 90]"
+                )
+                raise ValueError(
+                f"Invalid forest Parameters ('forestFrictionLayer') found in  {modelPaths['forestPath']}\n"
+                f"Please provide 'absolute' 'forestFrictionLayer' in a range between 0 and 90 for all forest cells,\n"
+                )
+
+        elif forestParameters["fFrLayerType"] == 'relative':
+            _dAlphaForMax = np.max(fsi[fsiMask])
+            if (_alphaMax + _dAlphaForMax) >= 90 or (_alphaMax + _dAlphaForMax) < 0:
+                raise ValueError(
+                f"Invalid forest Parameters ('forestFrictionLayer') found in  {modelPaths['forestPath']}\n"
+                f"Please provide 'relative' 'forestFrictionLayer' values so that absolute forest friction values\n"
+                f"stay within a range between 0 and 90 for all forest cells,\n"
+                )
+        else:
+            raise ValueError(
+                f"unknown value for 'forestFrictionLayerType'\n"
+                f"must be 'absolute' or 'relative'"
+            )
+
+    log.info("forest related input parameters are complete and within valid ranges.")
     log.info(24*"=")
