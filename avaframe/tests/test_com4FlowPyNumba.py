@@ -116,10 +116,3 @@ def test_numba_matches_python_variableAlphaUmax():
     args = _args(dem, _pra(dem), varParams=var)
     _compare(flowCore.calculation(args), flowCoreNumba.calculationNumba(args))
 
-
-if __name__ == "__main__":
-    test_numba_matches_python_noforest()
-    test_numba_matches_python_forestFriction()
-    test_numba_matches_python_forestDetrainment()
-    test_numba_matches_python_variableAlphaUmax()
-    print("all numba-engine equivalence tests passed")
