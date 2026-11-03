@@ -3,6 +3,8 @@
 import numpy as np
 import pytest
 import configparser
+import pandas as pd
+from pathlib import Path
 
 import avaframe.com1DFA.debrisFunctions as debF
 
@@ -147,7 +149,9 @@ def test_addReleaseParticles():
     particles["y"] = np.array([5, 3, 30])
 
     with pytest.raises(ValueError):
-        debF.addReleaseParticles(cfg, particles, inputSimLines, timeDepRelValues, dem, zPartArray0, timeDepRelIndex=0)
+        debF.addReleaseParticles(
+            cfg, particles, inputSimLines, timeDepRelValues, dem, zPartArray0, timeDepRelIndex=0
+        )
 
 
 def test_addReleaseParticlesFromCoordinateCsv():
@@ -248,6 +252,128 @@ def test_addReleaseParticlesFromCoordinateCsv():
     assert np.array_equal(particles["uy"], np.array([0.0, 0.0, 0.0, -4.0, 2.0]))
     assert np.array_equal(particles["uz"], np.array([0.0, 0.0, 0.0, 5.0, 0.0]))
     assert np.array_equal(zPartArray0, np.ones(5))
+
+
+@pytest.fixture
+def hydrograph_cfg(tmp_path):
+    """Provide a temporary avalanche directory with a hydrograph input folder."""
+    (tmp_path / "Inputs" / "OUTHYDR").mkdir(parents=True)
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {"avalancheDir": str(tmp_path)}
+    return cfg
+
+
+def test_setupOutHydrographDF(hydrograph_cfg):
+    """Read cross sections and initialize one zero-discharge column per station."""
+    input_dir = hydrograph_cfg["GENERAL"]["avalancheDir"]
+
+    csv_file = Path(input_dir) / "Inputs" / "OUTHYDR" / "crossSections.csv"
+    cross_sections = pd.DataFrame(
+        {
+            "station": [1, 1, 1, 2, 2, 2],
+            "row": [397, 396, 395, 397, 396, 395],
+            "column": [75, 75, 75, 163, 164, 165],
+            "Nx": [1.0, 1.0, 1.0, 0.76975, 0.76975, 0.76975],
+            "Ny": [0.0, 0.0, 0.0, 0.63833, 0.63833, 0.63833],
+            "distance": [0.86705, 1.86705, 1.99998, 1.31306, 2.72134, 2.17712],
+        }
+    )
+    cross_sections.to_csv(csv_file, index=False)
+
+    # A horizontal DEM must have a normalized z component of 1 everywhere.
+    dem = {
+        "header": {
+            "nrows": 751,
+            "ncols": 1001,
+            "cellsize": 2.0,
+            "xllcenter": 999.000000000000,
+            "yllcenter": -5001.000000000000,
+            "nodata_value": -9999.0,
+        },
+        "rasterData": np.ones((751, 1001)),
+    }
+
+    output_df, out_idx, nz_normed = debF.setupOutHydrographDF(hydrograph_cfg["GENERAL"], dem)
+
+    pd.testing.assert_frame_equal(out_idx, cross_sections)
+    assert output_df.index.name == "timestep"
+    np.testing.assert_allclose(output_df.index.to_numpy(), [0.0])
+    assert list(output_df.columns) == ["XS 1", "XS 2"]
+    np.testing.assert_allclose(output_df.iloc[0].to_numpy(), [0.0, 0.0])
+    np.testing.assert_allclose(nz_normed, np.ones((751, 1001)))
+    assert "Nx" not in dem  # Original DEM remains unchanged.
+
+
+def test_setupOutHydrographDF_missing_file(hydrograph_cfg):
+    """A missing input CSV must be reported explicitly."""
+    dem = {"header": {}, "rasterData": np.zeros((751, 1001))}
+
+    with pytest.raises(FileNotFoundError, match="No Output hydrograph csv-file"):
+        debF.setupOutHydrographDF(hydrograph_cfg["GENERAL"], dem)
+
+
+def test_collectOutputHydrograph():
+    """Integrate flux over multiple cells and stations, incl. reversed normals."""
+    out_idx = pd.DataFrame(
+        {
+            "station": [1, 1, 1, 2, 2, 2],
+            "row": [397, 396, 395, 397, 396, 395],
+            "column": [75, 75, 75, 163, 164, 165],
+            "Nx": [1.0, 1.0, 1.0, 0.76975, 0.76975, 0.76975],
+            "Ny": [0.0, 0.0, 0.0, 0.63833, 0.63833, 0.63833],
+            "distance": [0.86705, 1.86705, 1.99998, 1.31306, 2.72134, 2.17712],
+        }
+    )
+
+    shape = (751, 1001)
+    fields = {
+        "Vx": np.ones(shape),
+        "Vy": np.zeros(shape),
+        "FT": np.ones(shape),
+    }
+
+    nz_normed = np.ones(shape)
+    output_df = pd.DataFrame({"XS 1": [0.0], "XS 2": [0.0]}, index=[0.0])
+    output_df.index.name = "timestep"
+    # q = (Vx * Nx + Vy * Ny) * FT / nz_normed * distance
+    qXS1 = 1 * 1 * 0.86705 + 1 * 1 * 1.86705 + 1 * 1 * 1.99998
+    qXS2 = (
+        (1 * 0.76975 + 0 * 0.63833) * 1 * 1.31306
+        + (1 * 0.76975 + 0 * 0.63833) * 1 * 2.72134
+        + (1 * 0.76975 + 0 * 0.63833) * 1 * 2.17712
+    )
+
+    t = 1.0
+    result = debF.collectOutputHydrograph(output_df, out_idx, nz_normed, fields, t)
+
+    assert result is output_df
+    np.testing.assert_allclose(result.index.to_numpy(), [0.0, 1.0])
+    assert result.loc[0.0, "XS 1"] == 0.0
+    assert result.loc[0.0, "XS 2"] == 0.0
+    assert result.loc[1.0, "XS 1"] == pytest.approx(qXS1)
+    assert result.loc[1.0, "XS 2"] == pytest.approx(qXS2)
+
+
+def test_collectOutputHydrograph_zero_velocity():
+    """A stationary flow must produce zero discharge even with nonzero thickness."""
+    out_idx = pd.DataFrame(
+        {"station": [1], "row": [0], "column": [0], "Nx": [1.0], "Ny": [0.0], "distance": [2.0]}
+    )
+
+    output_df = pd.DataFrame({"XS 1": [0.0]}, index=[0.0])
+    nz_normed = np.ones((1, 1))
+    fields = {"Vx": np.zeros((1, 1)), "Vy": np.zeros((1, 1)), "FT": np.ones((1, 1))}
+    t = 1.0
+
+    result = debF.collectOutputHydrograph(
+        output_df,
+        out_idx,
+        nz_normed,
+        fields,
+        t,
+    )
+
+    assert result.loc[1.0, "XS 1"] == pytest.approx(0.0)
 
 
 """

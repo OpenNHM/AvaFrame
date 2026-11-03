@@ -6,14 +6,21 @@ Functions that are used specifically for modeling debris flows (within DebrisFra
 import logging
 import numpy as np
 import copy
+import pandas as pd
+import pathlib
+import matplotlib.pyplot as plt
 
 import avaframe.com1DFA.DFAfunctionsCython as DFAfunC
 import avaframe.com1DFA.particleTools as particleTools
 import avaframe.in3Utils.geoTrans as geoTrans
 import avaframe.com1DFA.com1DFA as com1DFA
-import avaframe.in2Trans.shpConversion as shpConv
 from avaframe.in1Data import getInput as gI
 import avaframe.in3Utils.cfgUtils as cfgUtils
+import avaframe.in3Utils.fileHandlerUtils as fU
+import avaframe.out3Plot.plotUtils as pU
+import avaframe.in2Trans.transformFields as tF
+import avaframe.com1DFA.DFAtools as DFAtls
+from avaframe.in3Utils import geoTrans as gT
 
 # create local logger
 # change log level in calling module to DEBUG to see log messages
@@ -78,9 +85,7 @@ def initializeTimeDepRelease(cfg, inputSimLines, particles, fields, dem, zPartAr
     return particles, fields, zPartArray0
 
 
-def addReleaseParticles(
-        cfg, particles, inputSimLines, timeDepRelValues, dem, zPartArray0, timeDepRelIndex
-):
+def addReleaseParticles(cfg, particles, inputSimLines, timeDepRelValues, dem, zPartArray0, timeDepRelIndex):
     """
     add new particles initialized by a time dependent release to particles that are in the flow already
 
@@ -131,39 +136,38 @@ def addReleaseParticles(
         # check if already existing particles are within the release polygon
         # it's possible that there are still a few particles in the polygon with low velocities
         # TODO: could think of a threshold of number of particles that are still allowed in the polygons?
-        mask = geoTrans.getParticlesInPolygon(particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel"))
+        mask = geoTrans.getParticlesInPolygon(
+            particles, relLine, cfg["GENERAL"].getfloat("thresholdPointInRel")
+        )
         if np.sum(mask) > 0:
             message = (
-                    "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
-                    % (particles["t"] + particles["dt"])
+                "Already existing particles are within the release polygon, which can cause numerical instabilities (at timestep: %02f s)"
+                % (particles["t"] + particles["dt"])
             )
             log.error(message)
             raise ValueError(message)
 
     particlesRelease = com1DFA.initializeParticles(
-        cfg["GENERAL"],
-        relLine,
-        dem,
-        relThField=relThField,
-        timestep=particles["t"] + particles["dt"]
+        cfg["GENERAL"], relLine, dem, relThField=relThField, timestep=particles["t"] + particles["dt"]
     )
 
     if "velocity" in timeDepRelValues and "x" not in timeDepRelValues:
         particlesRelease = DFAfunC.updateInitialVelocity(cfg["GENERAL"], particlesRelease, dem, velocityMag)
 
-
-
     elif "velocityX" in timeDepRelValues and "x" in timeDepRelValues:
         for uComp, timedepParameter in zip(["ux", "uy", "uz"], ["velocityX", "velocityY", "velocityZ"]):
-            raster = gI.timeDepRelCoordsToRaster(relLine["timeDepRelValues"], timeDepRelIndex,
-                                                 dem["originalHeader"], parameter=timedepParameter
-                                                 )
+            raster = gI.timeDepRelCoordsToRaster(
+                relLine["timeDepRelValues"],
+                timeDepRelIndex,
+                dem["originalHeader"],
+                parameter=timedepParameter,
+            )
             rasterDict = {"header": dem["header"], "rasterData": raster}
-            particlesRelease, _ = geoTrans.projectOnRaster(rasterDict,
-                                                           particlesRelease, outData=uComp)
+            particlesRelease, _ = geoTrans.projectOnRaster(rasterDict, particlesRelease, outData=uComp)
 
         particlesRelease["uMag"] = np.sqrt(
-            particlesRelease["ux"] ** 2 + particlesRelease["uy"] ** 2 + particlesRelease["uz"] ** 2)
+            particlesRelease["ux"] ** 2 + particlesRelease["uy"] ** 2 + particlesRelease["uz"] ** 2
+        )
 
     particles = particleTools.mergeParticleDict(particles, particlesRelease)
     # save initial z position for travel angle computation
@@ -191,14 +195,11 @@ def defineReleaseLineFromCoordinates(relFile, timeDepRelValues, demHeader):
     relThFieldData: numpy array
         release thickness raster data
     """
-    releaseLine = {
-        "file": relFile,
-        "Name": [relFile.stem],
-        "initializedFrom": "csvfile"
-    }
+    releaseLine = {"file": relFile, "Name": [relFile.stem], "initializedFrom": "csvfile"}
     initialIndex = np.where(timeDepRelValues["timeStep"] == 0)[0]
-    releaseLine["rasterData"] = gI.timeDepRelCoordsToRaster(timeDepRelValues, initialIndex, demHeader,
-                                                            parameter="thickness")
+    releaseLine["rasterData"] = gI.timeDepRelCoordsToRaster(
+        timeDepRelValues, initialIndex, demHeader, parameter="thickness"
+    )
     relThFieldData = releaseLine["rasterData"]
     # TODO: define thickness for output report, now mean of thickness values
     releaseLine["thickness"] = np.nanmean(np.where(relThFieldData == 0, np.nan, relThFieldData))
@@ -270,3 +271,166 @@ def checkTravelledDistance(cfgGen, timeDepRelValues, timeDepRelCsv):
             # TODO: error or warning?
             log.error(message)
             raise ValueError(message)
+
+
+def setupOutHydrographDF(cfgGen, demDictOrig):
+    """
+    setup result fields data frame for initial time step for generating an output hydrograph and
+    reading raster indices and normal vectors of hydrograph lines and distances of cross-section cell centers
+    computes the z-component of the normal vector of the grid mesh for computing the flow depth
+
+    Parameters
+    ----------
+    cfgGen: configparser
+        general configuration for DFA simulation
+    demDictOrig: dict
+        dictionary with dem header and rasterData (numpy nd array of z values)
+
+    Returns
+    --------
+    outHydrographDF: data frame
+        data frame with one line for initial time step for discharges
+    outHydIdx: data frame
+        data frame with raster indices, normal vectors of output hydrograph cross section lines
+        distances of cross-section cell centers
+    NzNormed: 2D-array
+        field with z-components of the normal vector of the grid mesh
+    """
+
+    # read csv file with ouput hydrograph cross section indices
+    inputDir = pathlib.Path(cfgGen.get("avalancheDir"), "Inputs")
+    fileType = "Output hydrograph"
+    folder = "OUTHYDR"
+    fname, *_ = gI.getAndCheckInputFiles(inputDir, folder, fileType, fileExt="csv")
+    if fname is None:
+        message = f"No {fileType} csv-file in Inputs/{folder}!"
+        log.error(message)
+        raise FileNotFoundError(message)
+    outHydIdx = pd.read_csv(fname, sep=",", decimal=".", header=0)
+
+    # create dataframe with result fields
+    id = np.unique(np.array(outHydIdx["station"]))
+    initialTime = {"timestep": [0.0]}
+    station = {f"XS {i}": [0.0] for i in id}
+    outHydrographDF = pd.DataFrame({**initialTime, **station}).set_index("timestep")
+
+    # get z-component of normal vector of the grid mesh
+    demDict = {"header": demDictOrig["header"].copy(), "rasterData": demDictOrig["rasterData"]}
+    demDict = gT.getNormalMesh(demDict)
+    _, _, NzNormed = DFAtls.normalize(demDict["Nx"], demDict["Ny"], demDict["Nz"])
+
+    return outHydrographDF, outHydIdx, NzNormed
+
+
+def collectOutputHydrograph(outputHydrographDF, outHydIdx, NzNormed, fields, t):
+    """
+    Read discharge in the cross section cells for the current time step.
+
+    Parameters
+    ----------
+    outputHydrographDF: dict or None
+        data frame with one line for initial time step for discharges
+    outHydIdx: dataframe
+        data frame with raster indices, normal vectors of output hydrograph cross section lines
+        distances of cross-section cell centers
+    NzNormed: 2D-array
+        field with z-components of the normal vector of the grid mesh
+    fields: dict
+        com1DFA fields (FM)
+    t: float
+        current computation time
+
+    Returns
+    --------
+    outputHydrographDF: data frame
+        updated data frame
+    """
+
+    station = np.array(outHydIdx["station"])
+    id = np.unique(station)
+    row = np.array(outHydIdx["row"])
+    col = np.array(outHydIdx["column"])
+    Nx = np.array(outHydIdx["Nx"])
+    Ny = np.array(outHydIdx["Ny"])
+    distance = np.array(outHydIdx["distance"])
+
+    newLineDischarge = []
+
+    for i in id:
+        idx = np.where(station == i)
+        r = row[idx]
+        c = col[idx]
+        # read field data
+        velX = fields["Vx"][r, c]
+        velY = fields["Vy"][r, c]
+        # compute flow depth
+        depthField = fields["FT"][r, c] / NzNormed[r, c]
+        # determination of the flow direction with respect to the cross-section line
+        # there are two normal vectors of the cross section line
+        # if the scalar product of the mean velocity vector and normal vector is > 0, both show in the same direction
+        #TODO: define flow direction in the beginning of the simulation and keep it constant -> backflow
+        nx = Nx[idx]
+        ny = Ny[idx]
+        scalarProduct = np.mean(velX) * np.unique(nx) + np.mean(velY) * np.unique(ny)
+        if not scalarProduct > 0.0:
+            nx = -nx
+            ny = -ny
+
+        # get cell size
+        csz = distance[idx]
+        # compute discharge per cell and sum up
+        discharge = (velX * nx + velY * ny) * csz * depthField
+        newLineDischarge.append(np.sum(discharge))
+    # save to data frame
+    outputHydrographDF.loc[t] = newLineDischarge
+
+    return outputHydrographDF
+
+
+def outputHydrographPlot(outputHydrographDF, cfgGen, simHash=""):
+    """
+    Plot time series of discharge for every cross section (one figure per cross section)
+
+    Parameters
+    -----------
+    hydrographDF: pandas DataFrame
+        aggregated output hydrograph (see out1Hydrograph.aggregateOutputHydrograph)
+        columns: lineId, lineName, timestep, discharge, volume, maxThickness, meanThickness,
+        maxVelocity, meanVelocity
+    cfgGen: configparser
+        general configuration for DFA simulation
+    simHash: str
+        simulation hash for the file name
+
+    Returns
+    --------
+    plotPaths: list of paths to the saved plots
+    """
+
+    colnames = list(outputHydrographDF.columns)
+    t = list(outputHydrographDF.index)
+    dt = np.diff(t)
+
+    # create figures
+    for station in colnames:
+
+        discharge = np.array(outputHydrographDF[station])
+        dV = 0.5 * (discharge[:-1] + discharge[1:]) * dt
+        volume = np.cumsum(dV)
+
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(pU.figW, pU.figH))
+        ax[0].plot(t, discharge, color="brown")
+        ax[1].plot(t[1:], volume, color="brown")
+
+        ax[0].set_xlabel("time [s]")
+        ax[0].set_ylabel("discharge [m³/s]")
+        ax[1].set_xlabel("time [s]")
+        ax[1].set_ylabel("cumulative volume [m³]")
+        ax[1].set_title(f"total cumulative volume = {np.max(volume):.02f} m³")
+        plt.suptitle(f"Output hydrograph - {station}")
+
+        # save plot
+        plotName = "outputHydrograph_%s_%s.png" % (simHash, station)
+        outDir = pathlib.Path(cfgGen["avalancheDir"], "Outputs", "out1Hydrograph", "Plots")
+        fU.makeADir(outDir)
+        pU.saveAndOrPlot({"pathResult": outDir}, plotName, fig)
