@@ -385,7 +385,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
         if entrType == 1:
             dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
         if entrType == 2:
-            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, entShearStrength, rhoEnt)
+            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, entShearStrength, velMagMin)
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
       forceBotTang = - areaPart * tau
@@ -554,7 +554,7 @@ cpdef (double, double) computeEntMassAndForce(double dt, double entrMassCell,
 cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entrMassCell,
                                               double areaPart, double uMag,
                                               double tau, double entShearStrength,
-                                              double rhoEnt):
+                                              double velMagMin):
   """ compute force component due to entrained mass
 
   Parameters
