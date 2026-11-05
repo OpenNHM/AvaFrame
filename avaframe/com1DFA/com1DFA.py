@@ -983,6 +983,17 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
             "alpha2": cfgGen["alpha2TauyBingham"],
             "beta2": cfgGen["beta2TauyBingham"],
         }
+    elif cfgGen["frictModel"].lower() == "mui":
+        reportST["Friction model"] = {
+            "type": "columns",
+            "model": "mu(I)",
+            "mu_s": cfgGen["muIMuS"],
+            "mu_2": cfgGen["muIMu2"],
+            "I_0": cfgGen["muII0"],
+            "d": cfgGen["muIGrainSize"],
+            "rho_g": cfgGen["muIGrainDensity"],
+            "shear factor": cfgGen["muIShearFactor"],
+        }
 
     # check if secondary release area
     if secRelAreaFlag == "Yes":
@@ -2184,6 +2195,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         "obrienandjulien",
         "herschelandbulkley",
         "bingham",
+        "mui",
     ]
     frictModel = cfgGen["frictModel"].lower()
     frictType = frictModelsList.index(frictModel) + 1

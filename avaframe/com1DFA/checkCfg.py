@@ -148,6 +148,12 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
         "tauyBingham",
         "alpha2TauyBingham",
         "beta2TauyBingham",
+        "muIMuS",
+        "muIMu2",
+        "muII0",
+        "muIGrainSize",
+        "muIGrainDensity",
+        "muIShearFactor",
     ]
 
     # if samosATAuto check for release volume and volume class to determine which parameter setup
@@ -232,6 +238,8 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
                 cfg["GENERAL"]["beta2TauyBingham"] = "0"
 
             frictParameterIn = [frictModel.lower() in frictP.lower() for frictP in frictParameters]
+        elif frictModel.lower() == "mui":
+            frictParameterIn = [frictModel.lower() in frictP.lower() for frictP in frictParameters]
         else:
             frictParameterIn = [frictModel.lower() in frictP for frictP in frictParameters]
 
@@ -291,6 +299,10 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
             log.error(message)
             raise ValueError(message)
 
+    # mu(I) friction model: check parameter ranges and plausibility
+    if frictModel.lower() == "mui":
+        checkMuIParameters(cfg)
+
     # check if explicitFriction has valid values
     if cfg["GENERAL"]["explicitFriction"] not in ["0", "1"]:
         message = "explicitFriction should be either 0 (implicit method) or 1 (explicit method)."
@@ -298,3 +310,43 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
         raise ValueError(message)
 
     return cfg
+
+
+def checkMuIParameters(cfg):
+    """check the mu(I) friction model parameters for validity (errors) and plausibility (warnings)
+
+    Parameters
+    -----------
+    cfg: dict
+        configuration settings, here used: rho and the muI parameters in GENERAL
+
+    Raises
+    -------
+    ValueError
+        if a parameter is not larger than 0 or if muIMu2 <= muIMuS
+    """
+
+    muIParameters = ["muIMuS", "muIMu2", "muII0", "muIGrainSize", "muIGrainDensity", "muIShearFactor"]
+    for muIP in muIParameters:
+        if float(cfg["GENERAL"][muIP]) <= 0:
+            message = "Friction model used muI, but %s must be larger than 0" % muIP
+            log.error(message)
+            raise ValueError(message)
+
+    if float(cfg["GENERAL"]["muIMu2"]) <= float(cfg["GENERAL"]["muIMuS"]):
+        message = "Friction model used muI, but muIMu2 must be larger than muIMuS"
+        log.error(message)
+        raise ValueError(message)
+
+    # a grain density below the flow density suggests the bulk density was entered
+    if float(cfg["GENERAL"]["muIGrainDensity"]) < float(cfg["GENERAL"]["rho"]):
+        log.warning(
+            "muIGrainDensity (%s) is smaller than the flow density rho (%s): muIGrainDensity is the grain "
+            "density, not the bulk density" % (cfg["GENERAL"]["muIGrainDensity"], cfg["GENERAL"]["rho"])
+        )
+
+    if float(cfg["GENERAL"]["muIShearFactor"]) != 2.5:
+        log.warning(
+            "muIShearFactor is %s, the default of 2.5 corresponds to a Bagnold velocity profile"
+            % cfg["GENERAL"]["muIShearFactor"]
+        )
