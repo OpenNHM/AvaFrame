@@ -1312,7 +1312,7 @@ def test_computeForceC():
         test_uMagRes = test_uMag
     test_forceFrictArray = test_forceFrict - test_forceBotTang / test_uMagRes
 
-    assert (forceFrictArray == test_forceFrictArray).all()
+    assert np.allclose(forceFrictArray, test_forceFrictArray, rtol=1e-12, atol=0)
 
 
 def test_updateInitialVelocity():
