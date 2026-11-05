@@ -161,6 +161,67 @@ def test_splitPartMass(capfd):
     assert np.allclose(particles['ID'], np.arange(14), atol=atol)
 
 
+def test_splitPartMass_dmEntDet():
+    """ test that entrained and detrained mass are split like the mass """
+    cfg = configparser.ConfigParser()
+    cfg['GENERAL'] = {'rho': '1', 'thresholdMassSplit': '1.5', 'distSplitPart': '0.5'}
+    particles = {}
+    particles['nPart'] = 3
+    particles['massPerPart'] = 1
+    particles['ID'] = np.arange(particles['nPart'])
+    particles['parentID'] = np.arange(particles['nPart'])
+    particles['m'] = np.array([1, 10, 1.])
+    particles['h'] = np.array([1, 1, 1.])
+    particles['x'] = np.array([0, 5, 10.])
+    particles['y'] = np.zeros((3))
+    particles['z'] = np.zeros((3))
+    particles['ux'] = np.ones((3))
+    particles['uy'] = np.zeros((3))
+    particles['uz'] = np.zeros((3))
+    particles['dmEnt'] = np.array([0.1, 4, 0.])
+    particles['dmDet'] = np.array([0, -2, -0.5])
+    particles['mTot'] = np.sum(particles['m'])
+    particles['nID'] = 3
+    particles = particleTools.splitPartMass(particles, cfg['GENERAL'])
+
+    atol = 1e-10
+    assert particles['nPart'] == 4
+    assert np.allclose(particles['m'], np.array([1, 5, 1, 5]), atol=atol)
+    assert np.allclose(particles['dmEnt'], np.array([0.1, 2, 0, 2]), atol=atol)
+    assert np.allclose(particles['dmDet'], np.array([0, -1, -0.5, -1]), atol=atol)
+    assert np.isclose(np.sum(particles['dmEnt']), 4.1, atol=atol)
+    assert np.isclose(np.sum(particles['dmDet']), -2.5, atol=atol)
+
+
+def test_mergePartArea_dmEntDet():
+    """ test that entrained and detrained mass are summed up when merging """
+    cfg = configparser.ConfigParser()
+    # aMin = pi * sphKernelRadius² / (cMaxNPPK * nPPK) = pi
+    cfg['GENERAL'] = {'rho': '1', 'sphKernelRadius': '1', 'cMaxNPPK': '1'}
+    particles = {}
+    particles['nPart'] = 3
+    particles['nPPK'] = 1
+    particles['m'] = np.array([1, 2, 10.])
+    particles['h'] = np.array([1, 1, 1.])
+    particles['x'] = np.array([0, 0.5, 5.])
+    particles['y'] = np.zeros((3))
+    particles['z'] = np.zeros((3))
+    particles['ux'] = np.zeros((3))
+    particles['uy'] = np.zeros((3))
+    particles['uz'] = np.zeros((3))
+    particles['dmEnt'] = np.array([0.1, 0.3, 1.])
+    particles['dmDet'] = np.array([-0.2, -0.4, 0.])
+    particles['mTot'] = np.sum(particles['m'])
+    particles = particleTools.mergePartArea(particles, cfg['GENERAL'], {})
+
+    atol = 1e-10
+    # first particle (area 1 < pi) is merged with its closest neighbour
+    assert particles['nPart'] == 2
+    assert np.allclose(particles['m'], np.array([3, 10]), atol=atol)
+    assert np.allclose(particles['dmEnt'], np.array([0.4, 1]), atol=atol)
+    assert np.allclose(particles['dmDet'], np.array([-0.6, 0]), atol=atol)
+
+
 def test_mergeParticleDict(capfd):
 
     particles1 = {}

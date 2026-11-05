@@ -27,6 +27,28 @@ import avaframe.in1Data.getInput as gI
 import avaframe.in3Utils.geoTrans as gT
 
 
+def discreteColorsFromCmap(cmap, levels):
+    """
+    get discrete colors from a colormap
+
+    Parameters
+    ----------
+    cmap: matlab colormap
+        colormap
+    levels: list
+        levels for discrete colors
+
+    Returns
+    -------
+    colorRGB: list
+        contains RGB values for discrete colors
+
+    """
+    cList = cmap(np.linspace(0, 1, len(levels)))
+    colorRGB = [mplCol.to_hex(c) for c in cList]
+    return colorRGB
+
+
 # create local logger
 log = logging.getLogger(__name__)
 
@@ -205,16 +227,13 @@ colorsProb = ["#FEF1F1", "#B2AB96", "#5B8BA3", "#2D5393", "#1A0C64"]
 cmapProbmap = copy.copy(cmapCrameri.lapaz.reversed())
 
 levSfcC = list(fU.splitIniValueToArraySteps(cfgPlotUtils["surfaceChangeLevels"]))
-colorsSfcC = [
-    "#fefeb2",
-    "#d2d184",
-    "#bab98d",
-    "#a0a598",
-    "#6f878d",
-    "#386982",
-    "#05598c",
-]
-cmapSfcChange = copy.copy(cmapCrameri.nuuk.reversed())
+levSfcCCum = list(fU.splitIniValueToArraySteps(cfgPlotUtils["surfaceChangeCumLevels"]))
+
+cmapSfcChange = copy.copy(cmapCrameri.vik.reversed())
+
+# colors extracted from colormap
+colorsSfcCCum = discreteColorsFromCmap(cmapSfcChange, levSfcCCum)
+colorsSfcC = discreteColorsFromCmap(cmapSfcChange, levSfcC)
 
 levEntrDepth = list(fU.splitIniValueToArraySteps(cfgPlotUtils["entrDepthLevels"]))
 colorsEntrDepth = [
@@ -276,11 +295,9 @@ cmapEnergy = {"cmap": cmapE, "colors": colorsE, "levels": levE}
 
 cmapSfcChange = {"cmap": cmapSfcChange, "colors": colorsSfcC, "levels": levSfcC}
 
-cmapEntrDepth = {
-    "cmap": cmapEntrDepth,
-    "colors": colorsEntrDepth,
-    "levels": levEntrDepth,
-}
+cmapSfcChangeCum = {"cmap": cmapSfcChange, "colors": colorsSfcCCum, "levels": levSfcCCum}
+
+cmapEntrDepth = {"cmap": cmapEntrDepth, "colors": colorsEntrDepth, "levels": levEntrDepth}
 
 cmapTime = {"cmap": cmaptimeInfo, "colors": colorstimInfo, "levels": levtimeInfo}
 
@@ -316,6 +333,7 @@ colorMaps = {
     "dmDet": cmapDmDet,
     "demAdapted": cmapGreys,
     "sfcChange": cmapSfcChange,
+    "sfcChangeCum": cmapSfcChangeCum,
     "entrDepth": cmapEntrDepth,
     "timeInfo": cmapTime,
 }
