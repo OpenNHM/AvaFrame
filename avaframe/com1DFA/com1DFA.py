@@ -1792,6 +1792,8 @@ def initializeFields(cfg, dem, particles, releaseLine):
     fields["Vy"] = np.zeros((nrows, ncols))  # velocity in y direction [m/s]
     fields["Vz"] = np.zeros((nrows, ncols))  # velocity in z direction [m/s]
     fields["dmDet"] = np.zeros((nrows, ncols))  # flowing mass change due to detrainment [kg]
+    fields["mStop"] = np.zeros((nrows, ncols))  # mass stopped in this time step [kg] (<= 0)
+    fields["mDet"] = np.zeros((nrows, ncols))  # mass detrained in this time step [kg] (<= 0)
     fields["FTStop"] = np.zeros((nrows, ncols))  # flow thickness that is stopped [m]
     fields["FTDet"] = np.zeros((nrows, ncols))  # flow thickness that is detrained [m]
     fields["FTEnt"] = np.zeros((nrows, ncols))  # flow thickness that is entrained [m]
