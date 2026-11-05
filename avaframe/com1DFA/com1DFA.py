@@ -4002,7 +4002,7 @@ def adaptDEM(dem, fields, cfg):
         fields dictionary containing adapted DEM, adapted entrainable mass and depth raster
     """
 
-    ZDEM = dem["rasterData"].copy()
+    ZDEM = copy.deepcopy(dem["rasterData"])
     # mass and thickness change within the timestep
     FTDet = fields["FTDet"]  # >= 0
     FTStop = fields["FTStop"]  # >= 0
@@ -4012,13 +4012,13 @@ def adaptDEM(dem, fields, cfg):
 
     sfcChangeCum = fields["sfcChangeCum"]
     sfcChange = np.zeros_like(FTDet)
-    ZDEMadapt = ZDEM.copy()
+    ZDEMadapt = copy.deepcopy(ZDEM)
 
     depthStop = np.zeros_like(ZDEM)
     depthDet = np.zeros_like(ZDEM)
     depthEnt = np.zeros_like(ZDEM)
 
-    _, _, NzNormed = DFAtls.normalize(dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy())
+    _, _, NzNormed = DFAtls.normalize(copy.deepcopy(dem["Nx"]), copy.deepcopy(dem["Ny"]), copy.deepcopy(dem["Nz"]))
 
     if cfg.getboolean("adaptSfcStopped"):
         # compute thickness to depth
@@ -4036,11 +4036,11 @@ def adaptDEM(dem, fields, cfg):
         ZDEMadapt += depthEnt
         sfcChange += depthEnt
     if cfg.getboolean("entrainableDeposition"):
-        hErodable = fields["entrDepth"].copy()
+        hErodable = copy.deepcopy(fields["entrDepth"])
         hErodable += depthStop
         hErodable += depthDet
         hErodable += depthEnt
-        ZDEMadapt = fields["demNotErodableRaster"].copy() + hErodable
+        ZDEMadapt = copy.deepcopy(fields["demNotErodableRaster"]) + hErodable
         fields["entrDepth"] = hErodable
         # the entrained mass is considered in DFAFunctionsCython.pyx
         # entrMassRaster shows mass per m²
@@ -4050,8 +4050,8 @@ def adaptDEM(dem, fields, cfg):
     # topography the normals and area of the DEM were computed with
     ZDEMNormals = dem.get("rasterDataNormals", ZDEM)
 
-    dem["rasterData"] = ZDEMadapt.copy()
-    fields["demAdapted"] = ZDEMadapt.copy()
+    dem["rasterData"] = copy.deepcopy(ZDEMadapt)
+    fields["demAdapted"] = copy.deepcopy(ZDEMadapt)
 
     # only update normals and area of the DEM if the surface changed more than thresholdAdaptSfc
     # since they were computed the last time
@@ -4059,11 +4059,11 @@ def adaptDEM(dem, fields, cfg):
         num = cfg.getfloat("methodMeshNormal")
         dem = geoTrans.getNormalMesh(dem, num=num)
         dem = DFAtls.getAreaMesh(dem, num)
-        dem["rasterDataNormals"] = ZDEMadapt.copy()
+        dem["rasterDataNormals"] = copy.deepcopy(ZDEMadapt)
     else:
         dem["rasterDataNormals"] = ZDEMNormals
 
-    fields["sfcChange"] = sfcChange.copy()
+    fields["sfcChange"] = copy.deepcopy(sfcChange)
     fields["sfcChangeCum"] = sfcChangeCum + sfcChange
 
     return dem, fields
