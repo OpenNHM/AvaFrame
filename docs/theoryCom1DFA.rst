@@ -795,6 +795,167 @@ between shear stress and shear rate. The equation reads:
 
 The Bingham model is well-suited to homogeneous suspensions of fine particles at low shear rates (e.g. mudflows, :cite:`Ju2010`).
 
+.. _muI:
+
+Dense granular rheology: :math:`\mu(I)`
+"""""""""""""""""""""""""""""""""""""""""
+
+.. Note:: There is no calibrated :math:`\mu(I)` parameter set for snow avalanches. The defaults are exploratory values
+    and are not calibrated for snow: the friction angles and :math:`I_0` are taken from the ping-pong ball
+    avalanche fit of :cite:`TsMaNi2020`, :math:`\rho_g` is the density of ice, and :math:`d` is a fit parameter
+    chosen such that :math:`I / I_0` approximately equals that of the glass bead values of :cite:`JoFoPo2006` (see the
+    identifiability note below).
+
+The :math:`\mu(I)` rheology :cite:`GDRMiDi2004, JoFoPo2006` describes dense, dry, cohesionless granular flow with a
+friction coefficient that depends on the inertial number :math:`I`. It is selected with ``frictModel = muI``.
+In its depth-averaged form :cite:`FoPo2003, GrEd2014` the bottom shear stress reads:
+
+.. math::
+    \tau^{(b)} = \mu(I)\,\sigma^{(b)}
+    :label: muI-tau
+
+.. math::
+    \mu(I) = \mu_s + \frac{\mu_2 - \mu_s}{I_0 / I + 1} = \mu_s + (\mu_2 - \mu_s)\,\frac{I}{I_0 + I}
+    :label: muI-mu
+
+The second form of :eq:`muI-mu` is finite at :math:`I = 0`, where :math:`\mu = \mu_s`; for large :math:`I`,
+:math:`\mu \to \mu_2`. The inertial number is the ratio of the time scale of grain rearrangement to the time scale
+of shear:
+
+.. math::
+    I = \frac{\dot\gamma\,d}{\sqrt{\sigma^{(b)} / \rho_g}}
+    :label: muI-inertial
+
+with the grain diameter :math:`d` and the grain (not the bulk) density :math:`\rho_g`. As in the rheological models
+above the shear rate has to be expressed with depth-averaged quantities:
+
+.. math::
+    \dot\gamma = c_\gamma \frac{\overline{u}}{\overline{h}}, \qquad c_\gamma = \frac{5}{2}
+    :label: muI-shearRate
+
+**Shear rate closure.** In steady uniform flow :math:`\tau / \sigma = \tan\theta` at every depth, so :math:`I` and
+hence the ratio :math:`\dot\gamma / \sqrt{\sigma}` are independent of depth. With
+:math:`\sigma \propto (h - z)` this gives :math:`\dot\gamma \propto \sqrt{h - z}` and the Bagnold velocity profile
+:math:`u(z) \propto h^{3/2} - (h - z)^{3/2}`. Its depth average is :math:`\overline{u} = \frac{3}{5}\,A\,h^{3/2}`
+and its basal shear rate is :math:`\frac{3}{2}\,A\,h^{1/2}`, which results in
+:math:`\dot\gamma_b = \frac{5}{2}\,\overline{u} / \overline{h}`. Evaluated with :math:`\sigma^{(b)}`,
+:eq:`muI-inertial` then gives the basal inertial number, which is the one entering :eq:`muI-tau`. The factor 3 of
+equation :eq:`shearRate_substitution` is the basal shear rate of a parabolic (half-Poiseuille, i.e. Newtonian) profile;
+it overestimates :math:`I` of a Bagnold profile by 20 % and is therefore not used here. The same closure is used by
+:cite:`TsMaNi2020`. :math:`c_\gamma` is configurable (``muIShearFactor``) because measured snow velocity profiles are
+neither Bagnold nor Newtonian (see below).
+
+Parameters
+++++++++++
+
+.. list-table:: Parameters of the :math:`\mu(I)` friction model
+    :header-rows: 1
+    :widths: 25 12 38 25
+
+    * - Parameter (ini file)
+      - Symbol
+      - Meaning
+      - Default
+    * - ``muIMuS``
+      - :math:`\mu_s`
+      - static friction coefficient
+      - :math:`\tan 20^\circ`
+    * - ``muIMu2``
+      - :math:`\mu_2`
+      - friction coefficient for :math:`I \to \infty`
+      - :math:`\tan 32^\circ`
+    * - ``muII0``
+      - :math:`I_0`
+      - reference inertial number
+      - 0.3
+    * - ``muIGrainSize``
+      - :math:`d`
+      - grain diameter [m]
+      - 0.0009
+    * - ``muIGrainDensity``
+      - :math:`\rho_g`
+      - grain density [kg/m³]
+      - 917 (ice)
+    * - ``muIShearFactor``
+      - :math:`c_\gamma`
+      - shear rate closure
+      - 2.5
+
+All parameters must be larger than 0 and :math:`\mu_2 > \mu_s`. A warning is issued if :math:`\rho_g` is smaller than
+the flow density ``rho`` (probably the bulk density was entered) or if :math:`c_\gamma \neq 5/2`.
+
+.. Note:: With :eq:`muI-inertial` and :eq:`muI-shearRate`, :math:`I / I_0` depends on :math:`d`, :math:`I_0` and
+    :math:`\rho_g` only through the combination :math:`d / (I_0 \sqrt{\rho / \rho_g})` (:math:`\rho` is the flow
+    density). The three parameters therefore carry one degree of freedom in the depth-averaged model. For a
+    calibration fix two of them (e.g. :math:`\rho_g` from the material and :math:`I_0` from literature) and fit only
+    :math:`d`. :cite:`TsMaNi2020` observe this effect: the best fit for a ping-pong ball avalanche required
+    :math:`d = 10` cm instead of the real 3.8 cm.
+
+    The default :math:`d = 0.9` mm follows from this: with :math:`\rho_g = 917` kg/m³ and :math:`I_0 = 0.3` it
+    gives approximately the same :math:`d\,\sqrt{\rho_g} / I_0` as the glass bead values (:math:`d = 0.5` mm,
+    :math:`\rho_g = 2500` kg/m³, :math:`I_0 = 0.279`). It is not a snow granule size: with the measured granule
+    sizes (:math:`d \approx 0.1` m, :cite:`BaMcA2009`) the flow runs at :math:`\mu \approx \mu_2` and the runout
+    is much shorter.
+
+Applicability
++++++++++++++
+
+In steady uniform flow :eq:`muI-mu` is solved by :math:`\mu(I) = \tan\theta`, which has a solution only for
+:math:`\mu_s < \tan\theta < \mu_2`. For the inertial number and the depth-averaged velocity this gives
+
+.. math::
+    I^* = I_0\,\frac{\tan\theta - \mu_s}{\mu_2 - \tan\theta}, \qquad
+    \overline{u}^* = \frac{2}{5}\,\frac{I^*}{d}\,\sqrt{\frac{\rho}{\rho_g}\,g\cos\theta}\;\overline{h}^{3/2}
+    :label: muI-steady
+
+which is the Pouliquen flow rule :math:`Fr = \beta\,h / h_{stop}(\theta)` with
+:math:`h_{stop} = d\,(\mu_2 - \tan\theta) / (\tan\theta - \mu_s)` and
+:math:`\beta = \frac{2}{5}\,I_0\,\sqrt{(\rho / \rho_g)\cos\theta}` :cite:`GrEd2014`. Equation
+:eq:`muI-steady` is used as the analytic reference in the unit tests. Consequences:
+
+- Below :math:`\mu_s` the flow stops (the friction force equals the driving force at rest, as for Coulomb friction).
+- Above :math:`\arctan\mu_2` there is no steady state: the friction saturates at :math:`\mu_2\,\sigma^{(b)}` and the
+  flow accelerates without a velocity limit. A turbulent (Voellmy-like) term is not included.
+- The model describes dense flow of dry, cohesionless grains only.
+
+For snow avalanches the following additional points apply:
+
+- No calibrated parameter set exists. The literature values below are not mu(I) calibrations for snow.
+- At avalanche scale (e.g. :math:`d = 0.1` m, :math:`\overline{u} = 20-30` m/s, :math:`\overline{h} = 1-2` m,
+  :math:`\theta = 30^\circ`) :math:`I` is of the order 1-2 and :math:`I / I_0 \approx 3-6` for :math:`I_0 \approx 0.3`.
+  The model then behaves like Coulomb friction with :math:`\mu_2` while moving and :math:`\mu_s` near rest, without
+  velocity limit. The dependence on :math:`I` is significant only for grain sizes of millimetres or :math:`I_0 \sim 1`.
+  Realistic runout therefore requires a low :math:`\mu_2`, which allows high velocities on slopes steeper than
+  :math:`\arctan\mu_2`.
+- Measured snow velocity profiles are basal slip plus a thin shear layer under a plug (:cite:`KeTiMcE2004`) or fully
+  sheared at the front and plug flow over a basal shear layer at the tail (:cite:`KeBaSoBu2009`), not Bagnold profiles.
+  The shear rate closure is therefore uncertain for snow.
+- The model has no cohesion and cannot represent wet snow.
+
+.. list-table:: Literature values (not mu(I) calibrations for snow)
+    :header-rows: 1
+    :widths: 25 75
+
+    * - Source
+      - Values
+    * - :cite:`TsMaNi2020`
+      - Ping-pong ball avalanche, depth-averaged :math:`\mu(I)`, :math:`I_0 = 0.3`, best fit
+        :math:`\delta_s = 20^\circ`, :math:`\delta_2 = 32^\circ`, :math:`d = 10` cm (tested 0.1 mm - 10 cm)
+    * - :cite:`RoChBeOuNaCo2008`
+      - Chute flows of dense dry snow between :math:`33^\circ` and :math:`42^\circ`
+        (:math:`\mu_s \approx 0.65`, :math:`\mu_2 \approx 0.90`); chute scale, flow depth of decimetres, too
+        frictional for field-scale runout
+    * - :cite:`PlBaJa2007`
+      - Coulomb coefficient 0.22 - 0.55 (Weissfluhjoch force plates)
+    * - :cite:`RaKoHuFe2018`
+      - :math:`\mu = 0.26` for the Wolfsgruben avalanche (Voellmy-like friction)
+    * - :cite:`BaMcA2009`
+      - Grain size: deposit medians 5 - 16 cm
+
+The ini file additionally contains the glass bead values of :cite:`JoFoPo2006` as a commented parameter block
+(:math:`\mu_s = \tan 20.9^\circ`, :math:`\mu_2 = \tan 32.76^\circ`, :math:`I_0 = 0.279`, :math:`d = 0.5` mm,
+:math:`\rho_g = 2500` kg/m³).
+
 Dam
 ~~~
 
