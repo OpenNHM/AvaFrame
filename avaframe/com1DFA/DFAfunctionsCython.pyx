@@ -571,8 +571,8 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
       bottom shear stress
   entShearStrength: float
     shear strength of the entrainable snow mass
-  rhoEnt: float
-    entrainement density
+  velMagMin : float
+    minimum velocity magnitude, avoids division by 0 for resting particles
 
   Returns
   -------
@@ -580,6 +580,8 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
       entrained mass
   areaEntrPart : float
       Area for entrainment energy loss computation
+  tau : float
+      bottom shear stress, limited to the shear strength of the snow cover if entrainment occurs
   """
   # compute entrained mass
   cdef double dm = 0.0
@@ -595,6 +597,8 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
       tauC = entShearStrength
 
       dm = max(0.0, tau - tauC) * areaPart * dt / uMag
+      # cannot entrain more than the mass available under the particle
+      dm = min(dm, entrMassCell * areaPart)
       areaEntrPart = areaPart
       if dm > 0:
         tau = min(tau, tauC)
