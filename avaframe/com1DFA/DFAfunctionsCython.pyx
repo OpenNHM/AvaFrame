@@ -108,6 +108,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double tauyBinghamCfg = cfg.getfloat('tauyBingham')
   cdef double alpha2TauyBingham = cfg.getfloat('alpha2TauyBingham')
   cdef double beta2TauyBingham = cfg.getfloat('beta2TauyBingham')
+  cdef double nManning = cfg.getfloat('nManning')
   cdef double curvAccInFriction = cfg.getfloat('curvAccInFriction')
   cdef double curvAccInTangent = cfg.getfloat('curvAccInTangent')
   cdef int curvAccInGradient = cfg.getint('curvAccInGradient')
@@ -171,7 +172,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double dmDet, detCell, areaDetPart
   cdef double x, y, z, xEnd, yEnd, zEnd, ux, uy, uz, uxDir, uyDir, uzDir, totalEnthalpy, enthalpy, dTotalEnthalpy
   cdef double nx, ny, nz, nxEnd, nyEnd, nzEnd, nxAvg, nyAvg, nzAvg
-  cdef double gravAccNorm, accNormCurv, effAccNorm, gravAccTangX, gravAccTangY, gravAccTangZ, forceBotTang, sigmaB, tau
+  cdef double gravAccNorm, accNormCurv, effAccNorm, gravAccTangX, gravAccTangY, gravAccTangZ, forceBotTang, sigmaB, tau, tauBottom
   cdef double muVoellmyRaster, xsiVoellmyRaster
   #TODO: Influence on variable initiation?
   cdef double shearRate, etaObrienAndJulien, tauyObrienAndJulien, lmObrienAndJulien
@@ -374,6 +375,11 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
             tau = tauyBingham + etaBingham * shearRate
           else:
             tau = 0.0
+
+      # bottom friction due to Manning friction coefficient
+      if frictType >= 10:
+        tauBottom = rho * gravAcc * nManning * nManning * uMag * uMag / math.pow(h, 1.0 / 3.0)
+        tau = tau + tauBottom
 
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
