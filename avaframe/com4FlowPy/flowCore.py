@@ -236,14 +236,14 @@ def run(optTuple):
     release_list = split_release(release, nChunks)
 
     # select compute engine: "numba" JIT kernel, else the default Python (Cell) path.
-    # numba does not (yet) implement infra/back-calculation, previewMode or the
+    # numba supports infrastructure / back-calculation, but not previewMode or the
     # release-id (relIdPolygon/relIdCount) outputs, so fall back to the Python
-    # engine when any of those are active.
+    # engine only when one of those is active.
     engine = optTuple[2].get("engine", "python")
     calcFunc = calculation
     if engine == "numba":
-        if infraBool or previewMode or relIdBool:
-            log.warning("engine=numba does not support infra/previewMode/relId outputs — "
+        if previewMode or relIdBool:
+            log.warning("engine=numba does not support previewMode/relId outputs — "
                         "falling back to the Python engine for this run")
         else:
             try:

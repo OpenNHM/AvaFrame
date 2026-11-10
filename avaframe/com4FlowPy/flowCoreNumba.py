@@ -22,8 +22,11 @@ flowCore.calculation() for the fluxDistOldVersion=False path:
     redistributed over >=threshold children, flux-conservation correction, and
     deposition (fluxDep) when count == 0.
 
-Paths NOT handled here fall back to the Python engine (see run()): infra /
-back-calculation and previewMode.
+Infrastructure / back-calculation (`infra = True`) is supported: the directed
+flow graph is recorded during the BFS and infrastructure values are propagated
+upslope by `_backTrackSingle()`, reproducing the Python engine's
+`backcalculation` raster. Paths NOT handled here still fall back to the Python
+engine (see run()): previewMode and the relId outputs.
 """
 import logging
 import math
@@ -50,6 +53,102 @@ _FM_FRICTION = 1
 _FM_DETRAINMENT = 2
 _FM_FRICTIONLAYER = 3
 
+# maximum number of 8-neighbour parents per cell (3x3 layout excluding the centre)
+_MAX_PARENTS = 8
+
+
+@njit(cache=True, inline="always")
+def _addParentEdge(parentDirs, parentCount, W, parentRow, parentCol, childRow, childCol):
+    """Add the directed edge parent -> child to the reversed child -> parents graph."""
+    pdir = (parentRow - childRow + 1) * 3 + (parentCol - childCol + 1)
+    childCell = childRow * W + childCol
+    n = parentCount[childCell]
+    for k in range(n):
+        if parentDirs[childCell, k] == pdir:
+            return
+    if n < parentDirs.shape[1]:
+        parentDirs[childCell, n] = pdir
+        parentCount[childCell] = n + 1
+
+
+@njit(cache=True, inline="always")
+def _pushParentCells(cell, value, stamp, W, parentDirs, parentCount,
+                     workVal, propSeen, stack, top):
+    """Push not-yet-seen upslope parents of cell that could receive value."""
+    row = cell // W
+    col = cell % W
+    n = parentCount[cell]
+    for k in range(n):
+        pdir = parentDirs[cell, k]
+        prow = row + (pdir // 3 - 1)
+        pcol = col + (pdir % 3 - 1)
+        pcell = prow * W + pcol
+        if propSeen[pcell] != stamp and workVal[pcell] < value:
+            propSeen[pcell] = stamp
+            stack[top] = pcell
+            top += 1
+    return top
+
+
+@njit(cache=True)
+def _backTrackSingle(infra, W, backcalc, modified_r, modified_c, nModified,
+                     parentDirs, parentCount, workVal, propSeen,
+                     sourceCells, sourceVals, stack):
+    """Propagate infrastructure values upslope for one release pixel.
+
+    Reproduces flowCore.backTracking(): every affected cell is initialised with
+    max(0, infra) and folded into ``backcalc`` (so affected cells without an
+    upslope infrastructure hit become 0), while each positive infrastructure
+    value is propagated towards the release cell along the reversed flow graph.
+    """
+    nSources = 0
+
+    # initialise every graph node with max(0, infra) and collect the sources
+    for i in range(nModified):
+        rr = modified_r[i]
+        cc = modified_c[i]
+        cell = rr * W + cc
+        v = infra[rr, cc]
+        if not (v > 0.0):  # handles <= 0 and NaN like Python's max(0, v)
+            v = 0.0
+        workVal[cell] = v
+        if v > 0.0:
+            sourceCells[nSources] = cell
+            sourceVals[nSources] = v
+            nSources += 1
+
+    # propagate each source upslope (descending value mirrors the reference)
+    if nSources > 0:
+        order = np.argsort(sourceVals[:nSources])[::-1]
+        stamp = 0
+        for oi in range(nSources):
+            si = order[oi]
+            src = sourceCells[si]
+            v = sourceVals[si]
+            stamp += 1
+            propSeen[src] = stamp
+            top = _pushParentCells(src, v, stamp, W, parentDirs, parentCount,
+                                   workVal, propSeen, stack, 0)
+            while top > 0:
+                top -= 1
+                cell = stack[top]
+                if workVal[cell] >= v:
+                    continue
+                workVal[cell] = v
+                top = _pushParentCells(cell, v, stamp, W, parentDirs, parentCount,
+                                       workVal, propSeen, stack, top)
+
+    # fold into the chunk result (every affected cell gets >= 0) and reset
+    for i in range(nModified):
+        rr = modified_r[i]
+        cc = modified_c[i]
+        cell = rr * W + cc
+        wv = workVal[cell]
+        if wv > backcalc[rr, cc]:
+            backcalc[rr, cc] = wv
+        parentCount[cell] = 0
+        propSeen[cell] = 0
+
 
 @njit(cache=True)
 def _bfs_single(dem, forest, H, W, nodata, row_start, col_start,
@@ -61,6 +160,8 @@ def _bfs_single(dem, forest, H, W, nodata, row_start, col_start,
                 maxDetrainment, minDetrainment, noDetrainmentEffectZDelta,
                 forestDetrainmentBool, frictionLayerRelative, skipForestDist,
                 fluxDistOldVersion,
+                # infrastructure / back-calculation graph (dummies when disabled)
+                infraBool, graphParentDirs, graphParentCount,
                 # output arrays
                 zDeltaArray, fluxArray, countArray, zDeltaSumArray, zDeltaPathArray,
                 routFluxSumArray, depFluxSumArray,
@@ -74,11 +175,11 @@ def _bfs_single(dem, forest, H, W, nodata, row_start, col_start,
                 modified_r, modified_c):
     """Run the BFS for one release pixel, accumulating into the output arrays."""
     if row_start < 1 or row_start >= H - 1 or col_start < 1 or col_start >= W - 1:
-        return 0
+        return 0, 0
     for di in range(-1, 2):
         for dj in range(-1, 2):
             if dem[row_start + di, col_start + dj] == nodata:
-                return 0
+                return 0, 0
 
     tan_alpha_base = math.tan(math.radians(alpha))
     altitude_start = dem[row_start, col_start]
@@ -368,6 +469,8 @@ def _bfs_single(dem, forest, H, W, nodata, row_start, col_start,
             dyp = r - cr
             pdir_idx = (dyp + 1) * 3 + (dxp + 1)
             if pq >= 0:
+                if infraBool:
+                    _addParentEdge(graphParentDirs, graphParentCount, W, r, c, cr, cc)
                 q_flux[pq] += ch_flux[k]
                 if ch_zd[k] > q_zdelta[pq]:
                     q_zdelta[pq] = ch_zd[k]
@@ -393,7 +496,9 @@ def _bfs_single(dem, forest, H, W, nodata, row_start, col_start,
                 if nd:
                     continue
                 if q_tail >= q_r.shape[0]:
-                    return -1  # queue overflow -> caller grows the workspace and retries
+                    return -1, n_modified  # queue overflow -> caller grows workspace and retries
+                if infraBool:
+                    _addParentEdge(graphParentDirs, graphParentCount, W, r, c, cr, cc)
                 new_pos = q_tail
                 q_r[new_pos] = cr
                 q_c[new_pos] = cc
@@ -463,7 +568,7 @@ def _bfs_single(dem, forest, H, W, nodata, row_start, col_start,
             visited[rr, cc] = 0
         pending_qidx[rr, cc] = -1
 
-    return q_tail
+    return q_tail, n_modified
 
 
 def _forest_scalars(forestBool, forestParams):
@@ -514,8 +619,12 @@ def calculationNumba(args):
     the compiled kernel in double precision (reproducing the Python engine);
     variable alpha / max_z / exponent are resolved per release pixel (constant
     along each path), matching flowCore.calculation(). Output rasters are float32.
+    With ``args[9]`` (infra) true, the directed flow graph is recorded during the
+    BFS and infrastructure values are propagated upslope, so the returned
+    back-calculation array (slot 4) matches the Python engine.
     """
     dem_in = args[0]
+    infraBool = bool(args[9])
     release = args[2]
     alpha0 = float(args[3])
     exp0 = float(args[4])
@@ -540,6 +649,10 @@ def calculationNumba(args):
      detrainBool, layerRel, skipForestDist) = _forest_scalars(forestBool, forestParams)
 
     dem = np.ascontiguousarray(dem_in, dtype=np.float64)
+    if infraBool:
+        infra = np.ascontiguousarray(args[1], dtype=np.float64)
+    else:
+        infra = np.zeros((1, 1), dtype=np.float64)  # dummy, never indexed
     if forestArray is not None:
         forest = np.ascontiguousarray(forestArray, dtype=np.float64)
     else:
@@ -561,7 +674,7 @@ def calculationNumba(args):
     # with a 4x-larger queue (grow-and-retry). This keeps memory small for typical
     # runs while guaranteeing a path is never silently truncated. (Peak queue depth
     # observed on a 5 m long-runout tile was ~4k, well under the 131072 start.)
-    MAXP = 8
+    MAXP = _MAX_PARENTS
     MAXQ = 1 << 17  # 131072
     while True:
         # output arrays — dtypes/init identical to flowCore.calculation()
@@ -599,6 +712,27 @@ def calculationNumba(args):
         modified_r = np.empty(MAXQ, dtype=np.int64)
         modified_c = np.empty(MAXQ, dtype=np.int64)
 
+        # infrastructure / back-calculation workspace (only active for infra runs;
+        # minimal dummies keep the njit signatures stable when disabled)
+        if infraBool:
+            backcalc = np.full((H, W), -9999, dtype=np.int32)
+            graphParentDirs = np.empty((H * W, MAXP), dtype=np.int8)
+            graphParentCount = np.zeros(H * W, dtype=np.int8)
+            workVal = np.empty(H * W, dtype=np.float64)
+            propSeen = np.zeros(H * W, dtype=np.int32)
+            sourceCells = np.empty(MAXQ, dtype=np.int64)
+            sourceVals = np.empty(MAXQ, dtype=np.float64)
+            stack = np.empty(MAXQ, dtype=np.int64)
+        else:
+            backcalc = None
+            graphParentDirs = np.empty((1, MAXP), dtype=np.int8)
+            graphParentCount = np.zeros(1, dtype=np.int8)
+            workVal = np.empty(1, dtype=np.float64)
+            propSeen = np.zeros(1, dtype=np.int32)
+            sourceCells = np.empty(1, dtype=np.int64)
+            sourceVals = np.empty(1, dtype=np.float64)
+            stack = np.empty(1, dtype=np.int64)
+
         overflow = False
         for k in range(len(row_list)):
             rIdx = int(row_list[k])
@@ -619,13 +753,14 @@ def calculationNumba(args):
                 if v > 0:
                     exp = float(v)
 
-            qt = _bfs_single(dem, forest, H, W, nodata, rIdx, cIdx,
+            qt, nModified = _bfs_single(dem, forest, H, W, nodata, rIdx, cIdx,
                         cellsize, alpha, exp, flux_threshold, max_z,
                         ds_cellsize, distance,
                         forestBool, fmCode, forestInteraction,
                         maxFr, minFr, noFrZ, maxDe, minDe, noDeZ,
                         detrainBool, layerRel, skipForestDist,
                         fluxDistOldVersionBool,
+                        infraBool, graphParentDirs, graphParentCount,
                         zDeltaArray, fluxArray, countArray, zDeltaSumArray, zDeltaPathArray,
                         routFluxSumArray, depFluxSumArray,
                         fpMaxArray, fpMinArray, slArray,
@@ -638,15 +773,19 @@ def calculationNumba(args):
             if qt < 0:  # queue overflow -> grow workspace and re-run the whole chunk
                 overflow = True
                 break
+            if infraBool and nModified > 0:
+                _backTrackSingle(infra, W, backcalc, modified_r, modified_c, nModified,
+                                 graphParentDirs, graphParentCount, workVal, propSeen,
+                                 sourceCells, sourceVals, stack)
 
         if not overflow:
             break
         MAXQ *= 4
 
-    backcalc = None
-    # 14-element tuple matching flowCore.calculation(): res[12]=relId startcell dict
-    # (not produced by the numba engine — relId outputs fall back to the Python
-    # engine in run()), res[13]=forestInteraction array (None if not requested).
+    # 14-element tuple matching flowCore.calculation(): res[4]=back-calculation
+    # (None unless infraBool), res[12]=relId startcell dict (not produced by the
+    # numba engine — relId outputs fall back to the Python engine in run()),
+    # res[13]=forestInteraction array (None if not requested).
     startCellIdDict = None
     forestIntOut = forestIntArray if forestInteraction else None
     return (zDeltaArray, fluxArray, countArray, zDeltaSumArray, backcalc,
