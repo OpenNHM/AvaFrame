@@ -1,0 +1,10 @@
+{
+  "INI": "ArzlerAlmNullInfraNumba_com4FlowPyCfg.ini",
+  "TAGS": ["null", "infra", "standardTest", "real", "com4FlowPy", "numba"],
+  "DESCRIPTION": "Arzler Alm Test Case - Null variant with infrastructure\ntest compares numba engine results against python engine results\n",
+  "REFERENCE": "https://github.com/OpenNHM/AvaFrameData/tree/main/avaArzl",
+  "FILES": ["zdelta", "cellCounts", "fpTravelAngleMax", "travelLengthMax", "backcalculation"],
+  "TOPOTYPE": "real",
+  "AVADIR": "data/avaArzlerAlm",
+  "BENCHMARKED_AVAFRAME_VERSION": "2.1"
+}
