@@ -131,6 +131,9 @@ def main():
         pfile.write(f'__tests started__ : {_startDate}\n\n')
         pfile.write('* * * \n')
 
+    # FLAG ALLEQUAL
+    flagAllEqual = True    
+
     # create a temporary directory, where the outputs of all standard Tests are stored
     # clean-up is automatic - this way we don't pollute the avaframe/data/ directory
     with tempfile.TemporaryDirectory(prefix="avaframe_stdTests_") as tempDir:
@@ -248,6 +251,8 @@ def main():
                     message += f" of the affected area is close (relative tolerance: 10^-4)|&cross;\n"
 
                     _logMsg = f"{variable} - rasters are NOT equal - {np.round(close, 4) * 100}% is close"
+                    
+                    flagAllEqual == False
 
                 log.info(f"{test['NAME']}: {_logMsg}")
 
@@ -259,8 +264,12 @@ def main():
                 pfile.write('\n * * * \n')
         
     with open(reportFile, 'a') as pfile:
-        pfile.write(f"__test(s) finished @__: {_endDate}\n")
-        pfile.write(f"__timeDelta__: {_endDate-_startDate}")
+        pfile.write(f"__test(s) finished @__: {_endDate}{' ' * 2}\n")
+        pfile.write(f"__timeDelta__: {_endDate-_startDate}{' ' * 2}\n")
+        if flagAllEqual:
+            pfile.write(f"<span style=\"color:green\"> **ALL BENCHMARKS ARE EQUAL &check;** </span>")
+        else:
+            pfile.write(f"<span style=\"color:red\"> **NOT all benchmarks are equal &cross;** </span>")
 
 if __name__ == "__main__":
     main()

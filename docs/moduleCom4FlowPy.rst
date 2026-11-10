@@ -80,8 +80,9 @@ In order to use the *numba engine* you have to select it in the ``avaframe/com4F
    pixi run -e numba python runCom4FlowPy.py
 
 .. Note::
-  - currently not all implemented functionalities are also available in the *numba engine* - if you use the options ``infra = True``, ``previewMode=True`` or define ``relIDCount`` or ``relIdPolygon`` in the list of desired model outputs ``outputFiles`` in the cfg, the model will fall back to the python engine, even if ``engine = numba`` is specified.
-  - All other cases (e.g. ``forest = True`` with all available ``forestModule`` options and ``forestInteraction = True``) are supported at this point.
+  - currently not all implemented functionalities are also available in the *numba engine* - if you use the option ``previewMode=True`` or define ``relIDCount`` or ``relIdPolygon`` in the list of desired model outputs ``outputFiles`` in the cfg, the model will fall back to the python engine, even if ``engine = numba`` is specified.
+  - All other cases (e.g. ``infra = True`` including back-calculation, ``forest = True`` with all available ``forestModule`` options and ``forestInteraction = True``) are supported at this point.
+  - ``backcalculation`` semantics are identical to the *python engine*: unaffected cells are nodata, affected cells without an upslope infrastructure hit are ``0``, and cells upslope of a hit infrastructure cell carry the maximum reachable infrastructure priority.
 
 Configuration
 ----------------
