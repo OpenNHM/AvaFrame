@@ -40,8 +40,8 @@ def _generateDEMPlot(X, Y, z, title):
     #                 linewidth=0, antialiased=False)
 
     ax.set_title('DEM: %s' % title)
-    ax.set_xlabel('x [m]')
-    ax.set_ylabel('y [m]')
+    ax.set_xlabel('x (m)')
+    ax.set_ylabel('y (m)')
     ax.set_zlabel('elevation (m)')
 
     return ax, fig
@@ -130,12 +130,12 @@ def plotReleasePoints(xv, yv, xyPoints, demType):
     ax[0].plot(np.zeros(len(yv)) + xv[-1], yv, "k-")
     ax[0].plot(xyPoints[:, 0], xyPoints[:, 1], "r*")
     ax[0].set_title("Domain and release area of %s - projected" % demType)
-    ax[0].set_xlabel("along valley [m]")
-    ax[0].set_ylabel("across valley [m]")
+    ax[0].set_xlabel("along valley (m)")
+    ax[0].set_ylabel("across valley (m)")
 
     ax[1].plot(xyPoints[:, 0], xyPoints[:, 1], "r*")
-    ax[1].set_xlabel("along valley [m]")
-    ax[1].set_ylabel("across valley [m]")
+    ax[1].set_xlabel("along valley (m)")
+    ax[1].set_ylabel("across valley (m)")
 
     xLength = abs(xyPoints[0, 0] - xyPoints[3, 0])
     yLength = abs(xyPoints[0, 1] - xyPoints[1, 1])

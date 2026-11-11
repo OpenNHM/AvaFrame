@@ -46,8 +46,8 @@ def hybridProfilePlot(avalancheDir, resultsHybrid):
         r"Profiles extracted from the DFA simulations with corresponding $\alpha-\beta$ model results"
     )
     ax.set_title(titleText)
-    ax.set_xlabel("projectd length s [m]")
-    ax.set_ylabel("Height [m]")
+    ax.set_xlabel("projectd length s (m)")
+    ax.set_ylabel("Height (m)")
     ax.set_aspect("equal", adjustable="box")
     ax.grid(linestyle=":", color="0.9")
     ax.legend(frameon=False)
@@ -94,8 +94,8 @@ def hybridPathPlot(avalancheDir, dem, resultsHybrid, fields, particles, muArray)
         i = i + 1
     titleText = "Avalanche path for each iteration with peak travel angle field \n and particles flow thickness in final time step"
     ax.set_title(titleText)
-    ax.set_ylabel("x [m]")
-    ax.set_ylabel("y [m]")
+    ax.set_ylabel("x (m)")
+    ax.set_ylabel("y (m)")
     ax, extent, cb, CS = outCom1DFA.addResult2Plot(ax, dem["header"], fields["pta"], "pta")
     cb.ax.set_ylabel(pU.cfgPlotUtils["namepta"])
     ax = outCom1DFA.addDem2Plot(ax, dem, what="slope", extent=extent)
@@ -210,8 +210,8 @@ def generateCom1DFAPathPlot(avalancheDir, cfgPath, avaProfileMass, dem, paraboli
     )
     ax2.axhline(y=10, color="0.8", linewidth=1, linestyle="-.", label="_Beta angle (10°)")
     ax2.text(minX, 10, "%.0f°" % (10), color="0.8", ha="left", va="bottom")
-    ax2.set_xlabel("$s_{xy}$ [m]")
-    ax2.set_ylabel("slope angle [°]")
+    ax2.set_xlabel("$s_{xy}$ (m)")
+    ax2.set_ylabel("slope angle (°)")
     ax2.set_title("Avalanche thalweg profile slope")
 
     # make profile plot, zoomed out
@@ -249,8 +249,8 @@ def generateCom1DFAPathPlot(avalancheDir, cfgPath, avaProfileMass, dem, paraboli
         minX, _ = ax3.get_xlim()
         ax3.text(splitPoint["s"], minY, "%.2f m" % (splitPoint["s"]), color="r", ha="left", va="bottom")
         ax3.text(minX, splitPoint["z"], "%.2f m" % (splitPoint["z"]), color="r", ha="left", va="bottom")
-    ax3.set_xlabel("$s_{xy}$ [m]")
-    ax3.set_ylabel("z [m]")
+    ax3.set_xlabel("$s_{xy}$ (m)")
+    ax3.set_ylabel("z (m)")
     ax3.legend()
     ax3.set_title("Avalanche thalweg profile")
 
@@ -329,8 +329,8 @@ def avalancheThalwegPlot(ax, fieldRaster, dem, avaProfileMass, splitPoint=None, 
     if splitPoint is not None:
         if not splitPoint.get("isTopSplitPoint", False):  # if not a top split point
             ax.plot(splitPoint["x"], splitPoint["y"], "P", color="r", label="_Split point", zorder=20)
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
     ax.axis("equal")
     ax.set_ylim([rowsMin, rowsMax])
     ax.set_xlim([colsMin, colsMax])

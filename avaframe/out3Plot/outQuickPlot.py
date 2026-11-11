@@ -131,8 +131,8 @@ def generatePlot(dataDict, avaName, outDir, cfg, plotDict, crossProfile=True):
     ax1.set_aspect('auto')
     title = str('%s - simulation' % name1)
     ax1.set_title(title)
-    ax1.set_xlabel('x [m]')
-    ax1.set_ylabel('y [m]')
+    ax1.set_xlabel('x (m)')
+    ax1.set_ylabel('y (m)')
 
     ax2 = fig.add_subplot(222)
     cmap, _, ticks, norm = pU.makeColorMap(cmapType, minVal, maxVal, continuous=pU.contCmap)
@@ -145,7 +145,7 @@ def generatePlot(dataDict, avaName, outDir, cfg, plotDict, crossProfile=True):
     ax2.set_xlim([colsMinPlot, colsMaxPlot])
     ax2.set_ylim([rowsMinPlot, rowsMaxPlot])
     ax2.set_aspect('auto')
-    ax2.set_xlabel('x [m]')
+    ax2.set_xlabel('x (m)')
     title = str('%s - reference' % name2)
     ax2.set_title(title)
 
@@ -162,7 +162,7 @@ def generatePlot(dataDict, avaName, outDir, cfg, plotDict, crossProfile=True):
              (diffMean, unit, diffMax, unit, diffMin, unit),
              horizontalalignment='left', verticalalignment='bottom', transform=ax3.transAxes)
     ax3.set_aspect('auto')
-    ax3.set_xlabel('x [m]')
+    ax3.set_xlabel('x (m)')
     ax3.set_title('Difference simulation-reference')
 
     # for difference histogramm - remove dataDiff == 0 values from array
@@ -193,7 +193,7 @@ def generatePlot(dataDict, avaName, outDir, cfg, plotDict, crossProfile=True):
     ax4.set_ylim([rowsMinPlot, rowsMaxPlot])
     pU.addColorBar(im4, ax4, None, unit, extend='both')
     ax4.set_aspect('auto')
-    ax4.set_xlabel('x [m]')
+    ax4.set_xlabel('x (m)')
 
     # if difference is zero dont insert CDF plots
     indDiff = dataDiffPlot > 0
@@ -220,12 +220,12 @@ def generatePlot(dataDict, avaName, outDir, cfg, plotDict, crossProfile=True):
         suptitle = fig1.suptitle(avaName, fontsize=14, color='0.5')
         ax[0, 0].plot(data1[:, ny_loc], 'k', label='Simulation')
         ax[0, 0].plot(data2[:, ny_loc], 'b--', label='Reference')
-        ax[0, 0].set_xlabel('Location across track [nrows]')
+        ax[0, 0].set_xlabel('Location across track (nrows)')
         ax[0, 0].set_ylabel('Result parameter')
         ax[0, 0].set_title('Cross profile at x =  %d' % ny_loc)
         ax[0, 1].plot(data1[nx_loc, :], 'k', label='Simulation')
         ax[0, 1].plot(data2[nx_loc, :], 'b--', label='Reference')
-        ax[0, 1].set_xlabel('Location along track [ncols]')
+        ax[0, 1].set_xlabel('Location along track (ncols)')
         ax[0, 1].set_ylabel('Result parameter')
         ax[0, 1].set_title('Long profile at y =  %d' % nx_loc)
         ax[0, 0].legend()
@@ -521,8 +521,8 @@ def generateOnePlot(dataDict, outDir, cfg, plotDict):
     ax1.set_aspect('auto')
     title = str('%s' % name1)
     ax1.set_title(title)
-    ax1.set_xlabel('x [m]')
-    ax1.set_ylabel('y [m]')
+    ax1.set_xlabel('x (m)')
+    ax1.set_ylabel('y (m)')
 
     ax3 = fig.add_subplot(122)
     if axis == 'x':
@@ -530,12 +530,12 @@ def generateOnePlot(dataDict, outDir, cfg, plotDict):
     else:
         ax3.plot(data1[ny_loc, :], 'k', label='Reference')
 
-    ax3.set_xlabel('Location across track [nrows]')
-    ax3.set_ylabel('%s [%s]' % (nameRes, unit))
+    ax3.set_xlabel('Location across track (nrows)')
+    ax3.set_ylabel('%s (%s)' % (nameRes, unit))
     if axis == 'x':
-        ax3.set_title('Profile at x ~ %d [%s] (%d)' % (location, unit, nx_loc))
+        ax3.set_title('Profile at x ~ %d (%s) (%d)' % (location, unit, nx_loc))
     else:
-        ax3.set_title('Profile at y ~ %d [%s] (%d)' % (location, unit, ny_loc))
+        ax3.set_title('Profile at y ~ %d (%s) (%d)' % (location, unit, ny_loc))
 
     saveNameProfile = outDir / ('Profiles_%s.%s' % (name1, pU.outputFormat))
     # save and or show figure
@@ -573,8 +573,8 @@ def plotContours(contourDict, resType, thresholdValue, pathDict, addLegend=True,
     # show flow path
     ax1 = fig.add_subplot(121)
     ax1.set_title('%s %s %s contour lines' % (resTypeLabel, thresholdValue, unit))
-    ax1.set_ylabel('x [m]')
-    ax1.set_xlabel('y [m]')
+    ax1.set_ylabel('x (m)')
+    ax1.set_xlabel('y (m)')
     pU.putAvaNameOnPlot(ax1, pathDict['avaDir'])
 
     # create color map

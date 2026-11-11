@@ -82,17 +82,17 @@ def addRangeTimePlotToAxes(mtiInfo, cfgRangeTime, ax):
 
     pc = ax.pcolormesh(timeListNew, rangeGates, mti, cmap=pU.cmapRangeTime)
     ax.plot(timeList, rangeList, ".", color="black", markersize=4, label="avalanche front")
-    ax.set_xlabel("Time [s]")
+    ax.set_xlabel("Time (s)")
     # add y label axis
     if mtiInfo["type"] == "thalwegTime":
         sTypeCapital = mtiInfo["sType"][0].upper() + mtiInfo["sType"][1:]
         if cfgRangeTime['GENERAL'].getboolean('originStart'):
-            ax.set_ylabel("$S_{XY}$ [m]")
+            ax.set_ylabel("$S_{XY}$ (m)")
         else:
             labelY = r'$\beta_{%.1f°}$' % mtiInfo['betaPointAngle']
-            ax.set_ylabel("%s distance to %s [m]" % (sTypeCapital, labelY))
+            ax.set_ylabel("%s distance to %s (m)" % (sTypeCapital, labelY))
     else:
-        ax.set_ylabel("Distance to %s [m]" % mtiInfo["referencePointName"])
+        ax.set_ylabel("Distance to %s (m)" % mtiInfo["referencePointName"])
 
     # add colorbar and infobox
     unit = pU.cfgPlotUtils["unit" + rangeTimeResType]
@@ -190,8 +190,8 @@ def radarFieldOfViewPlot(radarFov, radarRange, cfgRangeTime, rangeGates, dem):
         zorder=2,
     )
     ax1.set_title("Radar range")
-    ax1.set_xlabel("x [m]")
-    ax1.set_ylabel("y [m]")
+    ax1.set_xlabel("x (m)")
+    ax1.set_ylabel("y (m)")
     plt.xticks(rotation=45)
     # add colorbar and infoboxes
     unit = "m"
@@ -220,12 +220,12 @@ def radarFieldOfViewPlot(radarFov, radarRange, cfgRangeTime, rangeGates, dem):
     ax2.plot(xR[0], xR[1], marker="o", color="k")
     ax2.plot(xL[0], xL[1], marker="o", color="k")
     ax2.set_title("DEM with radar location")
-    ax2.set_xlabel("x [m]")
-    ax2.set_ylabel("y [m]")
+    ax2.set_xlabel("x (m)")
+    ax2.set_ylabel("y (m)")
     plt.xticks(rotation=45)
     # add infoboxes
     pU.putAvaNameOnPlot(ax2, cfgRangeTime["GENERAL"]["avalancheDir"])
-    pU.putInfoBox(ax2, "- elevation [m]", location="lowerRight", color="brown")
+    pU.putInfoBox(ax2, "- elevation (m)", location="lowerRight", color="brown")
     ax2.clabel(CS, CS.levels, inline=True, fontsize=10)
 
     # set path for saving figure
@@ -272,7 +272,7 @@ def plotRangeRaster(slRaster, rasterTransfo, cfgRangeTime, rangeRaster, cLower):
     )
     # add imshow plot of range
     ref0, im1 = pU.NonUnifIm(
-        ax1, l, s, rangeRaster, "l [m]", "s [m]", extent=[l.min(), l.max(), s.min(), s.max()], cmap=cmapRange
+        ax1, l, s, rangeRaster, "l (m)", "s (m)", extent=[l.min(), l.max(), s.min(), s.max()], cmap=cmapRange
     )
     # add horizontal line indicating location of start of runout area and avalanche front
     ax1.axhline(
@@ -300,7 +300,7 @@ def plotRangeRaster(slRaster, rasterTransfo, cfgRangeTime, rangeRaster, cLower):
     )
     cmapRes.set_bad(alpha=0.0)
     ref2, im2 = pU.NonUnifIm(
-        ax1, l, s, maskResType, "l [m]", "s [m]", extent=[l.min(), l.max(), s.min(), s.max()], cmap=cmapRes
+        ax1, l, s, maskResType, "l (m)", "s (m)", extent=[l.min(), l.max(), s.min(), s.max()], cmap=cmapRes
     )
 
     # add legend and colorbar
@@ -510,7 +510,7 @@ def addTitleBox(ax, width, height, lw, point, textsize, maxVel=True):
     ax.text(
         point[1][0],
         point[1][1],
-        "Approach \n velocity [m/s]",
+        "Approach \n velocity (m/s)",
         size=textsize,
         transform=ax.transAxes,
         va="top",
@@ -762,7 +762,7 @@ def animationPlot(demData, data, cellSize, resType, cfgRangeTime, mtiInfo, timeS
         aspect="equal",
         zorder=4,
     )
-    cName1 = "%s [%s]" % (pU.cfgPlotUtils["name" + resType], pU.cfgPlotUtils["unit" + resType])
+    cName1 = "%s (%s)" % (pU.cfgPlotUtils["name" + resType], pU.cfgPlotUtils["unit" + resType])
     pU.addColorBar(im1, ax1, ticksRes, None, title=cName1)
 
     # add domain transformation info
@@ -799,11 +799,11 @@ def animationPlot(demData, data, cellSize, resType, cfgRangeTime, mtiInfo, timeS
     ax1.legend(loc="upper right")
     # label x, y axes
     if cfgRangeTime["ANIMATE"].getboolean("xyEastNorth"):
-        ax1.set_xlabel("East x [m]")
-        ax1.set_ylabel("North y [m]")
+        ax1.set_xlabel("East x (m)")
+        ax1.set_ylabel("North y (m)")
     else:
-        ax1.set_xlabel("x [m]")
-        ax1.set_ylabel("y [m]")
+        ax1.set_xlabel("x (m)")
+        ax1.set_ylabel("y (m)")
     # optional add title to panel
     if cfgRangeTime["ANIMATE"].getboolean("panelTitles"):
         ax1.set_title("simulation x,y extent at t=%.2fs" % timeStep)
@@ -828,10 +828,10 @@ def animationPlot(demData, data, cellSize, resType, cfgRangeTime, mtiInfo, timeS
     # determine if sParallel or sProjected has been used
     if sType.lower() == "parallel":
         s = rasterTransfo["sParallel"] - rasterTransfo["sParallel"][indStartOfRunout]
-        sLabel = "Parallel distance to beta point [m]"
+        sLabel = "Parallel distance to beta point (m)"
     elif sType.lower() == "projected":
         s = rasterTransfo["s"] - rasterTransfo["s"][indStartOfRunout]
-        sLabel = "Projected distance to beta point [m]"
+        sLabel = "Projected distance to beta point (m)"
 
     # create figure
     # add line indicating location of start of runout area and avalanche front
@@ -865,7 +865,7 @@ def animationPlot(demData, data, cellSize, resType, cfgRangeTime, mtiInfo, timeS
         l,
         s,
         maskResType,
-        "l [m]",
+        "l (m)",
         sLabel,
         extent=[l.min(), l.max(), s.min(), s.max()],
         cmap=cmapRes,
@@ -914,12 +914,12 @@ def animationPlot(demData, data, cellSize, resType, cfgRangeTime, mtiInfo, timeS
     # create fig
     pc = ax3.pcolormesh(timeListNew, rangeGates, mti, vmin=resMin, vmax=resMax, cmap=pU.cmapRangeTime)
     ax3.plot(timeList, rangeList, ".", color="black", markersize=4, label="avalanche front")
-    ax3.set_xlabel("Time [s]")
+    ax3.set_xlabel("Time (s)")
     sTypeCapital = sType[0].upper() + sType[1:]
-    ax3.set_ylabel("%s distance to %s [m]" % (sTypeCapital, mtiInfo["referencePointName"]))
+    ax3.set_ylabel("%s distance to %s (m)" % (sTypeCapital, mtiInfo["referencePointName"]))
 
     # add colorbar and infobox
-    cName = "%s [%s]" % (
+    cName = "%s (%s)" % (
         cfgRangeTime["GENERAL"]["maxOrMean"] + " " + pU.cfgPlotUtils["name" + resType],
         pU.cfgPlotUtils["unit" + resType],
     )

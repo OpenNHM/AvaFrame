@@ -191,7 +191,7 @@ def _plotVariable(ax1, cfg, simiDict, comSol, limits, axis, particles=False):
         ax2.plot(xArrayFields, hSimi * vxSimi[indFinal, :], "--m")
         ax2.plot(xArrayFields, hSimi * vySimi[indFinal, :], "--b")
         ax2.plot(xArrayFields, hSimi * vzSimi[indFinal, :], "--c")
-        ax1.set_xlabel("x in [m]")
+        ax1.set_xlabel("x in (m)")
         ax1.text(xCenter + 5, -0.05, "x = %.2f m" % (xCenter), color="b")
         ax1.set_xlim([xCenter - widthX, xCenter + widthX])
         ax1.set_ylim([-0.05, maxFT])
@@ -219,17 +219,17 @@ def _plotVariable(ax1, cfg, simiDict, comSol, limits, axis, particles=False):
         ax2.plot(yArrayFields, hSimi * vxSimi[:, indFinal], "--m")
         ax2.plot(yArrayFields, hSimi * vySimi[:, indFinal], "--b")
         ax2.plot(yArrayFields, hSimi * vzSimi[:, indFinal], "--c")
-        ax1.set_xlabel("y in [m]")
+        ax1.set_xlabel("y in (m)")
         ax1.set_xlim([-widthY, widthY])
         ax1.set_ylim([-0.05, maxFT])
         ax2.set_ylim([minMz, maxFM])
 
-    ax1.set_ylabel(pU.cfgPlotUtils["nameFT"] + " [" + pU.cfgPlotUtils["unitFT"] + "]")
+    ax1.set_ylabel(pU.cfgPlotUtils["nameFT"] + " (" + pU.cfgPlotUtils["unitFT"] + ")")
     ax1.grid(color="grey", linestyle="-", linewidth=0.25, alpha=0.5)
     color = "tab:green"
     ax2.tick_params(axis="y", labelcolor=color)
     ax2.grid(color="tab:green", linestyle="-", linewidth=0.25, alpha=0.5)
-    ax2.set_ylabel(getLabel("", "", dir="") + " [" + pU.cfgPlotUtils["unitFTV"] + "]", color=color)
+    ax2.set_ylabel(getLabel("", "", dir="") + " (" + pU.cfgPlotUtils["unitFTV"] + ")", color=color)
 
     props = dict(boxstyle="round", alpha=0)
     text = "analytical solution (dashed line) \n numerical solution (full line)"
@@ -385,7 +385,7 @@ def _plotVariableDamBreak(var, x, xMiddle, dtInd, dtStep, label):
     plt.title("Dry-Bed")
     plt.plot(x, var[:, 0], "k--", label="t = 0s")
     plt.plot(x, var[:, dtInd], label="t = %.1fs" % dtStep)
-    plt.xlabel("x-coordinate [m]")
+    plt.xlabel("x-coordinate (m)")
     plt.ylabel(label)
     plt.legend()
 
@@ -400,12 +400,12 @@ def plotDamAnaResults(t, x, xMiddle, h, u, tSave, cfg, outDirTest):
 
     # index of time steps
     dtInd = np.searchsorted(t, tSave)
-    name = pU.cfgPlotUtils["nameFT"] + "[" + pU.cfgPlotUtils["unitFT"] + "]"
+    name = pU.cfgPlotUtils["nameFT"] + "(" + pU.cfgPlotUtils["unitFT"] + ")"
     fig = _plotVariableDamBreak(h, x, xMiddle, dtInd, tSave, name)
     outputName = "damBreakFlowThickness"
     pU.saveAndOrPlot({"pathResult": outDirTest / "pics"}, outputName, fig)
 
-    name = pU.cfgPlotUtils["nameFV"] + "[" + pU.cfgPlotUtils["unitFV"] + "]"
+    name = pU.cfgPlotUtils["nameFV"] + "(" + pU.cfgPlotUtils["unitFV"] + ")"
     fig = _plotVariableDamBreak(u, x, xMiddle, dtInd, tSave, name)
     outputName = "damBreakFlowVelocity"
     pU.saveAndOrPlot({"pathResult": outDirTest / "pics"}, outputName, fig)
@@ -556,8 +556,8 @@ def _plotDamProfile(ax, x, y, nx_loc, cfg, data1, data2, xAna, xMidAna, yAna, in
     ax.plot(x, data1[nx_loc, :], "k--", label="initial")
     ax.plot(x, data2[nx_loc, :], "b", label="numerical")
     ax.plot(xAna, yAna[:, indT], "r-", label="analytical")
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("%s [%s]" % (label, unit))
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("%s (%s)" % (label, unit))
     ax.set_xlim([cfg.getfloat("xStart"), cfg.getfloat("xEnd")])
     ax.set_ylim([-0.05, max(yMax, scaleCoef * max(yAna[:, indT]))])
     # ax.axvline(xMidAna[indT], color='grey', linestyle='--')
@@ -777,8 +777,8 @@ def plotDamBreakSummary(
     ax6.add_patch(rect)
     ax6.set_ylim([rowsMin + yllc, rowsMax + yllc])
     ax6.set_xlim([colsMin + xllc, colsMax + xllc])
-    ax6.set_xlabel("x [m]")
-    ax6.set_ylabel("y [m]")
+    ax6.set_xlabel("x (m)")
+    ax6.set_ylabel("y (m)")
     leg = ax6.legend(loc="upper right")
     leg.set(zorder=200)
     # ax3.set_title(pU.cfgPlotUtils['nameFT'])
@@ -855,7 +855,7 @@ def addErrorTime(
     ax2 = ax1.twinx()
     ax1.plot(time, hErrorL2Array, "k-", label="h L2 error")
     ax1.plot(time, hErrorLMaxArray, "k--", label="h LMax error")
-    ax1.set_xlabel("time in [s]")
+    ax1.set_xlabel("time in (s)")
     ax1.set_ylabel(getTitleError(relativ, " on h"))
     ax1.legend(loc="upper left")
     ax1.grid(color="grey", linestyle="-", linewidth=0.25, alpha=0.5)
@@ -984,8 +984,8 @@ def addContour2Plot(ax1, fieldFT, simiDict, fieldHeader, limits, nLevels=9):
     ax1.legend([h1[-1], h2[-1]], ["simulation", "analytical"])
     ax1.set_ylim([-widthY, widthY])
     ax1.set_xlim([-widthX + xCenter, widthX + xCenter])
-    ax1.set_xlabel("x [m]")
-    ax1.set_ylabel("y [m]")
+    ax1.set_xlabel("x (m)")
+    ax1.set_ylabel("y (m)")
     # add vertical and horizontal line showing the location of the profile plots cuts
     ax1.axvline(xCenter, color="b", linestyle=":")
     ax1.axhline(0, color="r", linestyle=":")
@@ -1381,7 +1381,7 @@ def plotTimeCPULog(simDF, outDirTest, cfgSimi, xField, coloredBy, sizedBy, logSc
     ax1.set_xscale("log")
     ax1.set_title("CPU time")
     ax1.set_xlabel("number of particles")
-    ax1.set_ylabel("time [s]")
+    ax1.set_ylabel("time (s)")
     # Adding legend and titles
     legend = ax1.legend(handles=handles1, loc="upper left")
     ax1.add_artist(legend)

@@ -272,14 +272,14 @@ def plotAreaDiff(
     cbar.set_label(resType)
 
     # add labels
-    ax[0].set_xlabel("x [m]")
-    ax[0].set_ylabel("y [m]")
+    ax[0].set_xlabel("x (m)")
+    ax[0].set_ylabel("y (m)")
     ax[0].set_title(title)
-    ax[1].set_xlabel("x [m]")
-    ax[1].set_ylabel("y [m]")
+    ax[1].set_xlabel("x (m)")
+    ax[1].set_ylabel("y (m)")
     ax[1].set_title("Simulation %s" % resType)
-    ax[2].set_xlabel("x [m]")
-    ax[2].set_ylabel("y [m]")
+    ax[2].set_xlabel("x (m)")
+    ax[2].set_ylabel("y (m)")
     ax[2].set_title("Reference mask")
 
     pU.saveAndOrPlot({"pathResult": outDir}, "areaIndicatorAnalysis_%s" % simName, fig)

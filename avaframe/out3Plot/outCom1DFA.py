@@ -59,27 +59,27 @@ def plotTrackParticle(outDirData, particlesList, trackedPartProp, cfg, dem, cuSi
     circle1 = plt.Circle((center["x"], center["y"]), radius, color="r")
     ax1.plot(trackedPartProp["x"], trackedPartProp["y"])
     ax1.add_patch(circle1)
-    ax1.set_xlabel("x [m]")
-    ax1.set_ylabel("y [m]")
+    ax1.set_xlabel("x (m)")
+    ax1.set_ylabel("y (m)")
     ax1.set_title("Trajectory")
 
     ax2 = plt.subplot(222)
     ax2.plot(time, trackedPartProp["m"])
-    ax2.set_xlabel("t [s]")
-    ax2.set_ylabel("m [kg]")
+    ax2.set_xlabel("t (s)")
+    ax2.set_ylabel("m (kg)")
     ax2.set_title("Mass")
 
     ax3 = plt.subplot(223)
     velocity = DFAtls.norm(trackedPartProp["ux"], trackedPartProp["uy"], trackedPartProp["uz"])
     ax3.plot(time, velocity)
-    ax3.set_xlabel("t [s]")
-    ax3.set_ylabel("v [m/s]")
+    ax3.set_xlabel("t (s)")
+    ax3.set_ylabel("v (m/s)")
     ax3.set_title("Velocity")
 
     ax4 = plt.subplot(224)
     ax4.plot(time, trackedPartProp["h"])
-    ax4.set_xlabel("t [s]")
-    ax4.set_ylabel("h [m]")
+    ax4.set_xlabel("t (s)")
+    ax4.set_ylabel("h (m)")
     ax4.set_title("Flow thickness")
 
     pathDict = {}
@@ -128,8 +128,8 @@ def plotTrackParticleAcceleration(outDirData, trackedPartProp, cfg, cuSimName):
     ax1 = plt.subplot(111)
 
     ax1.plot(trackedPartProp["t"], trackedPartProp["uAcc"])
-    ax1.set_xlabel("time step [s]")
-    ax1.set_ylabel("acceleration [ms-2]")
+    ax1.set_xlabel("time step (s)")
+    ax1.set_ylabel("acceleration (ms-2)")
 
     pathDict = {}
     pathDict["pathResult"] = outDirData
@@ -164,8 +164,8 @@ def plotAllPartAcc(outDirData, particlesList, cfg, Tsave, cuSimName):
     for idx in particlesList[0]["ID"]:
         uAcc[:, idx] = np.asarray([p["uAcc"][idx] for p in particlesList])
         ax1.plot(Tsave, uAcc[:, idx])
-    ax1.set_xlabel("time step [s]")
-    ax1.set_ylabel("acceleration [ms-2]")
+    ax1.set_xlabel("time step (s)")
+    ax1.set_ylabel("acceleration (ms-2)")
 
     pathDict = {}
     pathDict["pathResult"] = outDirData
@@ -293,8 +293,8 @@ def addDem2Plot(ax, dem, what="slope", extent="", origHeader=False, cmap=None):
         xArray,
         yArray,
         value,
-        "x [m]",
-        "y [m]",
+        "x (m)",
+        "y (m)",
         # extent=[2400, 2700, YY.min(), YY.max()],
         extent=extent,
         cmap=cmap,
@@ -317,7 +317,7 @@ def addDem2Plot(ax, dem, what="slope", extent="", origHeader=False, cmap=None):
     # add info box with indication of label meaning
     pU.putInfoBox(
         ax,
-        "- elevation [m]",
+        "- elevation (m)",
         location="upperLeft",
         color="gray",
         hAlignment="left",
@@ -394,8 +394,8 @@ def addResult2Plot(ax, header, rasterData, resType, colorbar=True, contour=False
         xArray,
         yArray,
         rasterData,
-        "x [m]",
-        "y [m]",
+        "x (m)",
+        "y (m)",
         extent=extent,
         cmap=cmap,
         norm=norm,
@@ -649,7 +649,7 @@ def plotReleaseScenarioView(
 
     ax.set_aspect("equal")
     cax = ax.inset_axes([1.04, 0.0, 0.05, 1.0])
-    pU.addColorBar(im1, ax, ticks, None, title="release thickness [m]", cax=cax, fmt="{x:.2f}")
+    pU.addColorBar(im1, ax, ticks, None, title="release thickness (m)", cax=cax, fmt="{x:.2f}")
     plt.legend(
         handles=handles,
         fontsize=8,
@@ -731,8 +731,8 @@ def plotResFields(fields, cfg, tPlot, dem, totalMass):
     im3 = ax[1, 0].imshow(fv, cmap=cmap1, vmin=vMin, vmax=vMax, extent=extentCellCenters, zorder=4)
     im4 = ax[1, 1].imshow(ft, cmap=cmap2, vmin=thMin, vmax=thMax, extent=extentCellCenters, zorder=4)
     # set title
-    ax[1, 0].set_title("FV [ms-1]")
-    ax[1, 1].set_title("FT [m]")
+    ax[1, 0].set_title("FV (ms-1)")
+    ax[1, 1].set_title("FT (m)")
     # add colorbar
     fig.colorbar(im3, ax=ax[1, 0])
     fig.colorbar(im4, ax=ax[1, 1])
@@ -772,8 +772,8 @@ def plotResFields(fields, cfg, tPlot, dem, totalMass):
         zorder=4,
     )
     # set title
-    ax[0, 2].set_title("dmDet [kg]")
-    ax[1, 2].set_title("FTDet [m]")
+    ax[0, 2].set_title("dmDet (kg)")
+    ax[1, 2].set_title("FTDet (m)")
     # add colorbar
     fig.colorbar(im5, ax=ax[0, 2])
     fig.colorbar(im6, ax=ax[1, 2])
@@ -822,10 +822,10 @@ def massPlot(infoDict, massDetrainedTotal, t, avaDir, logName):
     ax3 = ax.twinx()
     ax3.plot(t, pfvTimeMax, color="lightgray", linestyle="-")
 
-    ax.set_xlabel("time [s]")
+    ax.set_xlabel("time (s)")
     ax.set_ylabel("total mass [% of initial mass]")
     ax2.set_ylabel("detrained mass [% of initial mass]", color="royalblue")
-    ax3.set_ylabel("max velocity [ms-1]", color="lightgray")
+    ax3.set_ylabel("max velocity (ms-1)", color="lightgray")
 
     ax2.spines["right"].set_color("royalblue")
     ax2.tick_params(axis="y", colors="royalblue")
@@ -877,7 +877,7 @@ def massSourcePlot(infoDict, massDetrainedTotal, t, avaDir, logName):
         label="initialized mass",
     )
 
-    ax.set_xlabel("time [s]")
+    ax.set_xlabel("time (s)")
     ax.set_ylabel("total/ initialized mass [% of initial mass]")
     ax2.set_ylabel("entrained mass [% of initial mass]", color="royalblue")
 
