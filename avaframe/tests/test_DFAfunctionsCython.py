@@ -1352,7 +1352,7 @@ def test_computeForceCMuILimits():
 
 
 def test_computeForceCMuIGuards():
-    """no nan or inf if sigmaB is zero, zero division error for zero flow depth as for types 10 - 12"""
+    """no nan or inf if sigmaB is zero, zero division error for zero flow thickness as for types 10 - 12"""
 
     # surface normal perpendicular to gravity: effAccNorm = 0, sigmaB = 0, flow is not detached
     tau = _computeMuITau(1.0, 1.0, theta=math.pi / 2.0)

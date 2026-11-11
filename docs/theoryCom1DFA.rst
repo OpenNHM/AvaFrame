@@ -726,7 +726,7 @@ In the :py:mod:`com1DFA` module, it is optional whether the parameters :math:`\e
 calculated using equations :eq:`eta-cv` and :eq:`tauy-cv`, for which the parameters :math:`\alpha_{1,2}`,
 :math:`\beta_{1,2}` and :math:`C_v` have to be set.
 
-Since the governing equations to be solved are depth-averaged, the shear rate :math:`\dot\gamma = \frac{du}{dz}`
+Since the governing equations to be solved are thickness-averaged, the shear rate :math:`\dot\gamma = \frac{du}{dz}`
 cannot be computed directly. Assuming a parabolic vertical flow velocity distribution the integration over the flow thickness results 
 in following substitution :cite:`Iv1997, DeIv2001, GiFlSaHe2020`:
 
@@ -734,7 +734,7 @@ in following substitution :cite:`Iv1997, DeIv2001, GiFlSaHe2020`:
     \dot{\gamma} = \frac{3 \cdot \overline{u}}{\overline{h}}
     :label: shearRate_substitution
 
-where :math:`\overline{u}` is the depth-averaged flow velocity and :math:`\overline{h}` is the flow thickness.
+where :math:`\overline{u}` is the thickness-averaged flow velocity and :math:`\overline{h}` is the flow thickness.
 
 .. _obrienandjulien:
 
@@ -808,7 +808,7 @@ Dense granular rheology: :math:`\mu(I)`
 
 The :math:`\mu(I)` rheology :cite:`GDRMiDi2004, JoFoPo2006` describes dense, dry, cohesionless granular flow with a
 friction coefficient that depends on the inertial number :math:`I`. It is selected with ``frictModel = muI``.
-In its depth-averaged form :cite:`FoPo2003, GrEd2014` the bottom shear stress reads:
+In its thickness-averaged form :cite:`FoPo2003, GrEd2014` the bottom shear stress reads:
 
 .. math::
     \tau^{(b)} = \mu(I)\,\sigma^{(b)}
@@ -827,16 +827,16 @@ of shear:
     :label: muI-inertial
 
 with the grain diameter :math:`d` and the grain (not the bulk) density :math:`\rho_g`. As in the rheological models
-above the shear rate has to be expressed with depth-averaged quantities:
+above the shear rate has to be expressed with thickness-averaged quantities:
 
 .. math::
     \dot\gamma = c_\gamma \frac{\overline{u}}{\overline{h}}, \qquad c_\gamma = \frac{5}{2}
     :label: muI-shearRate
 
-**Shear rate closure.** In steady uniform flow :math:`\tau / \sigma = \tan\theta` at every depth, so :math:`I` and
-hence the ratio :math:`\dot\gamma / \sqrt{\sigma}` are independent of depth. With
+**Shear rate closure.** In steady uniform flow :math:`\tau / \sigma = \tan\theta` at every thickness, so :math:`I` and
+hence the ratio :math:`\dot\gamma / \sqrt{\sigma}` are independent of thickness. With
 :math:`\sigma \propto (h - z)` this gives :math:`\dot\gamma \propto \sqrt{h - z}` and the Bagnold velocity profile
-:math:`u(z) \propto h^{3/2} - (h - z)^{3/2}`. Its depth average is :math:`\overline{u} = \frac{3}{5}\,A\,h^{3/2}`
+:math:`u(z) \propto h^{3/2} - (h - z)^{3/2}`. Its thickness average is :math:`\overline{u} = \frac{3}{5}\,A\,h^{3/2}`
 and its basal shear rate is :math:`\frac{3}{2}\,A\,h^{1/2}`, which results in
 :math:`\dot\gamma_b = \frac{5}{2}\,\overline{u} / \overline{h}`. Evaluated with :math:`\sigma^{(b)}`,
 :eq:`muI-inertial` then gives the basal inertial number, which is the one entering :eq:`muI-tau`. The factor 3 of
@@ -886,7 +886,7 @@ the flow density ``rho`` (probably the bulk density was entered) or if :math:`c_
 
 .. Note:: With :eq:`muI-inertial` and :eq:`muI-shearRate`, :math:`I / I_0` depends on :math:`d`, :math:`I_0` and
     :math:`\rho_g` only through the combination :math:`d / (I_0 \sqrt{\rho / \rho_g})` (:math:`\rho` is the flow
-    density). The three parameters therefore carry one degree of freedom in the depth-averaged model. For a
+    density). The three parameters therefore carry one degree of freedom in the thickness-averaged model. For a
     calibration fix two of them (e.g. :math:`\rho_g` from the material and :math:`I_0` from literature) and fit only
     :math:`d`. :cite:`TsMaNi2020` observe this effect: the best fit for a ping-pong ball avalanche required
     :math:`d = 10` cm instead of the real 3.8 cm.
@@ -901,7 +901,7 @@ Applicability
 +++++++++++++
 
 In steady uniform flow :eq:`muI-mu` is solved by :math:`\mu(I) = \tan\theta`, which has a solution only for
-:math:`\mu_s < \tan\theta < \mu_2`. For the inertial number and the depth-averaged velocity this gives
+:math:`\mu_s < \tan\theta < \mu_2`. For the inertial number and the thickness-averaged velocity this gives
 
 .. math::
     I^* = I_0\,\frac{\tan\theta - \mu_s}{\mu_2 - \tan\theta}, \qquad
@@ -939,11 +939,11 @@ For snow avalanches the following additional points apply:
     * - Source
       - Values
     * - :cite:`TsMaNi2020`
-      - Ping-pong ball avalanche, depth-averaged :math:`\mu(I)`, :math:`I_0 = 0.3`, best fit
+      - Ping-pong ball avalanche, thickness-averaged :math:`\mu(I)`, :math:`I_0 = 0.3`, best fit
         :math:`\delta_s = 20^\circ`, :math:`\delta_2 = 32^\circ`, :math:`d = 10` cm (tested 0.1 mm - 10 cm)
     * - :cite:`RoChBeOuNaCo2008`
       - Chute flows of dense dry snow between :math:`33^\circ` and :math:`42^\circ`
-        (:math:`\mu_s \approx 0.65`, :math:`\mu_2 \approx 0.90`); chute scale, flow depth of decimetres, too
+        (:math:`\mu_s \approx 0.65`, :math:`\mu_2 \approx 0.90`); chute scale, flow thickness of decimetres, too
         frictional for field-scale runout
     * - :cite:`PlBaJa2007`
       - Coulomb coefficient 0.22 - 0.55 (Weissfluhjoch force plates)

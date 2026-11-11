@@ -380,7 +380,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
             # shear stress
             tau = tauyBingham + etaBingham * shearRate
           elif frictType == 13:
-            ## mu(I) rheology (depth-averaged)
+            ## mu(I) rheology (thickness-averaged)
             if sigmaB <= 0.0:
               tau = 0.0
             else:
