@@ -204,8 +204,8 @@ def plotAllPeakFields(avaDir, cfgFLAGS, modName, demData=""):
             # add title, labels and ava Info
             title = str("%s" % name)
             ax.set_title(title)
-            ax.set_xlabel("x [m]")
-            ax.set_ylabel("y [m]")
+            ax.set_xlabel("x (m)")
+            ax.set_ylabel("y (m)")
             pU.putAvaNameOnPlot(ax, avaDir)
 
             # save and or show figure
@@ -320,7 +320,7 @@ def addConstrainedDataField(fileName, resType, demField, ax, cellSize, alpha=1.0
             plt.text(
                 0.5,
                 0.5,
-                ("[%s]" % unit),
+                ("(%s)" % unit),
                 horizontalalignment="left",
                 verticalalignment="center",
                 transform=cax2.transAxes,
@@ -414,8 +414,8 @@ def plotAllFields(avaDir, inputDir, outDir, unit="", constrainData=True):
 
         title = str("%s" % name)
         ax.set_title(title)
-        ax.set_xlabel("x [m]")
-        ax.set_ylabel("y [m]")
+        ax.set_xlabel("x (m)")
+        ax.set_ylabel("y (m)")
 
         plotName = "%s" % (name)
 

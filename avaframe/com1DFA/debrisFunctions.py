@@ -422,10 +422,10 @@ def outputHydrographPlot(outputHydrographDF, cfgGen, simHash=""):
         ax[0].plot(t, discharge, color="brown")
         ax[1].plot(t[1:], volume, color="brown")
 
-        ax[0].set_xlabel("time [s]")
-        ax[0].set_ylabel("discharge [m³/s]")
-        ax[1].set_xlabel("time [s]")
-        ax[1].set_ylabel("cumulative volume [m³]")
+        ax[0].set_xlabel("time (s)")
+        ax[0].set_ylabel("discharge (m³/s)")
+        ax[1].set_xlabel("time (s)")
+        ax[1].set_ylabel("cumulative volume (m³)")
         ax[1].set_title(f"total cumulative volume = {np.max(volume):.02f} m³")
         plt.suptitle(f"Output hydrograph - {station}")
 
