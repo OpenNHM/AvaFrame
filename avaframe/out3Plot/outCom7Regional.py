@@ -153,7 +153,7 @@ def createReportPlot(dirListGrouped, inputDEM, outputDir, groupExtents, groupFea
 
     # Add DEM colorbar
     cax = ax.inset_axes([1.015, 0, 0.375, 0.02])  # [x, y, width, height]
-    plt.colorbar(im, cax=cax, orientation="horizontal", label="Elevation [m]")
+    plt.colorbar(im, cax=cax, orientation="horizontal", label="Elevation (m)")
 
     # Format plot; add title and labels
     ax.set_aspect("equal")

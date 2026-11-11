@@ -155,11 +155,11 @@ def plotProfilesFPtest(cfg, ind_time, relDict, comSol):
 
     ax1.plot(np.linspace(xllc, xllc+(ncols-1)*csz, ncols), relTh[100, :], '--k')
     ax1.plot(r, H0-mu*(r-deltaX), '-k', label='initial expected flow thickness')
-    ax1.set_xlabel('r in [m]')
+    ax1.set_xlabel('r in (m)')
     ax1.set_title('flow thickness, t=%.2f s' % (Tsave))
 
     ax2.plot(r, mu*np.ones(np.shape(r)), '-k', label='friction threashold')
-    ax2.set_xlabel('r in [m]')
+    ax2.set_xlabel('r in (m)')
     ax2.set_title('Gradient of the flow thickness')
     ax1.legend()
     ax2.legend()

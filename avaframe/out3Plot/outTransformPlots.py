@@ -81,8 +81,8 @@ def plotDepthToThickness(depth, thickness, slopeAngleField, profileAxis, profile
         label="slope angle",
     )
     ax[1, 1].set_xlabel("x")
-    ax3.set_ylabel("slope angle [°]")
-    ax[1, 1].set_ylabel("flow thickness [m]")
+    ax3.set_ylabel("slope angle (°)")
+    ax[1, 1].set_ylabel("flow thickness (m)")
     ax[1, 1].legend()
 
     # save and or show figure
