@@ -197,6 +197,49 @@ sum up to the same total). Flow thickness and velocity mesh fields can then be d
 from the mass and momentum fields and the cell area (actual area of each grid cell,
 not the projected area).
 
+Cell center or four cell centers
+""""""""""""""""""""""""""""""""""
+All raster values (topography, normals, cell area, fields and input rasters such as the entrainment
+thickness) are stored at the cell centers. A raster value represents the cell around its cell center
+(side length :math:`csz`). The square spanned by four neighbouring cell centers is only used for the
+bilinear interpolation, no values are stored for it. For a particle at a given location, the cell
+center of the cell it is located in is always one of the four cell centers used for the bilinear
+interpolation (the one with the largest weight). Using the bilinear weights with ``interpOption = 0``
+gives exactly this nearest cell center.
+
+Two ways of reading raster values at a particle location are used:
+
+  * **four cell centers (bilinear)** for quantities describing the state of the snow cover and the flow,
+    which vary continuously: topography, normals, flow thickness and velocity and, if
+    ``adaptSfcEntrainment = 1``, the entrainable mass. The particle to mesh mapping (flow, detrained,
+    stopped and entrained mass) also uses the four cell centers.
+  * **nearest cell center** for parameter rasters that describe areas, which are constant within a cell:
+    friction parameters (``muRaster``, ``xsiRaster``), detrainment coefficient and resistance coefficient.
+    If ``adaptSfcEntrainment = 0`` also for the entrainable mass.
+
+Exchange of mass with the snow cover
+""""""""""""""""""""""""""""""""""""""
+**Entrainment**: if ``adaptSfcEntrainment = 0``, the entrainable mass per unit area is read at the nearest cell
+center of the particle (start of the time step) and the entrained mass :math:`\delta m` is removed from this cell.
+
+If ``adaptSfcEntrainment = 1``, the entrainable mass per unit area at the particle location (start of the time step)
+is the bilinear interpolation of the entrainable mass of the four surrounding cell centers. The entrained mass
+:math:`\delta m` of the particle is removed from these four cell centers in proportion to
+:math:`w_i\,m^{ent}_i\,A_i` (bilinear weight times entrainable mass per unit area times cell area), hence a cell center
+without entrainable mass does not contribute. The eroded depth is derived from the mass removed in each cell,
+i.e. the surface is lowered exactly where the mass was taken from, and the change of the surface is as smooth as
+the other fields.
+
+In both cases, the mass is removed after all particles were computed, so all particles see the entrainable mass at
+the beginning of the time step.
+
+**Detrainment**: the detrainment coefficient is read at the nearest cell center (start of the time step). The
+detrained mass is added to the four cell centers around the particle location at the end of the time step
+(:ref:`DFAnumerics:Particles to mesh`).
+
+**Stopping**: a stopped particle is not moved in this time step. Its mass is added to the four cell centers
+around its location (:ref:`DFAnumerics:Particles to mesh`).
+
 
 Neighbor search
 ------------------

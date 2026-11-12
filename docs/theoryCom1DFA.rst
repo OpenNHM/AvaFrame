@@ -242,17 +242,26 @@ When the flowing mass changes (due to detrainment, entrainment and/or stopping =
 the surface topography can be adapted (if ``adaptSfcDetrainment = 1``, ``adaptSfcEntrainment = 1`` and/or
 ``adaptSfcStopped = 1``, respectively).
 
-The detrained/ entrained/ stopped mass is converted into the corresponding
-snow depth changes :math:`h_{det}, h_{ent}, h_{stop}` at the location of the particle
-using the :ref:`DFAnumerics:Particles to mesh` method.
+The detrained/ stopped mass is converted into the corresponding
+snow depth changes :math:`h_{det}, h_{stop}` at the location of the particle
+using the :ref:`DFAnumerics:Particles to mesh` method. The eroded depth :math:`h_{ent}` is derived from the
+entrainable mass that was removed in each cell (see :ref:`DFAnumerics:Exchange of mass with the snow cover`),
+hence the surface is lowered exactly where the entrained mass was taken from.
 
 The adapted surface at a specific time step :math:`z(t)` is computed as (with :math:`h_{det}, h_{ent}, h_{stop} > 0`):
 
 .. math::
   z(t) = z(t=0) + \sum_{i=0}^t (h_{det}(i) + h_{stop}(i) - h_{ent}(i))
 
-In every time step the surface is adapted, the :ref:`DFAnumerics:Cell normals` and
-:ref:`DFAnumerics:Cell area` are also adapted.
+The :ref:`DFAnumerics:Cell normals` and :ref:`DFAnumerics:Cell area` are only recomputed if the surface
+changed more than ``thresholdAdaptSfc`` since they were computed the last time. The entrainable mass per unit
+area is then rescaled with the ratio of the old and the new cell area, so the entrainable mass of each cell
+does not change.
+
+If ``entrainableDeposition = True``, stopped and detrained mass (density :math:`\rho`) is added to the
+entrainable layer (density :math:`\rho_{ent}`). The erodable depth is then reduced by the same fraction as the
+entrainable mass of the cell, so mass and depth of the erodable layer stay consistent and the depth can not become
+negative.
 
 If the surface is adapted due to stopped particles (velocity = 0 and ``adaptSfcStopped = 1``), the stopped particles
 are deleted and stored in a separate dictionary ``stoppedParticles`` (see :ref:`com1DFAAlgorithm:Particle properties`).
