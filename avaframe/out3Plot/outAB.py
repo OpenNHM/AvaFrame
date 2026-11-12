@@ -220,10 +220,10 @@ def plotProfile(avaProfile, eqParams, saveOutPath):
     fig = plt.figure(figsize=(1.5*pU.figW, 1*pU.figH))
     titleText = avaProfile['name']
     plt.title(titleText)
-    xlabelText = 'Distance [m]\nBeta: ' + str(round(beta, 1)) + \
+    xlabelText = 'Distance (m)\nBeta: ' + str(round(beta, 1)) + \
         '°' + '  Alpha: ' + str(round(alpha, 1)) + '°'
     plt.xlabel(xlabelText, multialignment='center')
-    plt.ylabel('Height [m]')
+    plt.ylabel('Height (m)')
     plt.plot(s, z, '-', label='DEM')
     plt.plot(s, poly(s), ':', label='QuadFit')
     plt.axvline(x=s[indSplit], color='0.7',

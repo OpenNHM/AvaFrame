@@ -64,7 +64,7 @@ def plotPartIni(particles, dem):
     y = np.arange(header['nrows']) * header['cellsize']
     fig, ax = plt.subplots(figsize=(pU.figW, pU.figH))
     cmap = copy.copy(mpl.cm.get_cmap("Greys"))
-    ref0, im = pU.NonUnifIm(ax, x, y, dem['areaRaster'], 'x [m]', 'y [m]',
+    ref0, im = pU.NonUnifIm(ax, x, y, dem['areaRaster'], 'x (m)', 'y (m)',
                             extent=[x.min(), x.max(), y.min(), y.max()],
                             cmap=cmap, norm=None)
 
@@ -82,7 +82,7 @@ def plotAreaDebug(header, avapath, Raster):
     fig, ax = plt.subplots(figsize=(pU.figW, pU.figH))
     ax.set_title('Release area')
     cmap = copy.copy(mpl.cm.get_cmap("Greys"))
-    ref0, im = pU.NonUnifIm(ax, x, y, Raster, 'x [m]', 'y [m]',
+    ref0, im = pU.NonUnifIm(ax, x, y, Raster, 'x (m)', 'y (m)',
                             extent=[x.min(), x.max(), y.min(), y.max()],
                             cmap=cmap, norm=None)
     ax.plot(avapath['x'] * cellsize, avapath['y'] * cellsize, 'r', label='release polyline')
@@ -99,7 +99,7 @@ def plotRemovePart(xCoord0, yCoord0, header, X, Y, Mask, mask):
     fig, ax = plt.subplots(figsize=(pU.figW, pU.figH))
     ax.set_title('Release area')
     cmap = copy.copy(mpl.cm.get_cmap("Greys"))
-    ref0, im = pU.NonUnifIm(ax, x, y, Mask, 'x [m]', 'y [m]',
+    ref0, im = pU.NonUnifIm(ax, x, y, Mask, 'x (m)', 'y (m)',
                             extent=[x.min(), x.max(), y.min(), y.max()],
                             cmap=cmap, norm=None)
     ax.plot(xCoord0 * header['cellsize'], yCoord0 * header['cellsize'], 'r', label='release polyline')
@@ -196,7 +196,7 @@ def plotPosition(fig, ax, particles, dem, data, Cmap, unit, plotPart=False, last
     ax.set_title('t=%.2f s' % particles['t'])
     cmap, _, ticks, norm = pU.makeColorMap(Cmap, np.nanmin(data), np.nanmax(data), continuous=True)
     cmap.set_under(color='w')
-    ref0, im = pU.NonUnifIm(ax, xx, yy, data, 'x [m]', 'y [m]',
+    ref0, im = pU.NonUnifIm(ax, xx, yy, data, 'x (m)', 'y (m)',
                          extent=[x.min(), x.max(), y.min(), y.max()],
                          cmap=cmap, norm=norm)
 

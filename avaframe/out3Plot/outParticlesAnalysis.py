@@ -79,8 +79,8 @@ def plotParticleThalwegAltitudeVelocity(
             label="thalweg",
         )
         ax[0].legend(loc="upper right")
-        ax[0].set_xlabel("x [m]")
-        ax[0].set_ylabel("y [m]")
+        ax[0].set_xlabel("x (m)")
+        ax[0].set_ylabel("y (m)")
 
         # ax[1]
         # plot the thalweg diagram
@@ -124,7 +124,7 @@ def plotParticleThalwegAltitudeVelocity(
         )
 
         # y label
-        ax[1].set_ylabel("Velocity [m/s]", fontsize=22)
+        ax[1].set_ylabel("Velocity (m/s)", fontsize=22)
         ax[1].tick_params(axis="both", labelsize=15)
 
         # Second Y axis
@@ -153,9 +153,9 @@ def plotParticleThalwegAltitudeVelocity(
             facecolor="black",
         )
         # X and Y labels
-        ax[1].set_xlabel("$s_{xy}$[m]\n\n", fontsize=22)
+        ax[1].set_xlabel("$s_{xy}$(m)\n\n", fontsize=22)
         ax[1].xaxis.set_major_formatter(FormatStrFormatter("%.0f"))
-        ax2.set_ylabel("Altitude [m]", fontsize=22)
+        ax2.set_ylabel("Altitude (m)", fontsize=22)
         ax2.tick_params(axis="both", labelsize=15)
 
         # add legend
@@ -261,8 +261,8 @@ def plotThalwegTimeAltitudes(
         addTrOrMe(ax2, measuredData, "xOrig", "yOrig", cmapData, label=True, zorder=22)
 
     # # add labels and legend
-    ax2.set_xlabel("x [m] \n\n", fontsize=20)
-    ax2.set_ylabel("y [m] \n\n", fontsize=20)
+    ax2.set_xlabel("x (m) \n\n", fontsize=20)
+    ax2.set_ylabel("y (m) \n\n", fontsize=20)
     ax2.tick_params(axis="both", labelsize=15)
     ax2.legend(loc="lower left")
 
@@ -396,8 +396,8 @@ def plotParticleMotionTracking(
     handles, labels = ax1.get_legend_handles_labels()
     handles.append(bluePatch)
     # labels and ticks
-    ax1.set_xlabel("x [m] \n\n", fontsize=22)
-    ax1.set_ylabel("y [m]", fontsize=22)
+    ax1.set_xlabel("x (m) \n\n", fontsize=22)
+    ax1.set_ylabel("y (m)", fontsize=22)
     ax1.tick_params(axis="both", labelsize=13)
     ax1.legend(handles=handles, loc="upper left")
 
@@ -429,8 +429,8 @@ def plotParticleMotionTracking(
         zorder=0,
     )
     # labels and ticks
-    ax2.set_xlabel("Time [s] \n\n", fontsize=15)
-    ax2.set_ylabel("$trajectory_{XYZ}$ [m]", fontsize=15)
+    ax2.set_xlabel("Time (s) \n\n", fontsize=15)
+    ax2.set_ylabel("$trajectory_{XYZ}$ (m)", fontsize=15)
     ax2.tick_params(axis="both", labelsize=13)
 
     # ax3
@@ -455,8 +455,8 @@ def plotParticleMotionTracking(
         zorder=0,
     )
     # labels and ticks
-    ax3.set_xlabel("Time [s] \n\n", fontsize=15)
-    ax3.set_ylabel("Velocity [m/s]", fontsize=15)
+    ax3.set_xlabel("Time (s) \n\n", fontsize=15)
+    ax3.set_ylabel("Velocity (m/s)", fontsize=15)
     ax3.tick_params(axis="both", labelsize=13)
 
     # ax4
@@ -482,8 +482,8 @@ def plotParticleMotionTracking(
     if mDataAvailable:
         addTrOrMe(ax4, measuredData, "t", "uAcc", cmapData, label=False)
     # labels and ticks
-    ax4.set_xlabel("Time [s] \n\n", fontsize=15)
-    ax4.set_ylabel("Acceleration [m/s²]", fontsize=15)
+    ax4.set_xlabel("Time (s) \n\n", fontsize=15)
+    ax4.set_ylabel("Acceleration (m/s²)", fontsize=15)
     ax4.tick_params(axis="both", labelsize=13)
 
     # ax5
@@ -500,8 +500,8 @@ def plotParticleMotionTracking(
     if mDataAvailable:
         addTrOrMe(ax5, measuredData, "sAimec", "trajectoryLengthXYZ", cmapData, label=False)
     # labels and ticks
-    ax5.set_xlabel("$S_{xy}$ (thalweg) [m]", fontsize=15)
-    ax5.set_ylabel("$trajectory_{XYZ}$ [m]", fontsize=15)
+    ax5.set_xlabel("$S_{xy}$ (thalweg) (m)", fontsize=15)
+    ax5.set_ylabel("$trajectory_{XYZ}$ (m)", fontsize=15)
     ax5.tick_params(axis="both", labelsize=13)
 
     # ax6
@@ -526,8 +526,8 @@ def plotParticleMotionTracking(
     if mDataAvailable:
         addTrOrMe(ax6, measuredData, "sAimec", "velocityMag", cmapData, label=True)
     # labels and ticks
-    ax6.set_xlabel("$S_{xy}$ [m]", fontsize=15)
-    ax6.set_ylabel("Velocity [m/s]", fontsize=15)
+    ax6.set_xlabel("$S_{xy}$ (m)", fontsize=15)
+    ax6.set_ylabel("Velocity (m/s)", fontsize=15)
     ax6.tick_params(axis="both", labelsize=13)
 
     # ax7
@@ -544,8 +544,8 @@ def plotParticleMotionTracking(
     if mDataAvailable:
         addTrOrMe(ax7, measuredData, "sAimec", "uAcc", cmapData, label=False)
     # labels and ticks
-    ax7.set_xlabel("$S_{xy}$ [m]", fontsize=15)
-    ax7.set_ylabel("Acceleration [m/s²]", fontsize=15)
+    ax7.set_xlabel("$S_{xy}$ (m)", fontsize=15)
+    ax7.set_ylabel("Acceleration (m/s²)", fontsize=15)
     ax7.tick_params(axis="both", labelsize=13)
 
     # save and or plot
@@ -909,8 +909,8 @@ def plotParticlesAssets(dem, assets, particleAssets, outDir, plotName, title):
         vmin=vMin,
         vmax=vMax,
     )
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
     fig.colorbar(im1, ax=ax)
 
     # save and or plot

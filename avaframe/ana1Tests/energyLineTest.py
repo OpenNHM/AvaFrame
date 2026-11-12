@@ -98,8 +98,8 @@ def generateCom1DFAEnergyPlot(avalancheDir, energyLineTestCfg, com1DFACfg, avaPr
     ax1 = outCom1DFA.addDem2Plot(ax1, dem, what='hillshade', extent=extent)
     ax1.plot(avaProfileMass['x'], avaProfileMass['y'], '-y.', zorder=20, label='Center of mass path',
              lw=1, path_effects=[pe.Stroke(linewidth=2, foreground='k'), pe.Normal()])
-    ax1.set_xlabel('x [m]')
-    ax1.set_ylabel('y [m]')
+    ax1.set_xlabel('x (m)')
+    ax1.set_ylabel('y (m)')
     ax1.axis('equal')
     ax1.set_ylim([rowsMin, rowsMax])
     ax1.set_xlim([colsMin, colsMax])
@@ -124,7 +124,7 @@ def generateCom1DFAEnergyPlot(avalancheDir, energyLineTestCfg, com1DFACfg, avaPr
     scat = ax2.scatter(avaProfileMass['s'], zEne, marker='s', cmap=cmap, s=8*pU.ms, c=u2Path/(2*g),
                        label='Center of mass velocity altitude')
     cbar2 = ax2.figure.colorbar(scat, ax=ax2, use_gridspec=True)
-    cbar2.ax.set_title('[' + pU.cfgPlotUtils['unitFT'] + ']', pad=10)
+    cbar2.ax.set_title('(' + pU.cfgPlotUtils['unitFT'] + ')', pad=10)
     cbar2.ax.set_ylabel('Center of mass velocity altitude')
 
     # add alpha line
@@ -143,8 +143,8 @@ def generateCom1DFAEnergyPlot(avalancheDir, energyLineTestCfg, com1DFACfg, avaPr
                color='r', linestyle='--')
     ax2.hlines(y=zIntersection, color='b', xmin=0, xmax=sIntersection, linestyle='--')
 
-    ax2.set_xlabel('s [m]')
-    ax2.set_ylabel('z [m]')
+    ax2.set_xlabel('s (m)')
+    ax2.set_ylabel('z (m)')
     ax2.set_xlim(sLim)
     ax2.set_ylim(zLim)
     ax2.legend(loc='upper right')
@@ -168,7 +168,7 @@ def generateCom1DFAEnergyPlot(avalancheDir, energyLineTestCfg, com1DFACfg, avaPr
     scat = ax3.scatter(avaProfileMass['s'], zEne-z0, marker='s', cmap=cmap, s=8*pU.ms, c=u2Path/(2*g),
                        label='Center of mass velocity altitude extrapolation')
     cbar3 = ax3.figure.colorbar(scat, ax=ax3, use_gridspec=True)
-    cbar3.ax.set_title('[' + pU.cfgPlotUtils['unitFT'] + ']', pad=10)
+    cbar3.ax.set_title('(' + pU.cfgPlotUtils['unitFT'] + ')', pad=10)
     cbar3.ax.set_ylabel('Center of mass velocity altitude')
 
     # add alpha line
@@ -201,8 +201,8 @@ def generateCom1DFAEnergyPlot(avalancheDir, energyLineTestCfg, com1DFACfg, avaPr
                color='r', linestyle='--')
     ax3.hlines(y=zIntersection-z0, color='b', xmin=sMin, xmax=sIntersection, linestyle='--')
 
-    ax3.set_xlabel('s [m]')
-    ax3.set_ylabel('$\Delta z$ [m]')
+    ax3.set_xlabel('s (m)')
+    ax3.set_ylabel('$\Delta z$ (m)')
     ax3.yaxis.set_label_coords(0, 0.9)
     ax3.set_xlim([sMin, sMax])
     ax3.set_ylim([zMin, zMax])

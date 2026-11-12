@@ -158,7 +158,7 @@ def plotContoursFromDict(contourDictRef, contourDictSim, pathDict, levels, multi
     if multiplePlots is False:
         cbar = ax1.figure.colorbar(cmap)
         cbar.outline.set_visible(False)
-        cbar.ax.set_title('[' + pathDict['unit'] + ']', pad=10)
+        cbar.ax.set_title('(' + pathDict['unit'] + ')', pad=10)
         cbar.set_label(pathDict['parameter'])
         pU.putAvaNameOnPlot(ax1, pathDict['avaDir'])
         fU.makeADir(pathDict['pathResult'])

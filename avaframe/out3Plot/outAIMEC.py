@@ -106,7 +106,7 @@ def visuTransfo(rasterTransfo, inputData, cfgSetup, pathDict):
     gs = gridspec.GridSpec(1, 3)
     ax1 = fig.add_subplot(gs[0, 0])
 
-    ref0, im = pU.NonUnifIm(ax1, x, y, maskedArray, 'x [m]', 'y [m]',
+    ref0, im = pU.NonUnifIm(ax1, x, y, maskedArray, 'x (m)', 'y (m)',
                             extent=[x.min(), x.max(), y.min(), y.max()],
                             cmap=cmap, norm=norm)
     plt.plot(xx, yy, 'r*', markersize=8, label=labelRunout, zorder=10)
@@ -126,7 +126,7 @@ def visuTransfo(rasterTransfo, inputData, cfgSetup, pathDict):
 
     maskedArraySLTransposed = np.transpose(maskedArraySL)
 
-    ref0, im = pU.NonUnifIm(ax2, s, l, maskedArraySLTransposed, '$S_{XY}$ (thalweg) [m]', '$L_{XY}$ (thalweg) [m]',
+    ref0, im = pU.NonUnifIm(ax2, s, l, maskedArraySLTransposed, '$S_{XY}$ (thalweg) (m)', '$L_{XY}$ (thalweg) (m)',
                             extent=[s.min(), s.max(), l.min(), l.max()],
                             cmap=cmap, norm=norm)
     ax2.axvline(x=s[indStartOfRunout], color='k', linestyle='--',
@@ -184,7 +184,7 @@ def visuRunoutComp(rasterTransfo, resAnalysisDF, cfgSetup, pathDict):
     ############################################
     # prepare for plot
     title = ['Pressure ', 'Flow Thickness ', 'Flow Velocity ']
-    unit = ['$ppr_{CrossMax}$ [kPa]', '$pft_{CrossMax}$ [m]', '$pfv_{CrossMax}$ $[ms^{-1}]$']
+    unit = ['$ppr_{CrossMax}$ (kPa)', '$pft_{CrossMax}$ (m)', '$pfv_{CrossMax}$ $(ms^{-1})$']
     peakList = ['ppr', 'pft', 'pfv']
 
     ############################################
@@ -201,7 +201,7 @@ def visuRunoutComp(rasterTransfo, resAnalysisDF, cfgSetup, pathDict):
 
         ax.set_title(titleVal + 'distribution along thalweg')
         ax.legend(loc='best')
-        ax.set_xlabel('$S_{XY}$ (thalweg) [m]')
+        ax.set_xlabel('$S_{XY}$ (thalweg) (m)')
         ax.set_xlim([s.min(), s.max()])
         ax.set_ylim(auto=True)
         ax.set_ylabel(unitVal)
@@ -379,8 +379,8 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
             s,
             l,
             maskedArrayTransposed,
-            "$S_{XY}$ (thalweg) [m]",
-            "$L_{XY}$ (thalweg) [m]",
+            "$S_{XY}$ (thalweg) (m)",
+            "$L_{XY}$ (thalweg) (m)",
             extent=[xMin, xMax, yMin, yMax],
             cmap=cmap,
             norm=norm,
@@ -452,10 +452,10 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
 
         ax2.set_title("%s distribution along thalweg for all sims" % name)
         ax2.legend(loc="upper right")
-        ax2.set_xlabel("$S_{xy}$ (thalweg) [m]")
+        ax2.set_xlabel("$S_{xy}$ (thalweg) (m)")
         ax2.set_xlim([s.min(), s.max()])
         ax2.set_ylim(auto=True)
-        ax2.set_ylabel("$%s_{%s}$ [%s]" % (displayRunoutResType, crossValue, unit))
+        ax2.set_ylabel("$%s_{%s}$ (%s)" % (displayRunoutResType, crossValue, unit))
 
         # add middle panel with cross max values along s
         # loop over all sims and compute colorbar value and add line plot
@@ -494,17 +494,17 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
             cbar = ax3.figure.colorbar(cmapSC2, ax=ax3)
             cbar.outline.set_visible(False)
             if cfgSetup["unit"] != "":
-                cbar.ax.set_title("[" + cfgSetup["unit"] + "]", pad=10)
+                cbar.ax.set_title("(" + cfgSetup["unit"] + ")", pad=10)
             cbar.set_label(paraVar)
             if isinstance(firstVar, str):
                 cbar.set_ticks(ticks=np.linspace(0, 1, len(itemsList)), labels=itemsList)
         # add labels title
         ax3.set_title("%s along thalweg for all sims" % name)
         ax3.legend(loc="upper right")
-        ax3.set_xlabel("$S_{xy}$ (thalweg) [m]")
+        ax3.set_xlabel("$S_{xy}$ (thalweg) (m)")
         ax3.set_xlim([s.min(), s.max()])
         ax3.set_ylim(auto=True)
-        ax3.set_ylabel("$%s_{%s}$ [%s]" % (displayRunoutResType, crossValue, unit))
+        ax3.set_ylabel("$%s_{%s}$ (%s)" % (displayRunoutResType, crossValue, unit))
 
         outFileName = "_".join(
             [projectName, runoutResType, str(thresholdValue).replace(".", "p"), "slComparisonStat"]
@@ -544,7 +544,7 @@ def visuMass(resAnalysisDF, pathDict, simRowHash, refSimRowHash, timeMass):
     ############################################
     # prepare for plot
     Title = ['Entrained Mass Flow', 'Total Mass']
-    Unit = ['Entrained Mass Flow [$kg.s{^-1}$]', 'Total Mass [kg]']
+    Unit = ['Entrained Mass Flow ($kg.s{^-1}$)', 'Total Mass (kg)']
     fieldList = ['entMassFlowArray', 'totalMassArray']
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(pU.figW*2, pU.figH))
     fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95, hspace=0.3)
@@ -558,7 +558,7 @@ def visuMass(resAnalysisDF, pathDict, simRowHash, refSimRowHash, timeMass):
 
         ax.set_title(title + ' function of time')
         ax.legend(loc=1)
-        ax.set_xlabel('t [s]')
+        ax.set_xlabel('t (s)')
         ax.set_ylabel(unit)
 
     if refSimRowHash != simRowHash:
@@ -575,7 +575,7 @@ def visuMass(resAnalysisDF, pathDict, simRowHash, refSimRowHash, timeMass):
                                    bbox=dict(boxstyle="square", ec='white', fc='white'),
                                    horizontalalignment='left', verticalalignment='bottom')
 
-        ax2.set_ylabel('Total Mass Difference [%]', color='r')
+        ax2.set_ylabel('Total Mass Difference (%)', color='r')
 
     outFileName = '_'.join([projectName, str(simName), 'massAnalysis'])
     pU.putAvaNameOnPlot(ax, pathDict['projectName'])
@@ -644,7 +644,7 @@ def visuSimple(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, pathDict):
                                                     pU.cfgPlotUtils['unit' + runoutResType]))
 
         ax.axvline(x=s[indStartOfRunout], color='k', linestyle='--', label=rasterTransfo['labelRunout'])
-        ref3, im = pU.NonUnifIm(ax, s, l, maskedArrayTranspose, '$S_{XY}$ (thalweg) [m]', '$L_{XY}$ (thalweg) [m]',
+        ref3, im = pU.NonUnifIm(ax, s, l, maskedArrayTranspose, '$S_{XY}$ (thalweg) (m)', '$L_{XY}$ (thalweg) (m)',
                                 extent=[s.min(), s.max(), l.min(), l.max()],
                                 cmap=cmap, norm=norm)
 
@@ -776,8 +776,8 @@ def visuComparison(rasterTransfo, inputs, pathDict):
                 s[indStartOfRunout:],
                 l,
                 np.transpose(dataDiff),
-                "$S_{XY}$ (thalweg) [m]",
-                "$L_{XY}$ (thalweg) [m]",
+                "$S_{XY}$ (thalweg) (m)",
+                "$L_{XY}$ (thalweg) (m)",
                 extent=[s[indStartOfRunout], xLim, l.min(), l.max()],
                 cmap=cmap,
             )
@@ -795,7 +795,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
                 # add legend associated to the contour plot
                 handles, _ = contourRef.legend_elements()
                 ax2.legend(
-                    title=displayRunoutResType + " contour lines [" + unit + "]",
+                    title=displayRunoutResType + " contour lines (" + unit + ")",
                     handles=handles,
                     labels=labels,
                     ncol=ncolLegend,
@@ -843,8 +843,8 @@ def visuComparison(rasterTransfo, inputs, pathDict):
                     s,
                     l,
                     np.transpose(dataTF),
-                    "$S_{XY}$ (thalweg) [m]",
-                    "$L_{XY}$ (thalweg) [m]",
+                    "$S_{XY}$ (thalweg) (m)",
+                    "$L_{XY}$ (thalweg) (m)",
                     extent=[s[indStartOfRunout], xLim, l.min(), l.max()],
                     cmap=cmapTF,
                 )
@@ -894,7 +894,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
             divider = make_axes_locatable(ax2)
             cax = divider.append_axes("right", size="5%", pad=0.1)
             pU.addColorBar(
-                im3, ax2, None, None, title=displayRunoutResType + (" [%s]" % unit), extend="both", cax=cax
+                im3, ax2, None, None, title=displayRunoutResType + (" (%s)" % unit), extend="both", cax=cax
             )
             ax2.set_aspect("equal")
             ax1.set_aspect("equal")
@@ -1204,8 +1204,8 @@ def plotContoursTransformed(contourDict, pathDict, rasterTransfo, cfgSetup, inpu
     ax1 = fig.add_subplot(gs[0, 0:2])
     ax1.set_title('%s %s %s contour lines' % (displayRunoutResType, cfgSetup['thresholdValue'],
         unit))
-    ax1.set_xlabel('$S_{XY}$ (thalweg) [m]')
-    ax1.set_ylabel('$L_{XY}$ (thalweg) [m]')
+    ax1.set_xlabel('$S_{XY}$ (thalweg) (m)')
+    ax1.set_ylabel('$L_{XY}$ (thalweg) (m)')
     pU.putAvaNameOnPlot(ax1, pathDict['projectName'])
 
     norm = mpl.colors.Normalize(vmin=minVal, vmax=maxVal)
@@ -1231,7 +1231,7 @@ def plotContoursTransformed(contourDict, pathDict, rasterTransfo, cfgSetup, inpu
         cbar = ax1.figure.colorbar(cmap, ax=ax1)
         cbar.outline.set_visible(False)
         if cfgSetup['unit'] != '':
-            cbar.ax.set_title('[' + cfgSetup['unit'] + ']', pad=10)
+            cbar.ax.set_title('(' + cfgSetup['unit'] + ')', pad=10)
         cbar.set_label(paraVar)
     else:
         # TODO: remove?
@@ -1247,8 +1247,8 @@ def plotContoursTransformed(contourDict, pathDict, rasterTransfo, cfgSetup, inpu
         # PANEL 2 zoom into runout area
         ax2 = fig.add_subplot(gs[0, 2])
         ax2.set_title('zoom into runout area, equal axes')
-        ax2.set_xlabel('$S_{XY}$ (thalweg) [m]')
-        ax2.set_ylabel('$L_{XY}$ (thalweg) [m]')
+        ax2.set_xlabel('$S_{XY}$ (thalweg) (m)')
+        ax2.set_ylabel('$L_{XY}$ (thalweg) (m)')
         pU.putAvaNameOnPlot(ax1, pathDict['projectName'])
         for index, simName in enumerate(contourDict):
             if colorOrdering:
@@ -1368,7 +1368,7 @@ def addThalwegAltitude(ax1, rasterTransfo, pfvCrossMax, velocityThreshold, zMaxM
 
     # add colorbar
     cbar2 = ax1.figure.colorbar(scat, ax=ax1, use_gridspec=True)
-    cbar2.ax.set_title('[m/s]', pad=10)
+    cbar2.ax.set_title('(m/s)', pad=10)
     cbar2.ax.set_ylabel('Max peak flow velocity (mpfv)')
 
     # draw the horizontal and vertical lines for angle computation
@@ -1393,8 +1393,8 @@ def addThalwegAltitude(ax1, rasterTransfo, pfvCrossMax, velocityThreshold, zMaxM
     ax1.plot(X, Y, color='grey', linestyle='--', linewidth=0.8)
 
     # Labels
-    ax1.set_xlabel('$s_{xy}$ [m]', fontsize=20)
-    ax1.set_ylabel('$z + mpfv²/2g$ [m]', fontsize=20)
+    ax1.set_xlabel('$s_{xy}$ (m)', fontsize=20)
+    ax1.set_ylabel('$z + mpfv²/2g$ (m)', fontsize=20)
 
     # limit axes extent to where there is data with buffer
     sExt = rasterTransfo['s'][indVelZero] * 0.1
@@ -1511,8 +1511,8 @@ def plotMaxValuesComp(pathDict, resultsDF, name1, name2, hue=None):
     fig.ax_joint.legend()
 
     # add label names with units
-    fig.ax_joint.set_xlabel('%s [%s]' % (availableoptions[name1Index], units[name1Index]))
-    fig.ax_joint.set_ylabel('%s [%s]' % (availableoptions[name2Index], units[name2Index]))
+    fig.ax_joint.set_xlabel('%s (%s)' % (availableoptions[name1Index], units[name1Index]))
+    fig.ax_joint.set_ylabel('%s (%s)' % (availableoptions[name2Index], units[name2Index]))
     pU.putAvaNameOnPlot(fig.ax_joint, pathDict['avalancheDir'])
 
     outFileName = pathDict['projectName'] + ('_%svs%s' % (name1, name2))
@@ -1626,7 +1626,7 @@ def plotVelThAlongThalweg(pathDict, rasterTransfo, pftCrossMax, pfvCrossMax, cfg
     sm2.set_array([])
     cax = ax1.inset_axes([1.04, 0.0, 0.025, 0.99])
     cbar2 = plt.colorbar(sm2, shrink=0.5, ax=ax1, cax=cax)
-    cbar2.set_label(r'pfv [m/s]', rotation=270, labelpad=25)
+    cbar2.set_label(r'pfv (m/s)', rotation=270, labelpad=25)
 
     # add bar for scale reference
     if len(np.where(rasterTransfo['z'] > 0)[0]) > 1:
@@ -1646,8 +1646,8 @@ def plotVelThAlongThalweg(pathDict, rasterTransfo, pftCrossMax, pfvCrossMax, cfg
     ax2.yaxis.tick_left()
     ax2.yaxis.set_label_position("left")
     ax2.xaxis.set_label_position("bottom")
-    ax2.set_ylabel('altitude [m] (pft x 10)')
-    ax1.set_xlabel('$S_{xy}$ [m]')
+    ax2.set_ylabel('altitude (m) (pft x 10)')
+    ax1.set_xlabel('$S_{xy}$ (m)')
     plt.title('Max peak flow thickness (bars) along thalweg colored with max peak flow velocity')
     leg = plt.legend()
     textLeg = leg.get_texts()[6]
@@ -1744,13 +1744,13 @@ def referenceLinePlot(refLineRasterXY, dem, refLine, rasterTransfo, refRasterSL,
     ax1.plot(DBXl, DBYl, 'k-', label='SL domain')
     ax1.plot(DBXr, DBYr, 'k-')
     ax1.plot([DBXl, DBXr], [DBYl, DBYr], 'k-')
-    ax1.set_xlabel('x [m]')
-    ax2.set_ylabel(['y [m]'])
+    ax1.set_xlabel('x (m)')
+    ax2.set_ylabel(['y (m)'])
     ax1.legend()
 
     # second panel SL coordinates
     ax2.set_title('Raster SL reference %s' % refLineSL['type'])
-    pU.NonUnifIm(ax2, rasterTransfo['l'], rasterTransfo['s'], refRasterSL, '$L_{XY}$ (thalweg) [m]', '$S_{XY}$ (thalweg) [m]',
+    pU.NonUnifIm(ax2, rasterTransfo['l'], rasterTransfo['s'], refRasterSL, '$L_{XY}$ (thalweg) (m)', '$S_{XY}$ (thalweg) (m)',
                      extent=[rasterTransfo['l'].min(), rasterTransfo['l'].max(), rasterTransfo['s'].min(), rasterTransfo['s'].max()], aspect='equal')
     if refLineSL['type'] == 'point':
         ax2.plot(refLineSL['l'], refLineSL['s'], 'b', linestyle='', marker='*', markersize=4, label='point in SL')
@@ -1796,7 +1796,7 @@ def compareRunoutLines(cfgSetup, refDataTransformed, newRaster, runoutLine, rast
     ax1.set_title('Runout lines')
 
     pU.NonUnifIm(ax1, rasterTransfo['l'], rasterTransfo['s'], maskedArray,
-                '$L_{XY}$ (thalweg) [m]', '$S_{XY}$ (thalweg) [m]',
+                '$L_{XY}$ (thalweg) (m)', '$S_{XY}$ (thalweg) (m)',
                 extent=[rasterTransfo['l'].min(), rasterTransfo['l'].max(),
                  rasterTransfo['s'].min(), rasterTransfo['s'].max()], cmap=cmapTF,
                  aspect='equal')
@@ -1867,9 +1867,9 @@ def plotRunoutLineComparisonToReference(cfgSetup, refLine, runoutLine, pathDict,
              (runoutLineNoPoints, refLineNoPoints, RMSE)), horizontalalignment='left',
              verticalalignment='bottom', transform=ax2.transAxes)
     boxInfo.set_bbox({'facecolor':'white', 'alpha': 0.5})
-    ax2.set_ylabel('S_xy along thalweg [m]')
-    ax1.set_ylabel('runout difference [m]')
-    ax1.set_xlabel('L_xy across thalweg [m]')
+    ax2.set_ylabel('S_xy along thalweg (m)')
+    ax1.set_ylabel('runout difference (m)')
+    ax1.set_xlabel('L_xy across thalweg (m)')
     ax2.legend()
 
     # add panels for hist and CDF
@@ -1921,10 +1921,10 @@ def boxScalarMeasures(pathDict, resultsDF, name='', orderList=None):
     ax[1, 1].set_xlabel('')
 
     # add y labels
-    ax[1, 0].set_ylabel('max pfv [ms-1]', fontsize=14)
-    ax[1, 1].set_ylabel('max pft [m]',  fontsize=14)
-    ax[0, 0].set_ylabel('sRunout [m]',  fontsize=14)
-    ax[0, 1].set_ylabel('runout angle [°]',  fontsize=14)
+    ax[1, 0].set_ylabel('max pfv (ms-1)', fontsize=14)
+    ax[1, 1].set_ylabel('max pft (m)',  fontsize=14)
+    ax[0, 0].set_ylabel('sRunout (m)',  fontsize=14)
+    ax[0, 1].set_ylabel('runout angle (°)',  fontsize=14)
 
     # set tick size
     ax[1, 1].tick_params(axis='both', which='major', labelsize=14)
@@ -2062,8 +2062,8 @@ def plotOverlap(rasterTransfo, newData, name, avaDir):
         s,
         l,
         np.transpose(np.where((newData > 0), newData, np.nan)),
-        "$S_{XY}$ (thalweg) [m]",
-        "$L_{XY}$ (thalweg) [m]",
+        "$S_{XY}$ (thalweg) (m)",
+        "$L_{XY}$ (thalweg) (m)",
         extent=[s.min(), s.max(), l.min(), l.max()],
     )
     ax[1].set_title("Overlap in coordinate system")
@@ -2072,8 +2072,8 @@ def plotOverlap(rasterTransfo, newData, name, avaDir):
         s,
         l,
         np.transpose(np.where(rasterTransfo["intersectionPoints"], 1, np.nan)),
-        "$S_{XY}$ (thalweg) [m]",
-        "$L_{XY}$ (thalweg) [m]",
+        "$S_{XY}$ (thalweg) (m)",
+        "$L_{XY}$ (thalweg) (m)",
         extent=[s.min(), s.max(), l.min(), l.max()],
     )
 
@@ -2084,8 +2084,8 @@ def plotOverlap(rasterTransfo, newData, name, avaDir):
         s,
         l,
         np.transpose(np.where(fieldOverlap > 0, newData, np.nan)),
-        "$S_{XY}$ (thalweg) [m]",
-        "$L_{XY}$ (thalweg) [m]",
+        "$S_{XY}$ (thalweg) (m)",
+        "$L_{XY}$ (thalweg) (m)",
         extent=[s.min(), s.max(), l.min(), l.max()],
     )
 

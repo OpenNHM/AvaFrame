@@ -77,8 +77,8 @@ def plotAlongProfile(avaDir, peakFilesDF, resType='pft', cInd='names'):
 
     # add profile line
     ax1.plot(profileLine['x'], profileLine['y'], color='orange', linestyle='-', zorder=10, label='profile line')
-    ax1.set_xlabel('x [m]')
-    ax1.set_ylabel('y [m]')
+    ax1.set_xlabel('x (m)')
+    ax1.set_ylabel('y (m)')
     ax1.legend()
 
     # initialize profile figure
@@ -118,18 +118,18 @@ def plotAlongProfile(avaDir, peakFilesDF, resType='pft', cInd='names'):
                   label='dem elevation\nalong given profile')
 
     # add labels
-    ax[1,0].set_xlabel('distance along given profile [m]')
-    ax[1, 1].set_xlabel('distance along given profile [m]')
-    ax[0, 0].set_ylabel('peak flow depth (pfd) [m]')
-    ax[1, 0].set_ylabel('peak flow thickness (pft) [m]')
-    ax[1, 1].set_ylabel('DEM elevation (+ pft) [m]')
-    ax[0, 1].set_ylabel('DEM elevation (+ pfd) [m]')
+    ax[1,0].set_xlabel('distance along given profile (m)')
+    ax[1, 1].set_xlabel('distance along given profile (m)')
+    ax[0, 0].set_ylabel('peak flow depth (pfd) (m)')
+    ax[1, 0].set_ylabel('peak flow thickness (pft) (m)')
+    ax[1, 1].set_ylabel('DEM elevation (+ pft) (m)')
+    ax[0, 1].set_ylabel('DEM elevation (+ pfd) (m)')
 
     # add title to panels
-    ax[0, 0].set_title('pfd along given profile [m]', fontsize=11)
-    ax[1, 0].set_title('pft along given profile [m]', fontsize=11)
-    ax[0, 1].set_title('pfd on top of DEM for given profile [m]', fontsize=11)
-    ax[1, 1].set_title('pft on top of DEM for given profile [m]', fontsize=11)
+    ax[0, 0].set_title('pfd along given profile (m)', fontsize=11)
+    ax[1, 0].set_title('pft along given profile (m)', fontsize=11)
+    ax[0, 1].set_title('pfd on top of DEM for given profile (m)', fontsize=11)
+    ax[1, 1].set_title('pft on top of DEM for given profile (m)', fontsize=11)
 
     # add legend
     ax[0,0].legend()

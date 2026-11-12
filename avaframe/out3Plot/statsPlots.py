@@ -96,8 +96,8 @@ def plotValuesScatter(
     # set range and steps of colormap
     cc = varValV
     sc = ax.scatter(values1, values2, c=cc, cmap=cmap)
-    ax.set_xlabel('%s %s [%s]' % (statsMeasure, name1, unit1))
-    ax.set_ylabel('%s %s [%s]' % (statsMeasure, name2, unit2))
+    ax.set_xlabel('%s %s (%s)' % (statsMeasure, name1, unit1))
+    ax.set_ylabel('%s %s (%s)' % (statsMeasure, name2, unit2))
     pU.addColorBar(sc, ax, ticks, unitVar, nameVar, tickLabelsList=itemsList)
     pU.putAvaNameOnPlot(ax, avalancheDir)
 
@@ -170,8 +170,8 @@ def plotValuesScatterHist(
     nameVar = cfg['varParName']
     unitVar = cfg['varParUnit']
     varValV = np.array(varVal)
-    title1 = statsMeasure + ' ' + name1+' [' + unit1 + ']'
-    title2 = statsMeasure + ' ' + name2+' [' + unit2 + ']'
+    title1 = statsMeasure + ' ' + name1+' (' + unit1 + ')'
+    title2 = statsMeasure + ' ' + name2+' (' + unit2 + ')'
 
     if flagHue:
         # create pandas data frame reqiured for seaborn jointplot
@@ -387,8 +387,8 @@ def plotProbMap(avaDir, inDir, cfgFull, demPlot=False):
 
         pU.addColorBar(im1, ax1, ticks, unit)
         title = str('%s' % cfg['name'])
-        ax1.set_xlabel('x [m]')
-        ax1.set_ylabel('y [m]')
+        ax1.set_xlabel('x (m)')
+        ax1.set_ylabel('y (m)')
 
         # add zoom plot of runout area
         ax2 = fig.add_subplot(122)
@@ -436,8 +436,8 @@ def plotProbMap(avaDir, inDir, cfgFull, demPlot=False):
             # Get the handles for the legend elements
             handles, _ = CS2.legend_elements()
 
-            ax2.set_xlabel('x [m]')
-            ax2.set_ylabel('y [m]')
+            ax2.set_xlabel('x (m)')
+            ax2.set_ylabel('y (m)')
 
             plt.legend(handles, labels, facecolor='black', framealpha=0.04)
             pU.addColorBar(im2, ax2, ticks, unit)

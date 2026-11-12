@@ -624,7 +624,7 @@ def addColorBar(
     else:
         pad = 10
     if myUnit != None and myUnit != "":
-        cbar.ax.set_title("[" + myUnit + "]", pad=pad)
+        cbar.ax.set_title("(" + myUnit + ")", pad=pad)
     if title != "":
         cbar.set_label(title)
     if len(tickLabelsList) > 0:
@@ -959,7 +959,7 @@ def addHillShadeContours(
     # add info box with indication of label meaning
     putInfoBox(
         ax,
-        "- elevation [m]",
+        "- elevation (m)",
         location="upperLeft",
         color="gray",
         hAlignment="left",

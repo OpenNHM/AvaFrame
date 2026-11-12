@@ -68,14 +68,14 @@ def plotPathAngle(dbData, cfgMain, nameEvent, tickOrigin='orig-transit'):
             'r+', markersize=20, label='runout pt')
         ax1.plot(row['geom_event_pt3d_%s_snapped' % projstr].x, row['geom_event_pt3d_%s_snapped' % projstr].y,
             'r*', markersize=14, label='snapped')
-        ax1.set_xlabel('x [m]')
-        ax1.set_ylabel('y [m]')
+        ax1.set_xlabel('x (m)')
+        ax1.set_ylabel('y (m)')
         ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         ax1.set_aspect('equal')
 
         # panel 2 plot xy distance and elevation drop and add angle info
         ax21 = fig.add_subplot(122)
-        ax21.set_title('runout length in $S_{xy}$: %.1f [m], altitude drop: %.1f [m]' % (row['%s_Distance' % nameEvent], row['%s_LineAltDrop' % nameEvent]))
+        ax21.set_title('runout length in $S_{xy}$: %.1f (m), altitude drop: %.1f (m)' % (row['%s_Distance' % nameEvent], row['%s_LineAltDrop' % nameEvent]))
 
         z2coor = np.asarray([coord[2] for coord in row['geom_path_ln3d_%s' % projstr].coords])
         ax21.plot(row['%s_PathDist' % nameEvent], z2coor, '--', color='lightgray', label='thalweg')
@@ -132,8 +132,8 @@ def plotPathAngle(dbData, cfgMain, nameEvent, tickOrigin='orig-transit'):
         ax21.set_xticks(xTicks[1:-1])
         ax21.set_xticklabels(ticksFromOrigStr[1:-1])
 
-        ax21.set_xlabel('$S_{xy}$ [m]')
-        ax21.set_ylabel('altitude [m]')
+        ax21.set_xlabel('$S_{xy}$ (m)')
+        ax21.set_ylabel('altitude (m)')
         ax21.set_aspect('equal')
         ax21.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
@@ -177,7 +177,7 @@ def plotHist(dbData, name, cfgMain, colorcode=''):
         transform=ax3.transAxes, fontsize=12, horizontalalignment='left',
         verticalalignment='bottom', alpha=0.8, bbox=dict(boxstyle="round", ec=(1., 1., 1.),
         fc=(1., 1., 1.), alpha=0.5))
-    ax3.set_xlabel('angle [°]')
+    ax3.set_xlabel('angle (°)')
 
     # save figure
     outFile = ('histogram_%s_angle' % (nameAngle))
