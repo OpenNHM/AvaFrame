@@ -3,6 +3,7 @@
 import numpy as np
 import math
 import configparser
+import pathlib
 import pytest
 import matplotlib.tri as tri
 
@@ -223,6 +224,7 @@ def test_updatePositionC():
         "velMagMin": "1.e-6",
         "rho": "100.",
         "interpOption": "2",
+        "adaptSfcEntrainment": "0",
         "explicitFriction": "0",
         "centeredPosition": "1",
         "reprojMethodPosition": "2",
@@ -789,6 +791,7 @@ def test_updatePositionC_no_circular_reference():
         "velMagMin": "1.e-6",
         "rho": "100.",
         "interpOption": "2",
+        "adaptSfcEntrainment": "0",
         "explicitFriction": "0",
         "centeredPosition": "1",
         "reprojMethodPosition": "2",
@@ -1182,6 +1185,7 @@ def test_computeForceC():
         "velMagMin": "1.0e-6",
         "depMin": "1.0e-6",
         "interpOption": "2",
+        "adaptSfcEntrainment": "0",
         "explicitFriction": "0",
         "reprojMethodForce": "2",
         "reprojectionIterations": "5",
@@ -1453,6 +1457,144 @@ def test_computeForceC():
     test_forceFrictArray = test_forceFrict - test_forceBotTang / test_uMagRes
 
     assert (forceFrictArray == test_forceFrictArray).all()
+
+
+def _entrainmentSetup(interpOption, adaptSfcEntrainment=1):
+    """one particle inside a cell with different entrainable mass on its 4 nodes"""
+    cfg = configparser.ConfigParser()
+    cfg.read(pathlib.Path(DFAfunC.__file__).parent / "com1DFACfg.ini")
+    cfgGen = cfg["GENERAL"]
+    # no artificial viscosity: velocity is only changed by entrainment
+    cfgGen["viscOption"] = "0"
+    cfgGen["entShearResistance"] = "0"
+    cfgGen["entDefResistance"] = "0"
+    cfgGen["interpOption"] = str(interpOption)
+    cfgGen["adaptSfcEntrainment"] = str(adaptSfcEntrainment)
+
+    nrows, ncols, csz = 3, 3, 5.0
+    particles = {
+        "nPart": 1,
+        "x": np.array([1.25]),
+        "y": np.array([2.0]),
+        "z": np.array([0.0]),
+        "ux": np.array([10.0]),
+        "uy": np.array([2.0]),
+        "uz": np.array([0.0]),
+        "m": np.array([2000.0]),
+        "h": np.array([1.0]),
+        "dt": 0.1,
+        "ID": np.array([1], dtype=np.int64),
+        "totalEnthalpy": np.array([0.0]),
+        # nearest node (used for the other rasters)
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
+    }
+    dem = {
+        "header": {"cellsize": csz, "nrows": nrows, "ncols": ncols},
+        "rasterData": np.ones((nrows, ncols)),
+        "Nx": np.zeros((nrows, ncols)),
+        "Ny": np.zeros((nrows, ncols)),
+        "Nz": np.ones((nrows, ncols)),
+        "areaRaster": np.array([[25.0, 26.0, 25.0], [24.0, 25.0, 25.0], [25.0, 25.0, 25.0]]),
+        "outOfDEM": np.zeros((nrows * ncols,), dtype=bool),
+    }
+    # entrainable mass [kg/m²] on the 4 nodes around the particle (one node has none)
+    entrMassRaster = np.zeros((nrows, ncols))
+    entrMassRaster[0, 0] = 10.0
+    entrMassRaster[0, 1] = 0.0
+    entrMassRaster[1, 0] = 20.0
+    entrMassRaster[1, 1] = 5.0
+    fields = {
+        "Vx": np.zeros((nrows, ncols)),
+        "Vy": np.zeros((nrows, ncols)),
+        "Vz": np.zeros((nrows, ncols)),
+        "entrMassRaster": entrMassRaster,
+        "entrEnthRaster": np.zeros((nrows, ncols)),
+        "muField": np.zeros((nrows, ncols)),
+        "xiField": np.zeros((nrows, ncols)),
+        "detRaster": np.zeros((nrows, ncols)),
+        "cResRaster": np.zeros((nrows, ncols)),
+    }
+    return cfgGen, particles, dem, fields
+
+
+@pytest.mark.parametrize("interpOption", [0, 2])
+def test_computeForceC_entrainmentBilinear(interpOption):
+    """adaptSfcEntrainment = 1: entrainable mass is read and removed with the same interpolation weights as
+    the other grid fields; mass and momentum are conserved"""
+    cfgGen, particles, dem, fields = _entrainmentSetup(interpOption, adaptSfcEntrainment=1)
+    csz = dem["header"]["cellsize"]
+    nrows, ncols = dem["header"]["nrows"], dem["header"]["ncols"]
+    entrMass0 = fields["entrMassRaster"].copy()
+    area = dem["areaRaster"]
+    m0 = particles["m"].copy()
+    momentum0 = m0 * np.array([particles["ux"][0], particles["uy"][0]])
+
+    # expected share of the entrained mass taken from each node: w_i * mass_i / sum_j(w_j * mass_j)
+    Lx0, Ly0, _, w0, w1, w2, w3 = DFAtlsC.getCellAndWeights(
+        particles["x"][0], particles["y"][0], ncols, nrows, csz, interpOption
+    )
+    w = np.array([w0, w1, w2, w3])
+    nodes = [(Ly0, Lx0), (Ly0, Lx0 + 1), (Ly0 + 1, Lx0), (Ly0 + 1, Lx0 + 1)]
+    massNode = np.array([w[i] * entrMass0[n] * area[n] for i, n in enumerate(nodes)])
+    share = massNode / massNode.sum()
+
+    # frictType 2: coulomb
+    particles, force, fields = DFAfunC.computeForceC(cfgGen, particles, fields, dem, 2, 1)
+    dm = force["dM"][0]
+    assert dm > 0
+    # dm is small compared to the available mass: no node is emptied (no clamping)
+    assert dm < massNode.sum()
+
+    removed = (entrMass0 - fields["entrMassRaster"]) * area
+    for i, n in enumerate(nodes):
+        assert np.isclose(removed[n], share[i] * dm)
+    # only the 4 nodes around the particle are changed, a node without mass is not changed
+    assert np.isclose(removed.sum(), dm)
+    assert removed[0, 1] == 0
+    if interpOption == 0:
+        # nearest neighbour: only one node is used
+        assert np.count_nonzero(removed) == 1
+    else:
+        assert np.count_nonzero(removed) == 3
+
+    # mass conservation: particle mass + entrainable mass is constant
+    assert np.isclose(
+        particles["m"].sum() + (fields["entrMassRaster"] * area).sum(), m0.sum() + (entrMass0 * area).sum()
+    )
+    # momentum conservation: the entrained mass is at rest
+    momentum = particles["m"] * np.array([particles["ux"][0], particles["uy"][0]])
+    assert np.allclose(momentum, momentum0)
+
+
+@pytest.mark.parametrize("interpOption", [0, 2])
+def test_computeForceC_entrainmentNearestNode(interpOption):
+    """adaptSfcEntrainment = 0: entrainable mass is read and removed at the nearest node (indXDEM, indYDEM),
+    independent of interpOption"""
+    cfgGen, particles, dem, fields = _entrainmentSetup(interpOption, adaptSfcEntrainment=0)
+    # nearest node with entrainable mass of 20 kg/m² (the particle is in the cell of the lower left node,
+    # indXDEM/indYDEM decide which node is used)
+    particles["indYDEM"] = np.array([1], dtype=np.int32)
+    entrMass0 = fields["entrMassRaster"].copy()
+    area = dem["areaRaster"]
+    m0 = particles["m"].copy()
+
+    particles, force, fields = DFAfunC.computeForceC(cfgGen, particles, fields, dem, 2, 1)
+    dm = force["dM"][0]
+    assert dm > 0
+
+    removed = (entrMass0 - fields["entrMassRaster"]) * area
+    assert np.isclose(removed[1, 0], dm)
+    assert np.count_nonzero(removed) == 1
+    assert np.isclose(
+        particles["m"].sum() + (fields["entrMassRaster"] * area).sum(), m0.sum() + (entrMass0 * area).sum()
+    )
+
+    # the entrained mass depends on the nearest node value only (here: twice the value of node [0, 0])
+    cfgGen2, particles2, dem2, fields2 = _entrainmentSetup(interpOption, adaptSfcEntrainment=0)
+    fields2["entrMassRaster"][0, 0] = 20.0
+    particles2, force2, fields2 = DFAfunC.computeForceC(cfgGen2, particles2, fields2, dem2, 2, 1)
+    assert np.isclose(force2["dM"][0], dm)
 
 
 def test_updateInitialVelocity():

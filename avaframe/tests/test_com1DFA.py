@@ -3295,6 +3295,7 @@ def test_adaptDEM():
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
         "thresholdAdaptSfc": 0.1,
+        "rhoEnt": 100.0,
         "adaptSfcStopped": 0,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 0,
@@ -3336,6 +3337,7 @@ def test_adaptDEM():
         "mDet": np.zeros_like(data),
         "entrDepth": np.zeros_like(data),
         "entrMassRaster": np.zeros_like(data),
+        "entrMassRasterPrev": np.zeros_like(data),
     }
 
     dem = geoTrans.getNormalMesh(dem, num=cfg["GENERAL"].getfloat("methodMeshNormal"))
@@ -3356,6 +3358,7 @@ def test_adaptDEM():
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
         "thresholdAdaptSfc": 0.1,
+        "rhoEnt": 100.0,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 1,
         "adaptSfcEntrainment": 1,
@@ -3395,6 +3398,7 @@ def test_adaptDEM():
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
         "thresholdAdaptSfc": 0.1,
+        "rhoEnt": 100.0,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 1,
@@ -3414,13 +3418,18 @@ def test_adaptDEM():
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
         "thresholdAdaptSfc": 0.1,
+        "rhoEnt": 100.0,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 1,
         "adaptSfcEntrainment": 1,
         "entrainableDeposition": "False",
     }
 
+    # the eroded depth is derived from the entrainable mass removed since the last call (not from FTEnt):
+    # 100 kg/m² with rhoEnt = 100 is 1 m entrained thickness, which cancels FTDet = 1
     fields["FTEnt"] -= 1
+    fields["entrMassRasterPrev"] = np.full_like(data, 200.0)
+    fields["entrMassRaster"] = np.full_like(data, 100.0)
     fieldsInput = fields.copy()
     demInput = dem.copy()
 
@@ -3436,7 +3445,9 @@ def test_adaptDEM():
         else:
             assert np.all(demAdapted[key] == dem[key])
     for key in fieldsAdapted.keys():
-        if isinstance(fieldsAdapted[key], np.ndarray):
+        if key == "entrMassRasterPrev":
+            assert np.all(fieldsAdapted[key] == fields["entrMassRaster"])
+        elif isinstance(fieldsAdapted[key], np.ndarray):
             assert np.allclose(
                 fieldsAdapted[key],
                 fields[key],
@@ -3444,8 +3455,18 @@ def test_adaptDEM():
             )
         else:
             assert np.all(fieldsAdapted[key] == fields[key])
-            
+
+    # FTEnt alone does not change the surface any more (no entrainable mass removed)
+    fields["entrMassRasterPrev"] = fields["entrMassRaster"].copy()
+    fields["FTDet"] = np.zeros_like(data)
+    fieldsInput = fields.copy()
+    demInput = dem.copy()
+    demAdapted, fieldsAdapted = com1DFA.adaptDEM(demInput, fieldsInput, cfg["GENERAL"])
+    assert np.all(demAdapted["rasterData"] == dem["rasterData"])
+
     fields["FTEnt"] = np.zeros_like(fields["FTDet"])
+    fields["entrMassRaster"] = np.zeros_like(data)
+    fields["entrMassRasterPrev"] = np.zeros_like(data)
     fields["FTDet"] = np.array(
         [
             [0, 0, 0, 0, 0],
@@ -3483,6 +3504,7 @@ def test_adaptDEM():
     cfg["GENERAL"] = {
         "methodMeshNormal": 1,
         "thresholdAdaptSfc": 0.1,
+        "rhoEnt": 100.0,
         "adaptSfcStopped": 1,
         "adaptSfcDetrainment": 0,
         "adaptSfcEntrainment": 1,
@@ -3537,8 +3559,9 @@ def test_adaptDEM():
     assert np.all(fieldsAdapted["sfcChangeCum"] == fields["FTDet"] / NzNormed)
     assert np.all(fieldsAdapted["demNotErodableRaster"] == fields["demNotErodableRaster"])
     assert np.all(fieldsAdapted["entrDepth"] == fields["FTStop"] / NzNormed)
-    # entrMassRaster is mass per m²
-    assert np.all(fieldsAdapted["entrMassRaster"] == -fields["mStop"] / dem["areaRaster"])
+    # entrMassRaster is mass per m²; the cell area was updated, the mass per cell has to be conserved
+    assert np.allclose(fieldsAdapted["entrMassRaster"] * demAdapted["areaRaster"], -fields["mStop"])
+    assert np.all(fieldsAdapted["entrMassRasterPrev"] == fieldsAdapted["entrMassRaster"])
 
     # surface change below thresholdAdaptSfc: topography, entrainable depth and mass are updated
     # but normals and area of the DEM are not
@@ -3570,6 +3593,189 @@ def test_adaptDEM():
     assert np.any(demAdapted2["Nx"] != dem["Nx"])
     assert np.any(demAdapted2["areaRaster"] != dem["areaRaster"])
     assert np.all(demAdapted2["rasterDataNormals"] == demAdapted2["rasterData"])
+
+
+def test_adaptDEM_entrainableDepositionDensity():
+    """deposit (density rho) and entrain it again (rhoEnt != rho): erodable depth and mass stay
+    consistent, depth never becomes negative and the surface returns to the not erodable topography"""
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "methodMeshNormal": 1,
+        "thresholdAdaptSfc": 0.1,
+        "rhoEnt": 100.0,
+        "adaptSfcStopped": 1,
+        "adaptSfcDetrainment": 0,
+        "adaptSfcEntrainment": 1,
+        "entrainableDeposition": "True",
+    }
+    cfgGen = cfg["GENERAL"]
+    rho = 200.0
+    rhoEnt = 100.0
+
+    data = np.tile(np.array([1.0, 2.0, 3.0, 4.0, 5.0]), (5, 1))
+    dem = {"header": {"nrows": 5, "ncols": 5, "cellsize": 5}, "rasterData": data.copy()}
+    dem = geoTrans.getNormalMesh(dem, num=1)
+    dem = DFAtls.getAreaMesh(dem, 1)
+    _, _, NzNormed = DFAtls.normalize(dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy())
+    zeros = np.zeros_like(data)
+    fields = {
+        "FTDet": zeros.copy(),
+        "FTStop": zeros.copy(),
+        "FTEnt": zeros.copy(),
+        "mStop": zeros.copy(),
+        "mDet": zeros.copy(),
+        "sfcChangeCum": zeros.copy(),
+        "sfcChange": zeros.copy(),
+        "entrDepth": zeros.copy(),
+        "entrMassRaster": zeros.copy(),
+        "entrMassRasterPrev": zeros.copy(),
+        "demNotErodableRaster": data.copy(),
+    }
+
+    # step 1: particles stop in the middle row (thickness and mass as computed in updateFieldsC)
+    ftStop = np.zeros_like(data)
+    ftStop[2, :] = 0.5
+    mStop = -ftStop * rho * dem["areaRaster"]
+    fields["FTStop"] = ftStop
+    fields["mStop"] = mStop
+    dem, fields = com1DFA.adaptDEM(dem, fields, cfgGen)
+    massDeposited = np.sum(fields["entrMassRaster"] * dem["areaRaster"])
+    # the surface change is > thresholdAdaptSfc: the cell area is updated, the mass is conserved
+    assert np.isclose(massDeposited, -np.sum(mStop))
+    assert np.allclose(fields["entrDepth"], ftStop / NzNormed)
+
+    # step 2: half of the deposit is entrained (computeForceC already reduced entrMassRaster,
+    # FTEnt is computed with rhoEnt in updateFieldsC)
+    fields["FTStop"] = zeros.copy()
+    fields["mStop"] = zeros.copy()
+    massEnt = 0.5 * fields["entrMassRaster"] * dem["areaRaster"]
+    fields["FTEnt"] = -massEnt / (dem["areaRaster"] * rhoEnt)
+    fields["entrMassRaster"] = 0.5 * fields["entrMassRaster"]
+    depthBefore = fields["entrDepth"].copy()
+    dem, fields = com1DFA.adaptDEM(dem, fields, cfgGen)
+    # depth is reduced by the same fraction as the mass (not by massEnt / rhoEnt)
+    assert np.allclose(fields["entrDepth"], 0.5 * depthBefore)
+    assert np.allclose(dem["rasterData"], fields["demNotErodableRaster"] + fields["entrDepth"])
+    assert np.isclose(np.sum(fields["entrMassRaster"] * dem["areaRaster"]), 0.5 * massDeposited)
+
+    # step 3: the rest is entrained
+    massEnt = fields["entrMassRaster"] * dem["areaRaster"]
+    fields["FTEnt"] = -massEnt / (dem["areaRaster"] * rhoEnt)
+    fields["entrMassRaster"] = zeros.copy()
+    dem, fields = com1DFA.adaptDEM(dem, fields, cfgGen)
+    assert np.all(fields["entrDepth"] >= 0)
+    assert np.allclose(fields["entrDepth"], 0.0)
+    assert np.allclose(dem["rasterData"], fields["demNotErodableRaster"])
+    assert np.allclose(fields["sfcChangeCum"], 0.0)
+
+
+@pytest.mark.parametrize("entrainableDeposition", ["False", "True"])
+def test_adaptDEM_entrainmentFootprint(entrainableDeposition):
+    """the surface is lowered exactly at the cells the entrainable mass was removed from (independent of
+    FTEnt) and both branches (entrainableDeposition True/False) give the same eroded depth for a pure snow bed"""
+    rhoEnt = 100.0
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "methodMeshNormal": 1,
+        # no update of normals and area: NzNormed stays the same
+        "thresholdAdaptSfc": 10.0,
+        "rhoEnt": rhoEnt,
+        "adaptSfcStopped": 0,
+        "adaptSfcDetrainment": 0,
+        "adaptSfcEntrainment": 1,
+        "entrainableDeposition": entrainableDeposition,
+    }
+
+    data = np.tile(np.array([1.0, 2.0, 3.0, 4.0, 5.0]), (5, 1))
+    dem = {"header": {"nrows": 5, "ncols": 5, "cellsize": 5}, "rasterData": data.copy()}
+    dem = geoTrans.getNormalMesh(dem, num=1)
+    dem = DFAtls.getAreaMesh(dem, 1)
+    _, _, NzNormed = DFAtls.normalize(dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy())
+    zeros = np.zeros_like(data)
+
+    # pure snow bed: 0.5 m entrainable thickness everywhere
+    entrMass0 = np.full_like(data, 0.5 * rhoEnt)
+    entrDepth0 = entrMass0 / rhoEnt / NzNormed
+    # entrained mass per m² as removed in computeForceC (4 cell centers around one particle)
+    removed = np.zeros_like(data)
+    removed[2, 1] = 20.0
+    removed[2, 2] = 10.0
+    removed[3, 1] = 5.0
+    removed[3, 2] = 50.0
+    fields = {
+        "FTDet": zeros.copy(),
+        "FTStop": zeros.copy(),
+        # FTEnt is at a different location (end of time step) and must not be used
+        "FTEnt": np.where(np.roll(removed, 1, axis=1) > 0, -1.0, 0.0),
+        "mStop": zeros.copy(),
+        "mDet": zeros.copy(),
+        "sfcChangeCum": zeros.copy(),
+        "sfcChange": zeros.copy(),
+        "entrDepth": entrDepth0.copy(),
+        "entrMassRaster": entrMass0 - removed,
+        "entrMassRasterPrev": entrMass0.copy(),
+        "demNotErodableRaster": data - entrDepth0,
+    }
+
+    dem, fields = com1DFA.adaptDEM(dem, fields, cfg["GENERAL"])
+
+    depthExpected = -removed / rhoEnt / NzNormed
+    assert np.allclose(fields["sfcChange"], depthExpected)
+    assert np.allclose(dem["rasterData"], data + depthExpected)
+    # surface only changes where mass was removed
+    assert np.all((fields["sfcChange"] != 0) == (removed > 0))
+    assert np.all(fields["entrMassRasterPrev"] == fields["entrMassRaster"])
+
+    # no entrainable mass removed since the last call: FTEnt alone does not change the surface
+    demBefore = dem["rasterData"].copy()
+    dem, fields = com1DFA.adaptDEM(dem, fields, cfg["GENERAL"])
+    assert np.all(dem["rasterData"] == demBefore)
+
+
+def test_adaptDEM_detrainmentOnlyEntrainableIfSfcAdapted():
+    """detrained mass only becomes entrainable if it also adapts the surface (adaptSfcDetrainment = 1)"""
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "methodMeshNormal": 1,
+        "thresholdAdaptSfc": 0.1,
+        "rhoEnt": 100.0,
+        "adaptSfcStopped": 1,
+        "adaptSfcDetrainment": 0,
+        "adaptSfcEntrainment": 1,
+        "entrainableDeposition": "True",
+    }
+    data = np.tile(np.array([1.0, 2.0, 3.0, 4.0, 5.0]), (5, 1))
+    dem = {"header": {"nrows": 5, "ncols": 5, "cellsize": 5}, "rasterData": data.copy()}
+    dem = geoTrans.getNormalMesh(dem, num=1)
+    dem = DFAtls.getAreaMesh(dem, 1)
+    zeros = np.zeros_like(data)
+    ftDet = np.zeros_like(data)
+    ftDet[2, :] = 0.05
+    fields = {
+        "FTDet": ftDet,
+        "FTStop": zeros.copy(),
+        "FTEnt": zeros.copy(),
+        "mStop": zeros.copy(),
+        "mDet": -ftDet * 200.0 * dem["areaRaster"],
+        "sfcChangeCum": zeros.copy(),
+        "sfcChange": zeros.copy(),
+        "entrDepth": zeros.copy(),
+        "entrMassRaster": zeros.copy(),
+        "entrMassRasterPrev": zeros.copy(),
+        "demNotErodableRaster": data.copy(),
+    }
+    demAdapted, fieldsAdapted = com1DFA.adaptDEM(dem.copy(), fields.copy(), cfg["GENERAL"])
+    # surface not adapted by detrainment: neither depth nor mass are added to the erodable layer
+    assert np.all(fieldsAdapted["entrDepth"] == 0)
+    assert np.all(fieldsAdapted["entrMassRaster"] == 0)
+    assert np.all(demAdapted["rasterData"] == data)
+
+    cfg["GENERAL"]["adaptSfcDetrainment"] = "1"
+    demAdapted, fieldsAdapted = com1DFA.adaptDEM(dem.copy(), fields.copy(), cfg["GENERAL"])
+    # surface adapted by detrainment: depth and mass are added consistently
+    assert np.all(fieldsAdapted["entrDepth"][ftDet > 0] > 0)
+    assert np.all(fieldsAdapted["entrDepth"][ftDet == 0] == 0)
+    assert np.allclose(fieldsAdapted["entrMassRaster"] * demAdapted["areaRaster"], -fields["mDet"])
 
 
 def test_tSteps_output_behavior(tmp_path, caplog):
