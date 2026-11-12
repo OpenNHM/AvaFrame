@@ -1402,6 +1402,8 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
 
     # surfacic entrainment mass available (unit kg/m²)
     fields["entrMassRaster"] = entrMassRaster
+    # entrainable mass after the last surface adaptation (used to derive the eroded depth in adaptDEM)
+    fields["entrMassRasterPrev"] = entrMassRaster.copy()
     fields["entrEnthRaster"] = entrEnthRaster
     fields["entrDepth"] = entrDepthRaster
     fields["demNotErodableRaster"] = demNotErodableRaster
@@ -2446,6 +2448,8 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         "initial mass": massTotal[0],
         "entrained mass": np.sum(massEntrained),
         "detrained mass": np.sum(massDetrained),
+        # volume of the entrained mass at rhoEnt; if entrainableDeposition is True, entrained
+        # deposits (density rho) are included, so this volume is only an approximation - use the mass
         "entrained volume": (np.sum(massEntrained) / cfgGen.getfloat("rhoEnt")),
         "pfvTimeMax": pfvTimeMax,
         "massInitialized": massInitialized,
@@ -2503,7 +2507,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         outHydDF.to_csv(outHydPath / f"outputHydrographDF_{simHash}.csv")
         # plot output hydrograph
         debF.outputHydrographPlot(outHydDF, cfgGen, simHash=simHash)
-    
+
     if cfg["EXPORTS"].getboolean("exportData"):
         exportFields(cfg, t, fields, dem, outDir, cuSimName, TSave="final")
 
@@ -2829,7 +2833,11 @@ def computeEulerTimeStep(
         # ToDo: we could skip the update field and directly do the split merge. This means we would use the old h
         startTime = time.time()
         log.debug("update Fields C")
+        # dmDet is summed up over time in updateFieldsC (in place); updateFieldsC is called again at the
+        # end of the time step, hence the detrained mass would be counted twice
+        dmDetCum = fields["dmDet"].copy()
         particles, fields = DFAfunC.updateFieldsC(cfg, particles, dem, fields)
+        fields["dmDet"] = dmDetCum
         tcpuField = time.time() - startTime
         tCPU["timeField"] = tCPU["timeField"] + tcpuField
         # Then split merge particles
@@ -3997,12 +4005,12 @@ def adaptDEM(dem, fields, cfg):
         fields dictionary containing:
             FTDet (flow thickness change due to detrainment >= 0)
             FTStop (flow thickness change due to stopping >= 0)
-            FTEnt (flow thickness change due to entrainment <= 0)
             mStop (stopped mass <=0)
             mDet (detrained mass <=0)
             sfcChangeCum (so far changed surface)
             entrDepth (entrainable depth that is on top of the not erodable topography)
-            entrMassRaster (entrainable mass)
+            entrMassRaster (entrainable mass per m², already reduced by entrainment in this time step)
+            entrMassRasterPrev (entrainable mass per m² after the last call of adaptDEM)
             demNotErodableRaster (topography that is not erodable)
     cfg: dict
         configuration settings
@@ -4018,11 +4026,15 @@ def adaptDEM(dem, fields, cfg):
     # mass and thickness change within the timestep
     FTDet = fields["FTDet"]  # >= 0
     FTStop = fields["FTStop"]  # >= 0
-    FTEnt = fields["FTEnt"]  # <= 0
     mStop = fields["mStop"]  # <= 0
     mDet = fields["mDet"]  # <= 0
+    # entrainable mass [kg/m²] after the last call of adaptDEM; since then it was only reduced by
+    # entrainment (computeForceC). Fallback: no entrainment happened since then
+    entrMassPrev = fields.get("entrMassRasterPrev", fields["entrMassRaster"])
+    entrMassNow = fields["entrMassRaster"]
+    entrMassChanged = not np.array_equal(entrMassPrev, entrMassNow)
 
-    if np.all(FTDet == 0) and np.all(FTEnt == 0) and np.all(FTStop == 0):
+    if np.all(FTDet == 0) and np.all(FTStop == 0) and not entrMassChanged:
         # if there are no thickness changes, topography is not modified
         return dem, fields
 
@@ -4048,21 +4060,39 @@ def adaptDEM(dem, fields, cfg):
         ZDEMadapt += depthDet
         sfcChange += depthDet
     if cfg.getboolean("adaptSfcEntrainment"):
-        # compute thickness to depth
-        depthEnt = FTEnt / NzNormed
+        # entrained mass per m² since the last call, taken from the same nodes as in computeForceC
+        # (FTEnt is not used: it is computed at the end-of-step position with different weights)
+        entrMassRemoved = np.maximum(entrMassPrev - entrMassNow, 0.0)
+        # mass per m² to thickness (rhoEnt) and thickness to depth
+        depthEnt = -entrMassRemoved / cfg.getfloat("rhoEnt") / NzNormed
         ZDEMadapt += depthEnt
         sfcChange += depthEnt
     if cfg.getboolean("entrainableDeposition"):
-        hErodable = copy.deepcopy(fields["entrDepth"])
-        hErodable += depthStop
-        hErodable += depthDet
-        hErodable += depthEnt
+        # the erodable layer can consist of the initial entrainment layer (rhoEnt) and deposited mass (rho),
+        # hence depth and mass are not linked by one density. The entrained mass was already removed from
+        # entrMassRaster (computeForceC), the erodable depth is reduced by the same fraction as the mass:
+        # mass and depth of the erodable layer stay consistent and the depth can not become negative
+
+        fracEntrained = np.divide(
+            entrMassPrev - entrMassNow,
+            entrMassPrev,
+            out=np.zeros_like(entrMassNow),
+            where=entrMassPrev > 0,
+        )
+        fracEntrained = np.clip(fracEntrained, 0.0, 1.0)
+        depthEnt = -fields["entrDepth"] * fracEntrained
+        hErodable = fields["entrDepth"] + depthEnt + depthStop + depthDet
         ZDEMadapt = fields["demNotErodableRaster"].copy() + hErodable
+        sfcChange = depthStop + depthDet + depthEnt
         fields["entrDepth"] = hErodable
-        # the entrained mass is considered in DFAFunctionsCython.pyx
-        # entrMassRaster shows mass per m²
-        fields["entrMassRaster"] -= mStop / dem['areaRaster']
-        fields["entrMassRaster"] -= mDet / dem['areaRaster']
+        # stopped and detrained mass become entrainable (only if they also adapt the surface)
+        # entrMassRaster is mass per m², mStop and mDet are <= 0
+        entrMassNew = entrMassNow.copy()
+        if cfg.getboolean("adaptSfcStopped"):
+            entrMassNew -= mStop / dem["areaRaster"]
+        if cfg.getboolean("adaptSfcDetrainment"):
+            entrMassNew -= mDet / dem["areaRaster"]
+        fields["entrMassRaster"] = entrMassNew
 
     # topography the normals and area of the DEM were computed with
     ZDEMNormals = dem.get("rasterDataNormals", ZDEM)
@@ -4074,11 +4104,21 @@ def adaptDEM(dem, fields, cfg):
     # since they were computed the last time
     if np.any(abs(ZDEMadapt - ZDEMNormals) > cfg.getfloat("thresholdAdaptSfc")):
         num = cfg.getfloat("methodMeshNormal")
+        areaOld = dem["areaRaster"].copy()
         dem = geoTrans.getNormalMesh(dem, num=num)
         dem = DFAtls.getAreaMesh(dem, num)
         dem["rasterDataNormals"] = ZDEMadapt
+        # mass conservation: entrMassRaster is mass per m², the mass of a cell has to stay the same
+        # when the cell area changes
+        areaRatio = np.divide(
+            areaOld, dem["areaRaster"], out=np.ones_like(areaOld), where=dem["areaRaster"] > 0
+        )
+        fields["entrMassRaster"] = fields["entrMassRaster"] * areaRatio
     else:
         dem["rasterDataNormals"] = ZDEMNormals
+
+    # entrainable mass after this surface adaptation; until the next call only entrainment changes it
+    fields["entrMassRasterPrev"] = fields["entrMassRaster"].copy()
 
     fields["sfcChange"] = sfcChange
     fields["sfcChangeCum"] = sfcChangeCum + sfcChange

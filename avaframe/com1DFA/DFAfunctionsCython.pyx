@@ -165,6 +165,17 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double[:] dMDet = np.zeros(nPart, dtype=np.float64)
   cdef double[:] gEff = np.zeros(nPart, dtype=np.float64)
   cdef double[:] curvAcc = np.zeros(nPart, dtype=np.float64)
+  # entrainment: lower left node of the particle's cell and share of the entrained mass taken from each of the
+  # 4 nodes (same interpolation weights as for all other grid fields). Only if the surface is adapted due to
+  # entrainment, otherwise the entrainable mass is read and removed at the nearest node
+  cdef int adaptSfcEntrainment = cfg.getint('adaptSfcEntrainment')
+  cdef int[:] entLx0 = np.zeros(nPart, dtype=np.intc)
+  cdef int[:] entLy0 = np.zeros(nPart, dtype=np.intc)
+  cdef double[:, :] entShare = np.zeros((nPart, 4), dtype=np.float64)
+  cdef int ind1[4]
+  cdef int ind2[4]
+  cdef int i, indNodeX, indNodeY
+  cdef double entrMassAvail, massNode
   # declare intermediate step variables
   cdef int indCellX, indCellY
   cdef double areaPart, areaCell, areaEntrPart, cResCell, cResPart, uMag, uMagRes, m, dm, h, entrMassCell, entrEnthCell, dEnergyEntr, dis
@@ -182,6 +193,8 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double wEnd[4]
   cdef int k
 
+  ind1[:] = [0, 1, 0, 1]
+  ind2[:] = [0, 0, 1, 1]
   force = {}
   # loop on particles
   for k in range(nPart):
@@ -390,16 +403,42 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
         forceFrict[k] = forceFrict[k] - forceBotTang/uMagRes
 
       # compute entrained mass and if wetSnow case compute total enthalpy of particles with entrainment
-      entrMassCell = entrMassRaster[indCellY, indCellX]
+      if adaptSfcEntrainment == 1:
+        # entrainable mass [kg/m²] at the particle location, interpolated from the 4 surrounding nodes with the
+        # same weights as all other grid fields (e.g. normals, flow thickness)
+        entrMassCell = 0.0
+        entrMassAvail = 0.0
+        for i in range(4):
+          indNodeX = Lx0 + ind1[i]
+          indNodeY = Ly0 + ind2[i]
+          massNode = w[i] * entrMassRaster[indNodeY, indNodeX] * areaRatser[indNodeY, indNodeX]
+          entrMassCell = entrMassCell + w[i] * entrMassRaster[indNodeY, indNodeX]
+          entrMassAvail = entrMassAvail + massNode
+          entShare[k, i] = massNode
+        entLx0[k] = Lx0
+        entLy0[k] = Ly0
+      else:
+        # entrainable mass [kg/m²] at the nearest node (the whole entrained mass is taken from this node)
+        entrMassCell = entrMassRaster[indCellY, indCellX]
+        entrMassAvail = 1.0
+        entShare[k, 0] = 1.0
+        entLx0[k] = indCellX
+        entLy0[k] = indCellY
       if entrMassCell > 0.0:
         # compute entrained mass
         dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
+        # the entrained mass is taken from the 4 nodes in proportion to w_i * mass_i (a node without entrainable
+        # mass does not contribute), or completely from the nearest node
+        for i in range(4):
+          entShare[k, i] = entShare[k, i] / entrMassAvail
         # speed loss due to energy loss due to entrained mass
         dEnergyEntr = areaEntrPart * entShearResistance + dm * entDefResistance
 
         if frictType == 4 and dm > 0.0:
-          # enthalpy change due to entrained mass
-          entrEnthCell = entrEnthRaster[indCellY, indCellX]
+          # enthalpy change due to entrained mass (enthalpy of the nodes the mass is taken from)
+          entrEnthCell = 0.0
+          for i in range(4):
+            entrEnthCell = entrEnthCell + entShare[k, i] * entrEnthRaster[entLy0[k] + ind2[i], entLx0[k] + ind1[i]]
           dTotalEnthalpy = (entrEnthCell + gravAcc * z) * dm
           totalEnthalpy = (totalEnthalpy * m + dTotalEnthalpy)
 
@@ -469,18 +508,24 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   particles['totalEnthalpy'] = np.asarray(totalEnthalpyArray)
 
   # update mass available for entrainement
+  # the entrained mass of each particle is removed from the 4 nodes around its position (start of the time step)
+  # in proportion to w_i * mass_i (entShare) if adaptSfcEntrainment = 1, otherwise from the nearest node
   # TODO: this allows to entrain more mass then available...
   for k in range(nPart):
-    indCellX = indXDEM[k]
-    indCellY = indYDEM[k]
-    entrMassCell = entrMassRaster[indCellY, indCellX]
-    areaCell = areaRatser[indCellY, indCellX]
     dm = dM[k]
-    # update surface entrainment mass available
-    entrMassCell = entrMassCell - dm/areaCell
-    if entrMassCell < 0:
-      entrMassCell = 0
-    entrMassRaster[indCellY, indCellX] = entrMassCell
+    if dm <= 0.0:
+      continue
+    for i in range(4):
+      if entShare[k, i] <= 0.0:
+        continue
+      indNodeX = entLx0[k] + ind1[i]
+      indNodeY = entLy0[k] + ind2[i]
+      areaCell = areaRatser[indNodeY, indNodeX]
+      # update surface entrainment mass available
+      entrMassCell = entrMassRaster[indNodeY, indNodeX] - entShare[k, i] * dm / areaCell
+      if entrMassCell < 0:
+        entrMassCell = 0
+      entrMassRaster[indNodeY, indNodeX] = entrMassCell
   fields['entrMassRaster'] = np.asarray(entrMassRaster).copy()
 
   return particles, force, fields
