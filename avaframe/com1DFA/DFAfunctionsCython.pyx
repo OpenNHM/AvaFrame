@@ -108,6 +108,12 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double tauyBinghamCfg = cfg.getfloat('tauyBingham')
   cdef double alpha2TauyBingham = cfg.getfloat('alpha2TauyBingham')
   cdef double beta2TauyBingham = cfg.getfloat('beta2TauyBingham')
+  cdef double muIMuS = cfg.getfloat('muIMuS')
+  cdef double muIMu2 = cfg.getfloat('muIMu2')
+  cdef double muII0 = cfg.getfloat('muII0')
+  cdef double muIGrainSize = cfg.getfloat('muIGrainSize')
+  cdef double muIGrainDensity = cfg.getfloat('muIGrainDensity')
+  cdef double muIShearFactor = cfg.getfloat('muIShearFactor')
   cdef double curvAccInFriction = cfg.getfloat('curvAccInFriction')
   cdef double curvAccInTangent = cfg.getfloat('curvAccInTangent')
   cdef int curvAccInGradient = cfg.getint('curvAccInGradient')
@@ -175,7 +181,8 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double muVoellmyRaster, xsiVoellmyRaster
   #TODO: Influence on variable initiation?
   cdef double shearRate, etaObrienAndJulien, tauyObrienAndJulien, lmObrienAndJulien
-  cdef double lambdaBagnold, cObrienAndJulien, tauyHerschelAndBulkley, etaBingham, tauyBingham                                                                          
+  cdef double lambdaBagnold, cObrienAndJulien, tauyHerschelAndBulkley, etaBingham, tauyBingham
+  cdef double inertialNumber, muI
   # variables for interpolation
   cdef int Lx0, Ly0, LxEnd0, LyEnd0, iCell, iCellEnd
   cdef double w[4]
@@ -372,6 +379,16 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
               tauyBingham = tauyBinghamCfg
             # shear stress
             tau = tauyBingham + etaBingham * shearRate
+          elif frictType == 13:
+            ## mu(I) rheology (thickness-averaged)
+            if sigmaB <= 0.0:
+              tau = 0.0
+            else:
+              # inertial number with the Bagnold shear rate closure muIShearFactor * uMag / h
+              inertialNumber = muIShearFactor * uMag * muIGrainSize / (h * math.sqrt(sigmaB / muIGrainDensity))
+              # rearranged form of mu(I), finite for I = 0
+              muI = muIMuS + (muIMu2 - muIMuS) * inertialNumber / (muII0 + inertialNumber)
+              tau = muI * sigmaB
           else:
             tau = 0.0
 
