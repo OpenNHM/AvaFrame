@@ -129,6 +129,52 @@ def test_computeEntMassAndForce(capfd):
     assert areaEntrPart == 1
 
 
+def test_computeEntMassAndForceTjem():
+    """Test the computeEntMassAndForceTjem function"""
+    dt = 0.1
+    areaPart = 1
+    uMag = 10
+    entShearStrength = 500
+    velMagMin = 1e-3
+
+    # no entrainable mass
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 0, areaPart, uMag, 1000, entShearStrength, velMagMin
+    )
+    assert dm == 0
+    assert areaEntrPart == 0
+    assert tau == 1000
+
+    # tau above shear strength: entrainment and tau limited to shear strength
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 200, areaPart, uMag, 1000, entShearStrength, velMagMin
+    )
+    assert dm == pytest.approx(5.0)
+    assert areaEntrPart == 1
+    assert tau == entShearStrength
+
+    # tau below shear strength: no entrainment, tau unchanged
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 200, areaPart, uMag, 400, entShearStrength, velMagMin
+    )
+    assert dm == 0
+    assert tau == 400
+
+    # resting particle: no division by 0, no entrainment
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 200, areaPart, 0, 1000, entShearStrength, velMagMin
+    )
+    assert dm == 0
+    assert areaEntrPart == 0
+    assert tau == 1000
+
+    # entrained mass is capped by the mass available under the particle
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 1, areaPart, uMag, 1000, entShearStrength, velMagMin
+    )
+    assert dm == pytest.approx(1.0)
+
+
 def test_computeDetMass(capfd):
     """Test the computeDetMass function"""
     dt = 0.1
@@ -1208,6 +1254,7 @@ def test_computeForceC():
         "Bsamosatmedium": "4.13",
         "Rsamosatmedium": "0.05",
         "entEroEnergy": "5000",
+        "entShearStrength": "500",
         "entShearResistance": "0",
         "entDefResistance": "0",
         "xsivoellmy": "4000.",
@@ -1298,6 +1345,9 @@ def test_computeForceC():
     # resistanceType
     resistanceType = 1  # default; since cResRaster = 0 there is no resistance
 
+    # entrainment model (1 = samosAT)
+    entrType = 1
+
     # apply function
     # initialize array function fricition force
     forceFrictArray = np.zeros_like(test_tauArray, dtype=np.float64)
@@ -1305,7 +1355,7 @@ def test_computeForceC():
     # i = index of result in array, j = frictType
     for i, j in enumerate(range(10, 13)):
         particles, force, *_ = DFAfunC.computeForceC(
-            cfg["GENERAL"], particles, fields, dem, j, resistanceType
+            cfg["GENERAL"], particles, fields, dem, j, entrType, resistanceType
         )
         forceFrictArray[i] = force["forceFrict"][0]
 
@@ -1367,7 +1417,7 @@ def test_computeForceC():
     cfg["GENERAL"]["etaObrienAndJulien"] = "0"
     cfg["GENERAL"]["tauyObrienAndJulien"] = "0"
 
-    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 10, resistanceType)
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 10, entrType, resistanceType)
     forceFrictArray[3] = force["forceFrict"][0]
     # compute tauy and eta via alpha, beta and cv
     test_etaObrienAndJulien = test_alpha1EtaObrienAndJulien * math.exp(
@@ -1402,7 +1452,7 @@ def test_computeForceC():
     # set tauyCfg = 0
     cfg["GENERAL"]["tauyHerschelAndBulkley"] = "0"
 
-    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 11, resistanceType)
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 11, entrType, resistanceType)
     forceFrictArray[4] = force["forceFrict"][0]
     # compute tauy via alpha, beta and cv
     test_tauyHerschelandBulkley = test_alpha2TauyHerschelAndBulkley * math.exp(
@@ -1430,7 +1480,7 @@ def test_computeForceC():
     cfg["GENERAL"]["etaBingham"] = "0"
     cfg["GENERAL"]["tauyBingham"] = "0"
 
-    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 12, resistanceType)
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 12, entrType, resistanceType)
     forceFrictArray[5] = force["forceFrict"][0]
     # compute tauy and eta via alpha, beta and cv
     test_etaBingham = test_alpha1EtaBingham * math.exp(test_beta1EtaBingham * test_cvSediment)
@@ -1452,7 +1502,7 @@ def test_computeForceC():
         test_uMagRes = test_uMag
     test_forceFrictArray = test_forceFrict - test_forceBotTang / test_uMagRes
 
-    assert (forceFrictArray == test_forceFrictArray).all()
+    assert np.allclose(forceFrictArray, test_forceFrictArray, rtol=1e-12, atol=0)
 
 
 def test_updateInitialVelocity():

@@ -2191,6 +2191,16 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
     frictType = frictModelsList.index(frictModel) + 1
     log.debug("Friction Model used: %s, %s" % (frictModelsList[frictType - 1], frictType))
 
+    # derive entrainment type
+    # turn entrainment model into integer
+    entrModelsList = [
+        "samosat",
+        "tjem",
+    ]
+    entrModel = cfgGen["entrModel"].lower()
+    entrType = entrModelsList.index(entrModel) + 1
+    log.debug("Entrainment Model used: %s, %s" % (entrModelsList[entrType - 1], entrType))
+
     # turn resistance model into integer
     ResModel = cfgGen["ResistanceModel"].lower()
     ResModelsList = [
@@ -2305,6 +2315,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
             dem,
             tCPU,
             frictType,
+            entrType,
             resistanceType,
             inputSimLines["reportAreaInfo"],
         )
@@ -2736,6 +2747,7 @@ def computeEulerTimeStep(
     dem,
     tCPU,
     frictType,
+    entrType,
     resistanceType,
     reportAreaInfo,
 ):
@@ -2757,6 +2769,8 @@ def computeEulerTimeStep(
         computation time dictionary
     frictType: int
         indicator for chosen type of friction model
+    entrType: int
+        indicator for chosen type of entrainment model
     resistanceType: int
         identifier for chosen type of resistance model
 
@@ -2789,7 +2803,7 @@ def computeEulerTimeStep(
     startTime = time.time()
     # loop version of the compute force
     log.debug("Compute Force C")
-    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, resistanceType)
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, entrType, resistanceType)
     tCPUForce = time.time() - startTime
     tCPU["timeForce"] = tCPU["timeForce"] + tCPUForce
     # compute lateral force (SPH component of the calculation)
