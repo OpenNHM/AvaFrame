@@ -499,7 +499,7 @@ cpdef (double, double) computeEntMassAndForce(double dt, double entrMassCell,
                                               double areaPart, double uMag,
                                               double tau, double entEroEnergy,
                                               double rhoEnt):
-  """ compute force component due to entrained mass
+  """ compute force component due to entrained mass when samosAT entrainment model is used
 
   Parameters
   ----------
@@ -555,7 +555,7 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
                                               double areaPart, double uMag,
                                               double tau, double entShearStrength,
                                               double velMagMin):
-  """ compute force component due to entrained mass
+  """ compute force component due to entrained mass when TJEM entrainment model is used
 
   Parameters
   ----------
@@ -581,7 +581,7 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
   areaEntrPart : float
       Area for entrainment energy loss computation
   tau : float
-      bottom shear stress, limited to the shear strength of the snow cover if entrainment occurs
+      updated bottom shear stress, limited by the shear strength of the snow cover if entrainment occurs
   """
   # compute entrained mass
   cdef double dm = 0.0
