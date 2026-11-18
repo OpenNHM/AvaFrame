@@ -236,32 +236,144 @@ current cell and time step:
 If ``detrainment = False``, the additional resistance force is accounted for in the entire resistance area.
 
 Adaptive surface
-"""""""""""""
+""""""""""""""""
 
 When the flowing mass changes (due to detrainment, entrainment and/or stopping = velocity is zero),
 the surface topography can be adapted (if ``adaptSfcDetrainment = 1``, ``adaptSfcEntrainment = 1`` and/or
-``adaptSfcStopped = 1``, respectively).
+``adaptSfcStopped = 1``, respectively). The surface is adapted at the end of every time step :math:`\Delta t`,
+using the mass that was exchanged between the particles and the snow cover during this time step.
 
-The detrained/ stopped mass is converted into the corresponding
-snow depth changes :math:`h_{det}, h_{stop}` at the location of the particle
-using the :ref:`DFAnumerics:Particles to mesh` method. The eroded depth :math:`h_{ent}` is derived from the
-entrainable mass that was removed in each cell (see :ref:`DFAnumerics:Exchange of mass with the snow cover`),
-hence the surface is lowered exactly where the entrained mass was taken from.
+As in :ref:`DFAnumerics:Discretization`, the index :math:`k` refers to particles (mass :math:`m_{k}`, area
+:math:`A_{k}`, velocity :math:`\overline{\mathbf{u}}_{k}`). The index :math:`i` refers to the cell centers (see
+:ref:`DFAnumerics:Exchange of mass with the snow cover`), with the surface elevation :math:`z_i`, the
+:ref:`DFAnumerics:Cell area` :math:`A_i`, the vertical component of the :ref:`DFAnumerics:Cell normals`
+:math:`n_{z,i}` and the entrainable mass per unit area :math:`m^{\text{ent}}_i`. :math:`w_{k,i}` are the bilinear
+weights of particle :math:`k` for the four cell centers around it (:math:`\sum_i w_{k,i} = 1`, see
+:ref:`DFAnumerics:Mesh to particle`).
 
-The adapted surface at a specific time step :math:`z(t)` is computed as (with :math:`h_{det}, h_{ent}, h_{stop} > 0`):
+**Entrained mass**: the entrainable mass per unit area at the particle location (beginning of the time step) is
+read from the four cell centers around the particle (``adaptSfcEntrainment = 1``) or from the nearest cell
+center :math:`i_k` (``adaptSfcEntrainment = 0``):
 
 .. math::
-  z(t) = z(t=0) + \sum_{i=0}^t (h_{det}(i) + h_{stop}(i) - h_{ent}(i))
+   m^{\text{ent}}_{k} =
+   \left\{\begin{aligned}
+   &\sum_i w_{k,i}\,m^{\text{ent}}_i(t) \quad &\mbox{for adaptSfcEntrainment = 1}\\
+   &m^{\text{ent}}_{i_k}(t) \quad &\mbox{for adaptSfcEntrainment = 0}
+   \end{aligned}
+   \right.
+
+If :math:`m^{\text{ent}}_{k} > 0`, the particle entrains the mass (see :ref:`DFAnumerics:Entrainment force`,
+:math:`\rho_{\text{ent}}\,h_{k}^{\text{ent}}` is replaced by :math:`m^{\text{ent}}_{k}`):
+
+.. math::
+   \delta m_{k} = A_{k}^{\text{ent}}\,q_{k}^{\text{ent}}\,\Delta t =
+   \left\{\begin{aligned}
+   &\sqrt{A_{k}}\,m^{\text{ent}}_{k}\,\left\Vert \overline{\mathbf{u}}_{k}\right\Vert\,\Delta t
+   \quad &\mbox{for plowing}\\
+   &A_{k}\,\frac{\tau_{k}^{(b)}}{e_b}\,\left\Vert \overline{\mathbf{u}}_{k}\right\Vert\,\Delta t
+   \quad &\mbox{for erosion}
+   \end{aligned}
+   \right.
+   :label: adaptive-surface-entrained-mass
+
+:math:`s_{k,i}` is the share of :math:`\delta m_{k}` that is taken from cell center :math:`i`
+(:math:`\sum_i s_{k,i} = 1`). With ``adaptSfcEntrainment = 1``, the entrained mass is taken from the four cell
+centers in proportion to the entrainable mass they contribute to :math:`m^{\text{ent}}_{k}`, so a cell center
+without entrainable mass does not contribute. With ``adaptSfcEntrainment = 0``, the whole entrained mass is taken
+from the nearest cell center :math:`i_k`:
+
+.. math::
+   s_{k,i} =
+   \left\{\begin{aligned}
+   &\frac{w_{k,i}\,m^{\text{ent}}_i(t)\,A_i}{\sum_{i'} w_{k,i'}\,m^{\text{ent}}_{i'}(t)\,A_{i'}}
+   \quad &\mbox{for adaptSfcEntrainment = 1}\\
+   &1 \;\mbox{if}\; i = i_k, \;\mbox{else}\; 0 \quad &\mbox{for adaptSfcEntrainment = 0}
+   \end{aligned}
+   \right.
+
+The mass is removed after all particles were computed, so all particles see the entrainable mass at the beginning
+of the time step. The mass per unit area removed from cell center :math:`i` during the time step reads:
+
+.. math::
+   \Delta m^{\text{ent}}_i = \min\left(m^{\text{ent}}_i(t),\,\frac{1}{A_i}\sum_k s_{k,i}\,\delta m_{k}\right)
+
+**Stopped mass**: a particle stops if its velocity after adding the friction forces is zero,
+:math:`\left\Vert \mathbf{u}_k^{new}\right\Vert = 0` (or smaller than ``velMagMin`` for the implicit method, see
+:ref:`DFAnumerics:Adding friction forces`). A stopped particle is not moved in this time step and its mass
+(including the mass entrained in this time step) is added to the four cell centers around its location
+(:ref:`DFAnumerics:Particles to mesh`):
+
+.. math::
+   m^{\text{stop}}_i = \sum_{k \in S} w_{k,i}\,m_{k}
+
+where :math:`S` is the set of particles that stop in this time step. The detrained mass :math:`m^{\text{det}}_i`
+is added to the cell centers in the same way, using the particle locations at the end of the time step.
+
+**Surface update**: the stopped and detrained mass (density :math:`\rho_0`) and the removed entrainable mass
+(density :math:`\rho_{\text{ent}}`) are converted into thicknesses normal to the surface, and with
+:math:`1/n_{z,i}` into vertical depths:
+
+.. math::
+   \Delta z^{\text{stop}}_i = \frac{m^{\text{stop}}_i}{\rho_0\,A_i\,n_{z,i}},\qquad
+   \Delta z^{\text{det}}_i = \frac{m^{\text{det}}_i}{\rho_0\,A_i\,n_{z,i}},\qquad
+   \Delta z^{\text{ent}}_i = \frac{\Delta m^{\text{ent}}_i}{\rho_{\text{ent}}\,n_{z,i}}
+
+Each term is only taken into account if the corresponding ``adaptSfc`` option is set. The adapted surface
+reads (with :math:`\Delta z^{\text{det}}_i, \Delta z^{\text{stop}}_i, \Delta z^{\text{ent}}_i \geq 0`):
+
+.. math::
+   z_i(t+\Delta t) = z_i(t) + \Delta z^{\text{det}}_i(t) + \Delta z^{\text{stop}}_i(t) - \Delta z^{\text{ent}}_i(t),
+   :label: adaptive-surface-t1
+
+
+.. math::
+   z_i(t) = z_i(t=0) + \sum_{t'=0}^{t}\left(\Delta z^{\text{det}}_i(t') + \Delta z^{\text{stop}}_i(t')
+   - \Delta z^{\text{ent}}_i(t')\right)
+   :label: adaptive-surface-t
+
+and the entrainable mass per unit area is :math:`m^{\text{ent}}_i(t+\Delta t) = m^{\text{ent}}_i(t) -
+\Delta m^{\text{ent}}_i`.
 
 The :ref:`DFAnumerics:Cell normals` and :ref:`DFAnumerics:Cell area` are only recomputed if the surface
-changed more than ``thresholdAdaptSfc`` since they were computed the last time. The entrainable mass per unit
-area is then rescaled with the ratio of the old and the new cell area, so the entrainable mass of each cell
-does not change.
+changed more than ``thresholdAdaptSfc`` in at least one cell since they were computed the last time. The
+entrainable mass per unit area is then rescaled with :math:`A_i^{old}/A_i^{new}`, so the entrainable mass of each
+cell does not change.
 
-If ``entrainableDeposition = True``, stopped and detrained mass (density :math:`\rho`) is added to the
-entrainable layer (density :math:`\rho_{ent}`). The erodable depth is then reduced by the same fraction as the
-entrainable mass of the cell, so mass and depth of the erodable layer stay consistent and the depth can not become
-negative.
+**Entrainable deposition**: if ``entrainableDeposition = True``, stopped and detrained mass (density
+:math:`\rho_0`) is added to the erodable layer (density :math:`\rho_{\text{ent}}`) of vertical depth
+:math:`d^{\text{ent}}_i` on top of the not erodable surface :math:`z^{\text{ne}}_i`. Depth and mass of this
+layer are therefore not linked by one density. The erodable depth is reduced by the same fraction :math:`f_i` as
+the entrainable mass of the cell, so mass and depth of the erodable layer stay consistent and the depth can not
+become negative. The fraction of the entrainable mass that is removed during the time step reads:
+
+.. math::
+   f_i = \frac{\Delta m^{\text{ent}}_i}{m^{\text{ent}}_i(t)} \quad (f_i = 0 \;\mbox{if}\; m^{\text{ent}}_i(t) = 0)
+   :label: adaptive-surface-fraction
+
+The eroded depth is then (instead of :math:`\Delta m^{\text{ent}}_i / (\rho_{\text{ent}}\,n_{z,i})`):
+
+.. math::
+   \Delta z^{\text{ent}}_i = f_i\,d^{\text{ent}}_i(t)
+   :label: adaptive-surface-eroded-depth
+
+The erodable depth and the surface are updated with:
+
+.. math::
+   d^{\text{ent}}_i(t+\Delta t) = d^{\text{ent}}_i(t) + \Delta z^{\text{det}}_i + \Delta z^{\text{stop}}_i
+   - \Delta z^{\text{ent}}_i
+   :label: adaptive-surface-erodable-depth
+
+.. math::
+   z_i(t+\Delta t) = z^{\text{ne}}_i + d^{\text{ent}}_i(t+\Delta t)
+   :label: adaptive-surface-entrainable-deposition
+
+The stopped and detrained mass becomes entrainable:
+
+.. math::
+   m^{\text{ent}}_i(t+\Delta t) = m^{\text{ent}}_i(t) - \Delta m^{\text{ent}}_i
+   + \frac{m^{\text{det}}_i + m^{\text{stop}}_i}{A_i}
+   :label: adaptive-surface-entrainable-mass
 
 If the surface is adapted due to stopped particles (velocity = 0 and ``adaptSfcStopped = 1``), the stopped particles
 are deleted and stored in a separate dictionary ``stoppedParticles`` (see :ref:`com1DFAAlgorithm:Particle properties`).
@@ -269,7 +381,9 @@ are deleted and stored in a separate dictionary ``stoppedParticles`` (see :ref:`
 .. Note::
 
     This feature requires more detailed testing and may cause numerical problems if the change in snow
-    depth is very high.
+    depth is very high. The particle gains the full entrained mass :math:`\delta m_{k}`, whereas the entrainable
+    mass of a cell can not become negative. If :math:`\delta m_{k}` is larger than the mass available around the
+    particle, the particle gains more mass than is removed from the snow cover.
 
 Surface integral forces
 """""""""""""""""""""""""

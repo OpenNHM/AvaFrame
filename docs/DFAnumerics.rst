@@ -225,7 +225,7 @@ center of the particle (start of the time step) and the entrained mass :math:`\d
 If ``adaptSfcEntrainment = 1``, the entrainable mass per unit area at the particle location (start of the time step)
 is the bilinear interpolation of the entrainable mass of the four surrounding cell centers. The entrained mass
 :math:`\delta m` of the particle is removed from these four cell centers in proportion to
-:math:`w_i\,m^{ent}_i\,A_i` (bilinear weight times entrainable mass per unit area times cell area), hence a cell center
+:math:`w_i\,m^{\text{ent}}_i\,A_i` (bilinear weight times entrainable mass per unit area times cell area), hence a cell center
 without entrainable mass does not contribute. The eroded depth is derived from the mass removed in each cell,
 i.e. the surface is lowered exactly where the mass was taken from, and the change of the surface is as smooth as
 the other fields.
