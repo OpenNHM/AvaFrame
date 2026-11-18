@@ -346,3 +346,170 @@ def test_checkCfgFrictionModelMuI(caplog):
         checkCfg.checkCfgFrictionModel(_getMuICfg(muIShearFactor="3"), inputSimFiles)
     assert "muIShearFactor" in caplog.text
     assert "2.5" in caplog.text
+
+
+def _getHysteresisCfg(**overrides):
+    """hysteresis friction model configuration with the default parameter values"""
+
+    cfg = {
+        "GENERAL": {
+            "frictModel": "hysteresis",
+            "hysteresisMu1": "0.5867",
+            "hysteresisMu2": "0.9391",
+            "hysteresisMu3": "0.6976",
+            "hysteresisL": "0.00056",
+            "hysteresisBeta": "0.63",
+            "hysteresisBetaStar": "0.47",
+            "hysteresisGamma": "0.40",
+            "hysteresisViscosity": "0",
+            "hysteresisNu": "0.0014",
+            "explicitFriction": "1",
+            "adaptSfcStopped": "0",
+        }
+    }
+    cfg["GENERAL"].update({key: str(value) for key, value in overrides.items()})
+    return cfg
+
+
+def test_checkCfgFrictionModelHysteresis(caplog):
+    """test hysteresis parameter checks: valid defaults, errors and warnings"""
+
+    inputSimFiles = {}
+
+    # default parameters: pass without warning
+    with caplog.at_level(logging.WARNING):
+        cfg = checkCfg.checkCfgFrictionModel(_getHysteresisCfg(), inputSimFiles)
+    assert cfg["GENERAL"]["frictModel"] == "hysteresis"
+    assert caplog.records == []
+
+    # nan values are caught by the generic parameter check
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisL="nan"), inputSimFiles)
+    assert "Friction model used hysteresis, but hysteresisL is nan - not valid" in str(e.value)
+
+    # positive parameters
+    for name in ["hysteresisMu1", "hysteresisL", "hysteresisBeta", "hysteresisBetaStar"]:
+        for value in ["0", "-1"]:
+            with pytest.raises(ValueError) as e:
+                checkCfg.checkCfgFrictionModel(_getHysteresisCfg(**{name: value}), inputSimFiles)
+            assert "%s must be larger than 0" % name in str(e.value)
+
+    # gamma may be zero (Pouliquen and Forterre 2002) but not negative
+    checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisGamma="0"), inputSimFiles)
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisGamma="-0.1"), inputSimFiles)
+    assert "hysteresisGamma must not be negative" in str(e.value)
+
+    # mu2 and mu3 must be larger than mu1
+    for name in ["hysteresisMu2", "hysteresisMu3"]:
+        for value in ["0.5867", "0.5"]:
+            with pytest.raises(ValueError) as e:
+                checkCfg.checkCfgFrictionModel(_getHysteresisCfg(**{name: value}), inputSimFiles)
+            assert "%s must be larger than hysteresisMu1" % name in str(e.value)
+
+    # the yield condition requires the explicit friction method
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(explicitFriction="0"), inputSimFiles)
+    assert "requires explicitFriction = 1" in str(e.value)
+
+    # static friction below the dynamic friction at betaStar for some thicknesses: the minimum of
+    # muStart - muDyn is (mu3 - mu1) - 0.0284 for the default mu1, mu2, beta, betaStar and gamma
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisMu3="0.60"), inputSimFiles)
+    assert "intermediate regime" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisMu3="0.62"), inputSimFiles)
+    assert caplog.records == []
+
+    # stopped particles are removed with adaptSfcStopped
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(adaptSfcStopped="1"), inputSimFiles)
+    assert "adaptSfcStopped" in caplog.text
+
+    # viscous term: valid options, no negative coefficient, warning if it has no effect
+    for option in ["1", "2"]:
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisViscosity=option), inputSimFiles)
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisViscosity="3"), inputSimFiles)
+    assert "hysteresisViscosity is 3, must be 0, 1 or 2" in str(e.value)
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisNu="-0.001"), inputSimFiles)
+    assert "hysteresisNu must not be negative" in str(e.value)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgFrictionModel(_getHysteresisCfg(hysteresisViscosity="1", hysteresisNu="0"), inputSimFiles)
+    assert "viscous term has no effect" in caplog.text
+
+
+def _getEntMethodCfg(**overrides):
+    """valid static layer settings, single settings replaced by overrides"""
+    cfg = {
+        "GENERAL": {
+            "frictModel": "hysteresis",
+            "entMethod": "staticParticles",
+            "entPartDistType": "uniform",
+            "entrainableDeposition": "False",
+            "snowSlide": "0",
+            "viscOption": "1",
+            "adaptSfcStopped": "0",
+            "adaptSfcEntrainment": "0",
+        }
+    }
+    cfg["GENERAL"].update({key: str(value) for key, value in overrides.items()})
+    return cfg
+
+
+def test_checkCfgEntrainmentMethod(caplog):
+    """test entMethod checks: rate is always valid, staticParticles requires hysteresis and compatible settings"""
+    # rate (default) is valid with any friction model, a missing entMethod means rate
+    checkCfg.checkCfgEntrainmentMethod({"GENERAL": {"frictModel": "samosAT"}})
+    checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(entMethod="rate", frictModel="samosAT", entrainableDeposition="True"))
+
+    # valid static layer settings: pass without warning
+    with caplog.at_level(logging.WARNING):
+        cfg = checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg())
+    assert cfg["GENERAL"]["entMethod"] == "staticParticles"
+    assert caplog.records == []
+
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(entMethod="static"))
+    assert "must be either rate or staticParticles" in str(e.value)
+
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(frictModel="samosAT"))
+    assert "requires frictModel = hysteresis" in str(e.value)
+
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(entrainableDeposition="True"))
+    assert "not compatible with entrainableDeposition" in str(e.value)
+
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(snowSlide="1"))
+    assert "not compatible with snowSlide" in str(e.value)
+
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(entPartDistType="grid"))
+    assert "entPartDistType is grid" in str(e.value)
+
+    # without subgrid mixing the flow can pass over the layer
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(viscOption="0"))
+    assert "subgrid mixing" in caplog.text
+
+    # adaptive surface: stopped particles would remove the layer, entrainment adaptation has no effect
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(adaptSfcStopped="1"))
+    assert "not compatible with adaptSfcStopped" in str(e.value)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(adaptSfcEntrainment="1"))
+    assert "adaptSfcEntrainment = 1 has no effect" in caplog.text
+    # entLayerInFields must be a boolean
+    checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(entLayerInFields="True"))
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgEntrainmentMethod(_getEntMethodCfg(entLayerInFields="maybe"))
+    assert "entLayerInFields is maybe" in str(e.value)

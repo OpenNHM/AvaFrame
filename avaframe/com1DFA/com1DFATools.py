@@ -72,6 +72,38 @@ def getPartInitMethod(cfg, csz, relThForPart):
     return massPerPart, nPPK
 
 
+def getHysteresisHStart(tanTheta, cfgGen):
+    """thickest static layer that is held by the static friction of the hysteresis friction law
+
+    hstart follows from muStart(hstart) = tan(theta) with muStart(h) = mu3 + (mu2 - mu1) / (1 + h / L)
+    (Edwards et al. 2021). On slopes with tan(theta) <= mu3 static layers of any thickness are stable (hstart = inf);
+    on slopes with tan(theta) >= muStart(0) = mu3 + mu2 - mu1 no static layer is stable (hstart <= 0).
+
+    Parameters
+    -----------
+    tanTheta: float or numpy array
+        tangent of the slope angle
+    cfgGen: configparser section
+        configuration settings, here used: hysteresisMu1, hysteresisMu2, hysteresisMu3 and hysteresisL
+
+    Returns
+    --------
+    hStart: float or numpy array
+        hstart [m], inf where tan(theta) <= mu3
+    """
+    mu1 = cfgGen.getfloat("hysteresisMu1")
+    mu2 = cfgGen.getfloat("hysteresisMu2")
+    mu3 = cfgGen.getfloat("hysteresisMu3")
+    lHyst = cfgGen.getfloat("hysteresisL")
+    tanTheta = np.asarray(tanTheta, dtype=float)
+    excess = tanTheta - mu3
+    with np.errstate(divide="ignore", invalid="ignore"):
+        hStart = np.where(excess > 0, lHyst * ((mu2 - mu1) / excess - 1.0), np.inf)
+    if hStart.ndim == 0:
+        return float(hStart)
+    return hStart
+
+
 def setFrictTypeIndicator(simCfg):
     """Sets the friction type indicator for the simname
     Default is L, otherwise M for samosATMedium, S for samosATSmall
@@ -386,11 +418,16 @@ def updateResCoeffFields(fields, cfg):
     vMax = cfg.getfloat("forestVMax")
     thMax = cfg.getfloat("forestThMax")
 
+    # flow velocity and thickness including the static entrainment layer particles (FVAll and FTAll only exist if
+    # the layer particles at rest are left out of the result fields)
+    FV = fields.get("FVAll", fields["FV"])
+    FT = fields.get("FTAll", fields["FT"])
+
     # create new rasters using FV, FT and thresholds to mask
-    detRasterInt = np.where(((fields["FV"] <= vMin) | (fields["FT"] <= thMin)), detOrig, 0.0)
-    detRaster = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, detRasterInt)
-    cResRasterInt = np.where(((fields["FV"] > vMin) & (fields["FT"] > thMin)), cResOrig, 0.0)
-    cResRaster = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, cResRasterInt)
+    detRasterInt = np.where(((FV <= vMin) | (FT <= thMin)), detOrig, 0.0)
+    detRaster = np.where(((FV > vMax) | (FT > thMax)), 0, detRasterInt)
+    cResRasterInt = np.where(((FV > vMin) & (FT > thMin)), cResOrig, 0.0)
+    cResRaster = np.where(((FV > vMax) | (FT > thMax)), 0, cResRasterInt)
 
     if len(np.where((detRaster > 0) & (cResRaster > 0))[0]) > 0:
         message = "Detrainment and increased friction within same cell!"
@@ -398,10 +435,10 @@ def updateResCoeffFields(fields, cfg):
         raise AssertionError(message)
 
     # if max thresholds are exceeded: forest destroyed remove forest
-    lTh = len(np.where((fields["FV"] > vMax) | (fields["FT"] > thMax))[0])
+    lTh = len(np.where((FV > vMax) | (FT > thMax))[0])
     if lTh > 0:
-        cResOrig = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, cResOrig)
-        detOrig = np.where(((fields["FV"] > vMax) | (fields["FT"] > thMax)), 0, detOrig)
+        cResOrig = np.where(((FV > vMax) | (FT > thMax)), 0, cResOrig)
+        detOrig = np.where(((FV > vMax) | (FT > thMax)), 0, detOrig)
         fields["cResRasterTrack"] = cResOrig
         fields["detRasterTrack"] = detOrig
         log.debug(

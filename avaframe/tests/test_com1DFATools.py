@@ -151,6 +151,19 @@ def test_updateResCoeffFields(tmp_path):
     assert fields["cResRaster"][2, 3] == 0
     assert fields["detRaster"][2, 3] == 3
 
+    # static entrainment layer left out of the result fields: the thresholds use the fields including the layer
+    fieldsLayer = {
+        "cResRasterTrack": cResRasterOrig,
+        "detRasterTrack": detRasterOrig,
+        "FV": np.zeros((4, 10)),
+        "FT": np.zeros((4, 10)),
+        "FVAll": FV,
+        "FTAll": FT,
+    }
+    fieldsLayer = com1DFATools.updateResCoeffFields(fieldsLayer, cfg["GENERAL"])
+    assert np.array_equal(fieldsLayer["cResRaster"], fields["cResRaster"])
+    assert np.array_equal(fieldsLayer["detRaster"], fields["detRaster"])
+
 
 def test_updateTimeField():
     """test updating the field of timeInfo"""
@@ -174,3 +187,31 @@ def test_updateTimeField():
     assert fields["timeInfo"][1, 2] == 5.0
     assert fields["timeInfo"][1, 3] == 5.0
     assert not fields["timeInfo"][2:6, :].any()
+
+
+def test_getHysteresisHStart():
+    """hstart of the hysteresis friction law: muStart(hstart) = tan(theta), inf on slopes below atan(mu3)"""
+
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {
+        "hysteresisMu1": "0.5867",
+        "hysteresisMu2": "0.9391",
+        "hysteresisMu3": "0.6976",
+        "hysteresisL": "0.00056",
+    }
+    cfgGen = cfg["GENERAL"]
+    mu1, mu2, mu3, lHyst = 0.5867, 0.9391, 0.6976, 0.00056
+
+    # scalar: Edwards et al. (2021, table 2) give 11.3 mm at 35.5 deg with unrounded parameters
+    tanTheta = math.tan(math.radians(35.5))
+    hStart = com1DFATools.getHysteresisHStart(tanTheta, cfgGen)
+    assert isinstance(hStart, float)
+    assert mu3 + (mu2 - mu1) / (1.0 + hStart / lHyst) == pytest.approx(tanTheta, rel=1e-12)
+    assert hStart == pytest.approx(11.3e-3, rel=0.07)
+
+    # array: stable for any thickness below atan(mu3) (also exactly at mu3), no stable layer above muStart(0)
+    tanThetas = np.array([math.tan(math.radians(34.0)), mu3, tanTheta, mu3 + (mu2 - mu1) + 0.01])
+    hStarts = com1DFATools.getHysteresisHStart(tanThetas, cfgGen)
+    assert np.isinf(hStarts[0]) and np.isinf(hStarts[1])
+    assert hStarts[2] == pytest.approx(hStart, rel=1e-12)
+    assert hStarts[3] < 0.0

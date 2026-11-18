@@ -842,6 +842,104 @@ def test_updateFieldsC_returns_owned_arrays():
         assert fields[key].base is None
 
 
+def _getStaticLayerParticles():
+    """particles on grid nodes: release particle and layer particle at rest at node (2, 2), moving layer particle at
+    node (1, 1), layer particle at rest alone at node (3, 3)"""
+    return {
+        "m": np.array([100.0, 100.0, 100.0, 100.0]),
+        "dmDet": np.zeros(4),
+        "dmEnt": np.zeros(4),
+        "x": np.array([2.0, 2.0, 1.0, 3.0]),
+        "y": np.array([2.0, 2.0, 1.0, 3.0]),
+        "ux": np.array([2.0, 0.0, 1.0, 0.0]),
+        "uy": np.zeros(4),
+        "uz": np.zeros(4),
+        "trajectoryAngle": np.array([10.0, 50.0, 20.0, 50.0]),
+        "origin": np.array([0.0, 1.0, 1.0, 1.0]),
+        "stoppedParticles": {"m": np.empty(0), "x": np.empty(0), "y": np.empty(0)},
+        "nPart": 4,
+    }
+
+
+def _getStaticLayerFields(excludeStaticLayer, nrows, ncols):
+    """empty peak fields; excludeStaticLayer = None leaves the flag out of the fields dictionary"""
+    fields = {"computeTA": True, "computeKE": True, "computeP": True}
+    for key in ["pfv", "ppr", "pft", "pta", "pke", "dmDet"]:
+        fields[key] = np.zeros((nrows, ncols))
+    if excludeStaticLayer is not None:
+        fields["excludeStaticLayer"] = excludeStaticLayer
+    return fields
+
+
+def test_updateFieldsCStaticLayer():
+    """static entrainment layer: layer particles at rest are left out of the result fields, not of the dynamics"""
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = {"rho": "200.", "rhoEnt": "100.", "interpOption": "2"}
+    nrows, ncols = 5, 5
+    dem = {"header": {"nrows": nrows, "ncols": ncols, "cellsize": 1}, "areaRaster": np.ones((nrows, ncols))}
+
+    particles, fields = DFAfunC.updateFieldsC(
+        cfg["GENERAL"], _getStaticLayerParticles(), dem, _getStaticLayerFields(True, nrows, ncols)
+    )
+    # the moving layer particle is entrained (origin 2), the layer particles at rest keep origin 1
+    # origin 0 release (primary or secondary),
+
+    assert np.array_equal(particles["origin"], [0.0, 1.0, 2.0, 1.0])
+    # result fields: release and entrained particles only
+    assert fields["FT"][2, 2] == pytest.approx(0.5)
+    assert fields["FT"][1, 1] == pytest.approx(0.5)
+    assert fields["FT"][3, 3] == 0.0
+    assert fields["pft"][3, 3] == 0.0
+    assert fields["FM"][2, 2] == pytest.approx(100.0)
+    assert fields["FV"][2, 2] == pytest.approx(2.0)
+    assert fields["pfv"][2, 2] == pytest.approx(2.0)
+    assert fields["ppr"][2, 2] == pytest.approx(200.0 * 4.0)
+    assert fields["pke"][2, 2] == pytest.approx(0.5 * 100.0 * 4.0)
+    assert fields["TA"][2, 2] == pytest.approx(10.0)
+    assert fields["TA"][3, 3] == 0.0
+    # fields of the dynamics: all particles, the layer at rest adds mass but no momentum
+    assert fields["FTAll"][2, 2] == pytest.approx(1.0)
+    assert fields["FTAll"][3, 3] == pytest.approx(0.5)
+    assert fields["VxAll"][2, 2] == pytest.approx(1.0)
+    assert fields["FVAll"][2, 2] == pytest.approx(1.0)
+    assert fields["VxAll"][1, 1] == pytest.approx(1.0)
+    assert fields["VxAll"][3, 3] == 0.0
+    # flow thickness of the particles including the layer at rest
+    assert np.allclose(particles["h"], [1.0, 1.0, 0.5, 0.5])
+
+    # layer included in the result fields: no separate fields for the dynamics, same particle thickness
+    for excludeStaticLayer in [False, None]:
+        particlesIn, fieldsIn = DFAfunC.updateFieldsC(
+            cfg["GENERAL"],
+            _getStaticLayerParticles(),
+            dem,
+            _getStaticLayerFields(excludeStaticLayer, nrows, ncols),
+        )
+        assert np.array_equal(particlesIn["origin"], [0.0, 1.0, 2.0, 1.0])
+        assert "FTAll" not in fieldsIn
+        assert np.array_equal(fieldsIn["FT"], fields["FTAll"])
+        assert np.array_equal(fieldsIn["Vx"], fields["VxAll"])
+        assert np.array_equal(fieldsIn["FV"], fields["FVAll"])
+        assert fieldsIn["pft"][3, 3] == pytest.approx(0.5)
+        assert fieldsIn["TA"][3, 3] == pytest.approx(50.0)
+        assert np.array_equal(particlesIn["h"], particles["h"])
+
+    # without a static layer (no origin) the flag has no effect
+    particlesNoLayer = _getStaticLayerParticles()
+    del particlesNoLayer["origin"]
+    _, fieldsNoLayer = DFAfunC.updateFieldsC(
+        cfg["GENERAL"], particlesNoLayer, dem, _getStaticLayerFields(True, nrows, ncols)
+    )
+    assert "FTAll" not in fieldsNoLayer
+    assert fieldsNoLayer["FT"][3, 3] == pytest.approx(0.5)
+
+    # origin must have one value per particle
+    particlesWrong = _getStaticLayerParticles()
+    particlesWrong["origin"] = np.array([0.0, 1.0])
+    with pytest.raises(ValueError, match="origin"):
+        DFAfunC.updateFieldsC(cfg["GENERAL"], particlesWrong, dem, _getStaticLayerFields(True, nrows, ncols))
+
+
 def test_computeCohesionForceC():
     cfg = configparser.ConfigParser()
     cfg["GENERAL"] = {
@@ -1047,6 +1145,13 @@ def test_computeForceC():
         "muIGrainSize": "0.0005",
         "muIGrainDensity": "2500",
         "muIShearFactor": "2.5",
+        "hysteresisMu1": "0.5867",
+        "hysteresisMu2": "0.9391",
+        "hysteresisMu3": "0.6976",
+        "hysteresisL": "0.00056",
+        "hysteresisBeta": "0.63",
+        "hysteresisBetaStar": "0.47",
+        "hysteresisGamma": "0.40",
         "curvAccInFriction": "1",
         "curvAccInTangent": "0",
         "curvAccInGradient": "0",
@@ -1281,20 +1386,28 @@ def _getMuIDefaults():
     return {name: cfg.getfloat(name) for name in names}
 
 
-def _computeMuITau(uMag, h, theta=0.0, dt=1.0e-4, **muIParams):
-    """compute the mu(I) bottom shear stress of a single particle via computeForceC (frictType 13)
+def _computeForceSingleParticle(frictType, uMag, h, theta=0.0, dt=1.0e-4, **cfgParams):
+    """compute the forces on a single particle via computeForceC
 
-    The particle moves with speed uMag on a plane inclined by theta (radians) with constant normal vector.
-    The explicit friction formulation is used, so that forceFrict = areaPart * tau.
-    The default com1DFA configuration is used; muIParams override its entries (e.g. muIShearFactor="5").
+    The particle moves with speed uMag in x direction on a plane inclined by theta (radians) with constant normal
+    vector. The explicit friction formulation is used, so that forceFrict = areaPart * tau.
+    The default com1DFA configuration is used; cfgParams override its entries (e.g. muIShearFactor="5").
+
+    Returns
+    -------
+    particles: dict
+        particles dictionary returned by computeForceC
+    force: dict
+        force dictionary returned by computeForceC
+    cfg: configparser section
+        configuration used (GENERAL section)
     """
     cfg = cfgUtils.getModuleConfig(com1DFA)["GENERAL"]
     cfg["explicitFriction"] = "1"
     cfg["viscOption"] = "0"
-    for key, value in muIParams.items():
+    for key, value in cfgParams.items():
         cfg[key] = str(value)
 
-    rho = float(cfg["rho"])
     nrows = ncols = 2
     particles = {
         "nPart": 1,
@@ -1326,10 +1439,20 @@ def _computeMuITau(uMag, h, theta=0.0, dt=1.0e-4, **muIParams):
     fieldNames = fieldNames + ["detRaster", "cResRaster"]
     fields = {key: np.zeros((nrows, ncols)) for key in fieldNames}
 
-    particles, force, *_ = DFAfunC.computeForceC(cfg, particles, fields, dem, 13, 1)
+    particles, force, *_ = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, 1)
+    return particles, force, cfg
+
+
+def _computeTau(frictType, uMag, h, theta=0.0, dt=1.0e-4, **cfgParams):
+    """compute the bottom shear stress of a single particle via computeForceC, see _computeForceSingleParticle"""
+    particles, force, cfg = _computeForceSingleParticle(frictType, uMag, h, theta, dt, **cfgParams)
     # forceFrict = areaPart * tau with areaPart = m / (h * rho)
-    tau = force["forceFrict"][0] * h * rho / particles["m"][0]
-    return tau
+    return force["forceFrict"][0] * h * float(cfg["rho"]) / particles["m"][0]
+
+
+def _computeMuITau(uMag, h, theta=0.0, dt=1.0e-4, **muIParams):
+    """compute the mu(I) bottom shear stress of a single particle via computeForceC (frictType 13)"""
+    return _computeTau(13, uMag, h, theta, dt, **muIParams)
 
 
 def test_computeForceCMuILimits():
@@ -1391,6 +1514,15 @@ def test_computeForceCMuISteadyState(thetaDeg, h):
     assert tau == pytest.approx(rho * g * h * math.sin(theta), rel=1e-9)
 
 
+def _getMuIInertialNumber(shearFactor, uMag, h, theta, p):
+    """inertial number I of a single particle via computeForceC (frictType 13), from inverting
+    mu(I) = mu_s + (mu_2 - mu_s) I / (I_0 + I) with mu = tau / sigmaB; p are the defaults of _getMuIDefaults
+    """
+    sigmaB = p["rho"] * p["gravAcc"] * math.cos(theta) * h
+    mu = _computeMuITau(uMag, h, theta, muIShearFactor=shearFactor) / sigmaB
+    return p["muII0"] * (mu - p["muIMuS"]) / (p["muIMu2"] - mu)
+
+
 def test_computeForceCMuIShearFactor():
     """I scales linearly with muIShearFactor"""
 
@@ -1398,16 +1530,199 @@ def test_computeForceCMuIShearFactor():
     h = 1.0
     theta = math.radians(25.0)
     uMag = 20.0
-    muS = p["muIMuS"]
-    mu2 = p["muIMu2"]
-    sigmaB = p["rho"] * p["gravAcc"] * math.cos(theta) * h
 
-    def getI(factor):
-        mu = _computeMuITau(uMag, h, theta, muIShearFactor=factor) / sigmaB
-        # invert mu(I) = mu_s + (mu_2 - mu_s) I / (I_0 + I)
-        return p["muII0"] * (mu - muS) / (mu2 - mu)
+    iDouble = _getMuIInertialNumber(5.0, uMag, h, theta, p)
+    iBagnold = _getMuIInertialNumber(2.5, uMag, h, theta, p)
+    assert iDouble / iBagnold == pytest.approx(2.0, rel=1e-9)
 
-    assert getI(5.0) / getI(2.5) == pytest.approx(2.0, rel=1e-9)
+
+def _getHysteresisDefaults():
+    """default flow density, gravity and hysteresis parameters of the com1DFA configuration as floats"""
+    cfg = cfgUtils.getModuleConfig(com1DFA)["GENERAL"]
+    names = ["rho", "gravAcc", "hysteresisMu1", "hysteresisMu2", "hysteresisMu3", "hysteresisL"]
+    names = names + ["hysteresisBeta", "hysteresisBetaStar", "hysteresisGamma"]
+    return {name: cfg.getfloat(name) for name in names}
+
+
+def _hysteresisMu(h, froude, p):
+    """DFAToolsCython.hysteresisMu with the parameters of the dictionary p"""
+    return DFAtlsC.hysteresisMu(
+        h,
+        froude,
+        p["hysteresisMu1"],
+        p["hysteresisMu2"],
+        p["hysteresisMu3"],
+        p["hysteresisL"],
+        p["hysteresisBeta"],
+        p["hysteresisBetaStar"],
+        p["hysteresisGamma"],
+    )
+
+
+def _hysteresisCriticalThicknesses(tanTheta, p):
+    """hstop, h* and hstart of the hysteresis friction law on a slope tanTheta (hstart is nan if tanTheta <= mu3)
+
+    hstop: deposit thickness of a steady uniform flow, extrapolation of the flow rule Fr = beta h / hstop - gamma
+    h*: thickness of the slowest steady uniform flow (Fr = betaStar)
+    hstart: thickest static layer, muStart(hstart) = tanTheta
+    """
+    mu1 = p["hysteresisMu1"]
+    mu2 = p["hysteresisMu2"]
+    mu3 = p["hysteresisMu3"]
+    lHyst = p["hysteresisL"]
+    hStop = lHyst * (mu2 - tanTheta) / (tanTheta - mu1)
+    hStar = hStop * (p["hysteresisBetaStar"] + p["hysteresisGamma"]) / p["hysteresisBeta"]
+    if tanTheta > mu3:
+        hStart = lHyst * ((mu2 - mu1) / (tanTheta - mu3) - 1.0)
+    else:
+        hStart = np.nan
+    return hStop, hStar, hStart
+
+
+@pytest.mark.parametrize("h", [1.0e-4, 5.6e-4, 3.0e-3, 1.0])
+def test_hysteresisMuRegimes(h):
+    """static value at Fr = 0, continuity at betaStar, linear intermediate regime and limits of the dynamic regime"""
+
+    p = _getHysteresisDefaults()
+    mu1 = p["hysteresisMu1"]
+    mu2 = p["hysteresisMu2"]
+    mu3 = p["hysteresisMu3"]
+    lHyst = p["hysteresisL"]
+    betaStar = p["hysteresisBetaStar"]
+    muStart = mu3 + (mu2 - mu1) / (1.0 + h / lHyst)
+    muDynBetaStar = mu1 + (mu2 - mu1) / (
+        1.0 + h * p["hysteresisBeta"] / (lHyst * (betaStar + p["hysteresisGamma"]))
+    )
+
+    # static regime
+    assert _hysteresisMu(h, 0.0, p) == pytest.approx(muStart, rel=1e-12)
+    # dynamic regime at betaStar and continuity from the intermediate regime
+    assert _hysteresisMu(h, betaStar, p) == pytest.approx(muDynBetaStar, rel=1e-12)
+    assert _hysteresisMu(h, betaStar * (1.0 - 1.0e-10), p) == pytest.approx(muDynBetaStar, rel=1e-9)
+    # linear intermediate regime (kappa = 1)
+    assert _hysteresisMu(h, 0.5 * betaStar, p) == pytest.approx(0.5 * (muStart + muDynBetaStar), rel=1e-12)
+    # with the default parameters the friction decreases with Fr in the intermediate regime
+    assert muStart > muDynBetaStar
+    # dynamic regime: friction increases with Fr towards mu2
+    assert _hysteresisMu(h, 1.0, p) < _hysteresisMu(h, 2.0, p) < mu2
+    assert _hysteresisMu(h, 1.0e12, p) == pytest.approx(mu2, rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    "thetaDeg, hStopRef, hStarRef, hStartRef",
+    [
+        (33.5, 2.0e-3, 2.8e-3, None),
+        (34.0, 1.7e-3, 2.3e-3, None),
+        (34.5, 1.4e-3, 1.9e-3, None),
+        (35.5, 1.0e-3, 1.4e-3, 11.3e-3),
+        (35.8, 0.9e-3, 1.2e-3, 7.5e-3),
+    ],
+)
+def test_hysteresisMuCriticalThicknesses(thetaDeg, hStopRef, hStarRef, hStartRef):
+    """the default parameters (Edwards et al. 2021, table 1) reproduce the critical thicknesses of their table 2
+
+    hstop and h* agree within the rounding of table 2 (computed by Edwards et al. with unrounded parameters).
+    hstart depends strongly on tan(theta) - mu3 and only agrees within 7 %.
+    """
+
+    p = _getHysteresisDefaults()
+    tanTheta = math.tan(math.radians(thetaDeg))
+    hStop, hStar, hStart = _hysteresisCriticalThicknesses(tanTheta, p)
+
+    assert hStop == pytest.approx(hStopRef, abs=0.07e-3)
+    assert hStar == pytest.approx(hStarRef, abs=0.07e-3)
+    # slowest steady uniform flow: friction of the dynamic regime at betaStar balances gravity
+    assert _hysteresisMu(hStar, p["hysteresisBetaStar"], p) == pytest.approx(tanTheta, rel=1e-12)
+
+    if hStartRef is None:
+        # slope below atan(mu3): static layers of any thickness are stable
+        assert tanTheta < p["hysteresisMu3"]
+        assert np.isnan(hStart)
+        assert _hysteresisMu(100.0, 0.0, p) > tanTheta
+    else:
+        assert hStart == pytest.approx(hStartRef, rel=0.07)
+        # static friction balances gravity at hstart
+        assert _hysteresisMu(hStart, 0.0, p) == pytest.approx(tanTheta, rel=1e-12)
+
+
+def test_computeForceCHysteresisAtRestAndGuards():
+    """at rest tau = muStart(h) * sigmaB, no nan or inf if sigmaB is zero"""
+
+    p = _getHysteresisDefaults()
+    theta = math.radians(30.0)
+    for h in [1.0e-3, 1.0e-2, 1.0]:
+        sigmaB = p["rho"] * p["gravAcc"] * math.cos(theta) * h
+        tau = _computeTau(14, 0.0, h, theta)
+        assert tau == pytest.approx(_hysteresisMu(h, 0.0, p) * sigmaB, rel=1e-12)
+
+    # surface normal perpendicular to gravity: effAccNorm = 0, sigmaB = 0, flow is not detached
+    tau = _computeTau(14, 1.0, 1.0e-2, theta=math.pi / 2.0)
+    assert tau == 0.0
+
+
+@pytest.mark.parametrize("thetaDeg", [33.5, 34.5, 35.5])
+@pytest.mark.parametrize("h", [3.0e-3, 5.0e-3, 1.0e-2])
+def test_computeForceCHysteresisSteadyState(thetaDeg, h):
+    """steady uniform flow in the dynamic regime: tau = rho g h sin(theta) for Fr = beta h / hstop - gamma"""
+
+    p = _getHysteresisDefaults()
+    theta = math.radians(thetaDeg)
+    hStop, hStar, _ = _hysteresisCriticalThicknesses(math.tan(theta), p)
+    # the flow rule only holds in the dynamic regime (Fr >= betaStar)
+    assert h >= hStar
+
+    froude = p["hysteresisBeta"] * h / hStop - p["hysteresisGamma"]
+    uMag = froude * math.sqrt(p["gravAcc"] * math.cos(theta) * h)
+    tau = _computeTau(14, uMag, h, theta)
+    assert tau == pytest.approx(p["rho"] * p["gravAcc"] * h * math.sin(theta), rel=1e-9)
+
+
+@pytest.mark.parametrize(
+    "thetaDeg, hFactor, h, moves",
+    [
+        # tan(theta) > mu3: static layers thinner than hstart are stable, thicker ones start to flow
+        (35.5, 0.5, None, False),
+        (35.5, 2.0, None, True),
+        # tan(theta) < mu3: static layers of any thickness are stable
+        (34.0, None, 1.0, False),
+    ],
+)
+def test_computeForceCHysteresisYield(thetaDeg, hFactor, h, moves):
+    """yield condition: material at rest stays at rest as long as gravity is smaller than the static friction
+
+    One time step of updatePositionC for a particle at rest on a plane without SPH force: velocity update with the
+    driving force followed by the explicit friction method (account4FrictionForce).
+    """
+
+    p = _getHysteresisDefaults()
+    theta = math.radians(thetaDeg)
+    if h is None:
+        _, _, hStart = _hysteresisCriticalThicknesses(math.tan(theta), p)
+        h = hFactor * hStart
+    dt = 1.0e-3
+
+    particles, force, cfg = _computeForceSingleParticle(14, 0.0, h, theta, dt)
+    m = particles["m"][0]
+    uxStar = force["forceX"][0] * dt / m
+    uyStar = force["forceY"][0] * dt / m
+    uzStar = force["forceZ"][0] * dt / m
+    # driving acceleration is the tangential gravity
+    assert DFAtlsC.norm(uxStar, uyStar, uzStar) == pytest.approx(
+        p["gravAcc"] * math.sin(theta) * dt, rel=1e-9
+    )
+
+    ux, uy, uz, dtStop = DFAfunC.account4FrictionForce(
+        uxStar, uyStar, uzStar, m, dt, force["forceFrict"][0], 0.0, 1
+    )
+    uMag = DFAtlsC.norm(ux, uy, uz)
+    if moves:
+        muStart = _hysteresisMu(h, 0.0, p)
+        expected = p["gravAcc"] * (math.sin(theta) - muStart * math.cos(theta)) * dt
+        assert uMag == pytest.approx(expected, rel=1e-9)
+        assert dtStop == dt
+    else:
+        assert uMag == 0.0
+        assert dtStop == 0.0
 
 
 def test_updateInitialVelocity():

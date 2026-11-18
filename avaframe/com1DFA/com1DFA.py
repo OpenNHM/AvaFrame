@@ -52,6 +52,7 @@ from avaframe.com1DFA import checkCfg
 from avaframe.ana5Utils import distanceTimeAnalysis as dtAna
 import avaframe.out3Plot.outDistanceTimeAnalysis as dtAnaPlots
 import avaframe.com1DFA.debrisFunctions as debF
+import avaframe.com1DFA.depthAveragedViscosity as dAV
 import threading
 
 #######################################
@@ -994,6 +995,20 @@ def createReportDict(avaDir, logName, relName, inputSimLines, cfg, reportAreaInf
             "rho_g": cfgGen["muIGrainDensity"],
             "shear factor": cfgGen["muIShearFactor"],
         }
+    elif cfgGen["frictModel"].lower() == "hysteresis":
+        reportST["Friction model"] = {
+            "type": "columns",
+            "model": "hysteresis",
+            "mu_1": cfgGen["hysteresisMu1"],
+            "mu_2": cfgGen["hysteresisMu2"],
+            "mu_3": cfgGen["hysteresisMu3"],
+            "L": cfgGen["hysteresisL"],
+            "beta": cfgGen["hysteresisBeta"],
+            "beta*": cfgGen["hysteresisBetaStar"],
+            "Gamma": cfgGen["hysteresisGamma"],
+            "viscosity option": cfgGen.get("hysteresisViscosity", "0"),
+            "nu": cfgGen.get("hysteresisNu", ""),
+        }
 
     # check if secondary release area
     if secRelAreaFlag == "Yes":
@@ -1410,6 +1425,14 @@ def initializeSimulation(cfg, outDir, demOri, inputSimLines, logName):
                 str(outDirRasters / ("entrainmentRaster_%s" % logName)),
             )
         )
+
+    # entrainment layer as particles at rest: the layer is then part of the flow and there is no entrainment rate
+    if "ent" in simTypeActual and cfgGen.get("entMethod", "rate") == "staticParticles":
+        particles, fields, reportAreaInfo = initializeStaticEntLayer(
+            cfg, particles, fields, dem, entrMassRaster, reportAreaInfo, logName=logName
+        )
+        entrMassRaster = np.zeros_like(entrMassRaster)
+        entrEnthRaster = np.zeros_like(entrEnthRaster)
 
     # surfacic entrainment mass available (unit kg/m²)
     fields["entrMassRaster"] = entrMassRaster
@@ -2044,6 +2067,142 @@ def initializeMassEnt(dem, simTypeActual, entLine, reportAreaInfo, thresholdPoin
     return entrMassRaster, entrEnthRaster, entrDepthDict["rasterData"], reportAreaInfo
 
 
+def initializeStaticEntLayer(cfg, particles, fields, dem, entrMassRaster, reportAreaInfo, logName=""):
+    """Initialize the entrainment layer as particles at rest (entMethod = staticParticles)
+
+    The entrainable mass (rhoEnt * entTh, without the parts overlapping release and secondary release areas) is
+    converted into particles with zero velocity, which are merged with the release particles. The layer is then part
+    of the flow thickness; erosion and deposition follow from the friction law (frictModel = hysteresis), the pressure
+    gradient and the subgrid mixing, as in the single layer model of Edwards et al. (2021). The layer thickness in
+    the flow is entTh * rhoEnt / rho, so that its mass is conserved.
+
+    Unless entLayerInFields is True, the layer particles that have not moved yet are left out of the result fields
+    (fields["excludeStaticLayer"]); the dynamics use the fields including them (FTAll, VxAll, ...).
+
+    The DEM is the ground below the layer and remains unchanged: the layer particles lie on top of it.
+
+    Parameters
+    ----------
+    cfg: configparser
+        configuration for DFA simulation (all sections)
+    particles : dict
+        particles dictionary at initial time step (release particles)
+    fields : dict
+        fields dictionary at initial time step
+    dem : dict
+        dictionary with dem information
+    entrMassRaster : 2D numpy array
+        raster of entrainable mass [kg/m²]
+    reportAreaInfo: dict
+        simulation area information dictionary
+    logName : str
+        simulation scenario name
+
+    Returns
+    -------
+    particles : dict
+        particles dictionary including the layer particles (origin = 1)
+    fields : dict
+        fields dictionary updated with the flow thickness of the layer (in FTAll only, unless entLayerInFields)
+    reportAreaInfo: dict
+        simulation area information dictionary completed with the layer info
+    """
+    cfgGen = cfg["GENERAL"]
+    rho = cfgGen.getfloat("rho")
+    rhoEnt = cfgGen.getfloat("rhoEnt")
+    # mass conserving thickness of the layer with the flow density
+    layerThickness = entrMassRaster / rho
+    if not np.any(layerThickness > 0):
+        log.warning(
+            "entMethod = staticParticles, but no entrainment mass is left after removing the overlap with the "
+            "release areas - no static layer particles initialized"
+        )
+        return particles, fields, reportAreaInfo
+    if rhoEnt != rho:
+        log.info(
+            "Static entrainment layer: thickness in the flow is entTh * rhoEnt / rho = %.3g entTh (mass conserved)"
+            % (rhoEnt / rho)
+        )
+
+    # particles of the layer: distribution type of the layer, never read from file
+    cfgLayer = copy.deepcopy(cfg)
+    cfgLayer["GENERAL"]["initPartDistType"] = cfgGen.get("entPartDistType", "uniform")
+    cfgLayer["GENERAL"]["initialiseParticlesFromFile"] = "False"
+    layerLine = {"rasterData": layerThickness, "initializedFrom": "raster", "header": dem["originalHeader"]}
+    layerParticles = initializeParticles(
+        cfgLayer["GENERAL"], layerLine, dem, logName=logName, relThField=layerThickness, thName="ent"
+    )
+    # origin of the particles (only with entMethod = staticParticles): 0 release (primary or secondary),
+    # 1 static entrainment layer that has not moved yet, 2 entrained layer (set in updateFieldsC as soon as the
+    # particle moves); inherited by particles created by splitting
+    particles["origin"] = np.zeros(particles["nPart"])
+    layerParticles["origin"] = np.ones(layerParticles["nPart"])
+
+    # merge, but keep the particle initialisation parameters of the release (used for splitting and merging)
+    massPerPart = particles["massPerPart"]
+    nPPK = particles["nPPK"]
+    particles = particleTools.mergeParticleDict(particles, layerParticles)
+    particles["massPerPart"] = massPerPart
+    particles["nPPK"] = nPPK
+
+    # cells where the layer is thicker than hstart start to flow without being reached by the avalanche (slope of
+    # the topography below the layer)
+    nUnstable = checkStaticLayerStability(cfgGen, layerThickness, dem)
+
+    # the layer particles at rest are part of the flow thickness of the particles (dynamics); unless entLayerInFields,
+    # they are left out of the result fields (FT, pft, FV, ...), which then only show the flow and its deposits
+    fields["excludeStaticLayer"] = not cfgGen.getboolean("entLayerInFields", fallback=False)
+    particles = DFAfunC.getNeighborsC(particles, dem)
+    particles, fields = DFAfunC.updateFieldsC(cfgGen, particles, dem, fields)
+
+    reportAreaInfo["Static entrainment layer info"] = {
+        "Layer mass [kg]": "%.0f" % layerParticles["mTot"],
+        "Layer particles": "%d" % layerParticles["nPart"],
+        "Cells thicker than hstart": "%d" % nUnstable,
+    }
+    log.info(
+        "Entrainment layer initialized as %d static particles with mass %.2f kg"
+        % (layerParticles["nPart"], layerParticles["mTot"])
+    )
+
+    return particles, fields, reportAreaInfo
+
+
+def checkStaticLayerStability(cfgGen, layerThickness, dem):
+    """count and report cells where a static layer is thicker than hstart of the hysteresis friction law
+
+    Such cells start to flow without being reached by the avalanche (if the thickness gradient is zero).
+
+    Parameters
+    ----------
+    cfgGen: configparser section
+        configuration settings, here used: hysteresis friction parameters
+    layerThickness : 2D numpy array
+        thickness of the static layer [m] (normal to the slope)
+    dem : dict
+        dictionary with dem information (Nx, Ny, Nz)
+
+    Returns
+    -------
+    nUnstable: int
+        number of cells where the layer is thicker than hstart
+    """
+    _, _, nz = DFAtls.normalize(dem["Nx"].copy(), dem["Ny"].copy(), dem["Nz"].copy())
+    with np.errstate(divide="ignore", invalid="ignore"):
+        tanTheta = np.sqrt(np.maximum(1.0 - nz * nz, 0.0)) / nz
+    hStart = com1DFATools.getHysteresisHStart(tanTheta, cfgGen)
+    layerCells = layerThickness > 0
+    unstable = layerCells & (layerThickness > hStart)
+    nUnstable = int(np.count_nonzero(unstable))
+    if nUnstable > 0:
+        log.warning(
+            "Static entrainment layer is thicker than hstart in %d of %d cells (%.1f %%): there the layer is not "
+            "held by the static friction and starts to flow without being reached by the avalanche"
+            % (nUnstable, np.count_nonzero(layerCells), 100.0 * nUnstable / np.count_nonzero(layerCells))
+        )
+    return nUnstable
+
+
 def initializeResistance(cfg, dem, simTypeActual, resLine, reportAreaInfo, thresholdPointInPoly):
     """Initialize resistance matrix
 
@@ -2196,6 +2355,7 @@ def DFAIterate(cfg, particles, fields, dem, inputSimLines, outDir, cuSimName, si
         "herschelandbulkley",
         "bingham",
         "mui",
+        "hysteresis",
     ]
     frictModel = cfgGen["frictModel"].lower()
     frictType = frictModelsList.index(frictModel) + 1
@@ -2805,6 +2965,12 @@ def computeEulerTimeStep(
     tCPUForceSPH = time.time() - startTime
     tCPU["timeForceSPH"] = tCPU["timeForceSPH"] + tCPUForceSPH
 
+    # add the depth-averaged viscous force of the hysteresis friction model (frictType 14) if required
+    if frictType == 14 and cfg.getint("hysteresisViscosity", fallback=0) > 0:
+        startTime = time.time()
+        force = dAV.addViscousForce(cfg, particles, force, fields, dem)
+        tCPU["timeForce"] = tCPU["timeForce"] + time.time() - startTime
+
     # add bonding force if required (if snowSlide is activated)
     if cfg.getint("snowSlide") == 1:
         force, particles = DFAfunC.computeCohesionForceC(cfg, particles, force)
@@ -2909,6 +3075,9 @@ def releaseSecRelArea(cfg, particles, fields, dem, zPartArray0, reportAreaInfo):
                     thName="secondaryRel",
                     timestep=particles["t"]
                 )
+            # particle origin is only tracked with a static entrainment layer (entMethod = staticParticles)
+            if "origin" in particles:
+                secRelParticles["origin"] = np.zeros(secRelParticles["nPart"])
             # release secondary release area by just appending the particles
             log.info(
                 "Releasing secondary release area %s at t = %.2f s" % (secRelRasterName, particles["t"])
@@ -3619,6 +3788,9 @@ def prepareVarSimDict(standardCfg, inputSimFiles, variationDict, simNameExisting
 
             # only keep friction model parameters that are used
             cfgSim = checkCfg.checkCfgFrictionModel(cfgSim, inputSimFiles, relVolume=relVolume)
+
+            # check the entrainment method and the settings it requires
+            cfgSim = checkCfg.checkCfgEntrainmentMethod(cfgSim)
 
             # set frictModelIndicator, this needs to happen AFTER checkCfgFrictModel
             frictIndi = com1DFATools.setFrictTypeIndicator(cfgSim)

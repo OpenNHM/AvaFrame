@@ -154,6 +154,15 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
         "muIGrainSize",
         "muIGrainDensity",
         "muIShearFactor",
+        "hysteresisMu1",
+        "hysteresisMu2",
+        "hysteresisMu3",
+        "hysteresisL",
+        "hysteresisBeta",
+        "hysteresisBetaStar",
+        "hysteresisGamma",
+        "hysteresisViscosity",
+        "hysteresisNu",
     ]
 
     # if samosATAuto check for release volume and volume class to determine which parameter setup
@@ -238,7 +247,7 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
                 cfg["GENERAL"]["beta2TauyBingham"] = "0"
 
             frictParameterIn = [frictModel.lower() in frictP.lower() for frictP in frictParameters]
-        elif frictModel.lower() == "mui":
+        elif frictModel.lower() in ["mui", "hysteresis"]:
             frictParameterIn = [frictModel.lower() in frictP.lower() for frictP in frictParameters]
         else:
             frictParameterIn = [frictModel.lower() in frictP for frictP in frictParameters]
@@ -303,6 +312,10 @@ def checkCfgFrictionModel(cfg, inputSimFiles, relVolume=""):
     if frictModel.lower() == "mui":
         checkMuIParameters(cfg)
 
+    # hysteresis friction model: check parameter ranges, plausibility and required numerical settings
+    if frictModel.lower() == "hysteresis":
+        checkHysteresisParameters(cfg)
+
     # check if explicitFriction has valid values
     if cfg["GENERAL"]["explicitFriction"] not in ["0", "1"]:
         message = "explicitFriction should be either 0 (implicit method) or 1 (explicit method)."
@@ -350,3 +363,176 @@ def checkMuIParameters(cfg):
             "muIShearFactor is %s, the default of 2.5 corresponds to a Bagnold velocity profile"
             % cfg["GENERAL"]["muIShearFactor"]
         )
+
+
+def checkHysteresisParameters(cfg):
+    """check the hysteresis friction model parameters for validity (errors) and plausibility (warnings)
+
+    The yield condition of material at rest is only exact with the explicit friction method, so
+    explicitFriction = 1 is required.
+
+    Parameters
+    -----------
+    cfg: dict
+        configuration settings
+
+    Raises
+    -------
+    ValueError
+        if hysteresisMu1, hysteresisL, hysteresisBeta or hysteresisBetaStar is not larger than 0,
+        if hysteresisGamma is negative,
+        if hysteresisMu2 <= hysteresisMu1 or hysteresisMu3 <= hysteresisMu1,
+        if explicitFriction is not 1
+    """
+
+    cfgGen = cfg["GENERAL"]
+    for hystP in ["hysteresisMu1", "hysteresisL", "hysteresisBeta", "hysteresisBetaStar"]:
+        if float(cfgGen[hystP]) <= 0:
+            message = "Friction model used hysteresis, but %s must be larger than 0" % hystP
+            log.error(message)
+            raise ValueError(message)
+
+    if float(cfgGen["hysteresisGamma"]) < 0:
+        message = "Friction model used hysteresis, but hysteresisGamma must not be negative"
+        log.error(message)
+        raise ValueError(message)
+
+    mu1 = float(cfgGen["hysteresisMu1"])
+    mu2 = float(cfgGen["hysteresisMu2"])
+    mu3 = float(cfgGen["hysteresisMu3"])
+    for muName, mu in [("hysteresisMu2", mu2), ("hysteresisMu3", mu3)]:
+        if mu <= mu1:
+            message = "Friction model used hysteresis, but %s must be larger than hysteresisMu1" % muName
+            log.error(message)
+            raise ValueError(message)
+
+    # the friction should decrease with Fr in the intermediate regime: muStart(h) > muDyn(h, betaStar) for all h.
+    # With x = h / L and r = beta / (betaStar + gamma): muStart - muDyn = (mu3 - mu1) + (mu2 - mu1) *
+    # (1 / (1 + x) - 1 / (1 + r x)), which for r < 1 has its minimum at x = 1 / sqrt(r)
+    ratio = float(cfgGen["hysteresisBeta"]) / (
+        float(cfgGen["hysteresisBetaStar"]) + float(cfgGen["hysteresisGamma"])
+    )
+    if ratio < 1.0:
+        minMargin = (mu3 - mu1) - (mu2 - mu1) * (1.0 - np.sqrt(ratio)) / (1.0 + np.sqrt(ratio))
+        if minMargin <= 0:
+            log.warning(
+                "hysteresis friction: the static friction muStart(h) is smaller than the dynamic friction at "
+                "hysteresisBetaStar for some flow thicknesses, so the friction increases with Fr in the intermediate "
+                "regime (minimum of muStart - muDyn: %.4f)" % minMargin
+            )
+
+    if cfgGen["explicitFriction"] != "1":
+        message = (
+            "Friction model used hysteresis, but explicitFriction is %s: the hysteresis friction model requires "
+            "explicitFriction = 1, material at rest is only held by the static friction with the explicit "
+            "friction method" % cfgGen["explicitFriction"]
+        )
+        log.error(message)
+        raise ValueError(message)
+
+    if str(cfgGen.get("adaptSfcStopped", "0")).lower() in ["1", "true"]:
+        log.warning(
+            "hysteresis friction with adaptSfcStopped = 1: particles that come to rest are removed, so deposits "
+            "cannot start moving again and do not contribute to the flow thickness"
+        )
+
+    # depth-averaged viscous term
+    viscosityOption = cfgGen.get("hysteresisViscosity", "0")
+    if viscosityOption not in ["0", "1", "2"]:
+        message = (
+            "Friction model used hysteresis, but hysteresisViscosity is %s, must be 0, 1 or 2"
+            % viscosityOption
+        )
+        log.error(message)
+        raise ValueError(message)
+    if float(cfgGen.get("hysteresisNu", "0")) < 0:
+        message = "Friction model used hysteresis, but hysteresisNu must not be negative"
+        log.error(message)
+        raise ValueError(message)
+    if viscosityOption != "0" and float(cfgGen.get("hysteresisNu", "0")) == 0:
+        log.warning(
+            "hysteresisViscosity = %s but hysteresisNu = 0: the viscous term has no effect" % viscosityOption
+        )
+
+
+def checkCfgEntrainmentMethod(cfg):
+    """check the entrainment method (entMethod) and the settings it requires
+
+    entMethod = staticParticles initialises the entrainment layer as particles at rest. It requires the hysteresis
+    friction model (static layers are held by the static friction), and it is not compatible with
+    entrainableDeposition (deposits are particles at rest already), with snowSlide (no bonds for the layer
+    particles) or with adaptSfcStopped (the layer particles at rest would be removed in the first time step).
+    adaptSfcEntrainment has no effect (warning).
+
+    Parameters
+    -----------
+    cfg: dict
+        configuration settings, here used: entMethod, entPartDistType, entLayerInFields, frictModel,
+        entrainableDeposition, snowSlide, adaptSfcStopped, adaptSfcEntrainment and viscOption in GENERAL
+
+    Raises
+    -------
+    ValueError
+        if entMethod, entPartDistType or entLayerInFields has an invalid value or
+        if entMethod = staticParticles is combined with a friction model other than hysteresis,
+        with entrainableDeposition, with snowSlide or with adaptSfcStopped
+    """
+
+    cfgGen = cfg["GENERAL"]
+    entMethod = cfgGen.get("entMethod", "rate")
+    if entMethod not in ["rate", "staticParticles"]:
+        message = "entMethod is %s, but must be either rate or staticParticles" % entMethod
+        log.error(message)
+        raise ValueError(message)
+
+    if entMethod == "staticParticles":
+        if cfgGen["frictModel"].lower() != "hysteresis":
+            message = (
+                "entMethod = staticParticles requires frictModel = hysteresis, but frictModel is %s: with other "
+                "friction models the layer is not held by a static friction" % cfgGen["frictModel"]
+            )
+            log.error(message)
+            raise ValueError(message)
+        if str(cfgGen.get("entrainableDeposition", "False")).lower() in ["1", "true"]:
+            message = (
+                "entMethod = staticParticles is not compatible with entrainableDeposition = True: deposits remain "
+                "particles that can start to flow again"
+            )
+            log.error(message)
+            raise ValueError(message)
+        if str(cfgGen.get("snowSlide", "0")) == "1":
+            message = "entMethod = staticParticles is not compatible with snowSlide = 1"
+            log.error(message)
+            raise ValueError(message)
+        if str(cfgGen.get("adaptSfcStopped", "0")).lower() in ["1", "true"]:
+            message = (
+                "entMethod = staticParticles is not compatible with adaptSfcStopped = 1: the layer particles at rest "
+                "would be removed in the first time step"
+            )
+            log.error(message)
+            raise ValueError(message)
+        if str(cfgGen.get("adaptSfcEntrainment", "0")).lower() in ["1", "true"]:
+            log.warning(
+                "adaptSfcEntrainment = 1 has no effect with entMethod = staticParticles (no entrainment rate)"
+            )
+        entLayerInFields = str(cfgGen.get("entLayerInFields", "False"))
+        if entLayerInFields.lower() not in ["true", "false", "1", "0", "yes", "no", "on", "off"]:
+            message = "entLayerInFields is %s, but must be True or False" % entLayerInFields
+            log.error(message)
+            raise ValueError(message)
+        partDistType = cfgGen.get("entPartDistType", "uniform")
+        if partDistType.lower() not in ["random", "semirandom", "uniform", "triangular"]:
+            message = (
+                "entPartDistType is %s, but must be one of random, semirandom, uniform or triangular"
+                % partDistType
+            )
+            log.error(message)
+            raise ValueError(message)
+        if str(cfgGen.get("viscOption", "1")) != "1":
+            log.warning(
+                "entMethod = staticParticles with viscOption = %s: erosion of the layer relies on the momentum "
+                "exchange of the subgrid mixing (viscOption = 1), without it the flow can pass over the layer"
+                % cfgGen.get("viscOption")
+            )
+
+    return cfg

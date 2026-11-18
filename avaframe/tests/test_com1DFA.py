@@ -5,6 +5,7 @@ Pytest for module com1DFA
 import configparser
 import copy
 import logging
+import math
 import pathlib
 import pickle
 import shutil
@@ -19,6 +20,7 @@ import avaframe.in2Trans.rasterUtils as IOf
 import avaframe.in3Utils.fileHandlerUtils as fU
 import avaframe.in3Utils.initializeProject as initProj
 from avaframe.com1DFA import com1DFA
+from avaframe.com1DFA import com1DFATools
 from avaframe.in2Trans.rasterUtils import transformFromASCHeader
 from avaframe.in3Utils import cfgUtils
 import avaframe.in3Utils.geoTrans as geoTrans
@@ -3025,6 +3027,177 @@ def test_initializeSimulation(tmp_path):
     assert (rastersDir / ("releaseRaster_%s.asc" % logName)).is_file()
     assert (rastersDir / ("resistanceRaster_%s.asc" % logName)).is_file()
     assert (rastersDir / ("entrainmentRaster_%s.asc" % logName)).is_file()
+
+
+def test_initializeSimulationStaticEntLayer(tmp_path):
+    """entMethod = staticParticles: the entrainment layer becomes particles at rest, no entrainment mass is left"""
+
+    outDir = pathlib.Path(tmp_path, "Outputs")
+    testDir = pathlib.Path(__file__).parents[0]
+    avaDir = pathlib.Path(tmp_path, "avaTest1")
+    shutil.copytree(testDir / "data" / "avaTestInputs", avaDir)
+
+    cfg = configparser.ConfigParser()
+    cfg["REPORT"] = {}
+    cfg["GENERAL"] = {
+        "methodMeshNormal": "1",
+        "thresholdPointInPoly": "0.001",
+        "resType": "ppr|pft|pfv",
+        "relTh": "1.0",
+        "meshCellSizeThreshold": "0.0001",
+        "meshCellSize": "1.",
+        "simTypeActual": "ent",
+        "rhoEnt": "100.",
+        "entTh": "0.3",
+        "rho": "200.",
+        "gravAcc": "9.81",
+        "massPerParticleDeterminationMethod": "MPPDH",
+        "interpOption": "2",
+        "sphKernelRadius": "1",
+        "deltaTh": "0.25",
+        "seed": "12345",
+        "initPartDistType": "random",
+        "thresholdMassSplit": "1.5",
+        "avalancheDir": "data/avaTest",
+        "initialiseParticlesFromFile": "False",
+        "entTempRef": "-10.",
+        "cpIce": "2050.",
+        "TIni": "-10.",
+        "frictModel": "hysteresis",
+        "hysteresisMu1": "0.5867",
+        "hysteresisMu2": "0.9391",
+        "hysteresisMu3": "0.6976",
+        "hysteresisL": "0.00056",
+        "entMethod": "rate",
+        "entPartDistType": "uniform",
+    }
+    cfg["EXPORTS"] = {"exportRasters": "False"}
+    demHeader = {
+        "xllcenter": 1.0,
+        "yllcenter": 2.0,
+        "cellsize": 1.0,
+        "nodata_value": -9999,
+        "nrows": 12,
+        "ncols": 12,
+        "driver": "AAIGrid",
+    }
+    demOri = {"header": demHeader, "rasterData": np.ones((12, 12))}
+    releaseLine = {
+        "x": np.asarray([6.9, 8.5, 8.5, 6.9, 6.9]),
+        "y": np.asarray([7.9, 7.9, 9.5, 9.5, 7.9]),
+        "Start": np.asarray([0]),
+        "Length": np.asarray([5]),
+        "Name": [""],
+        "thickness": [1.0],
+        "thicknessSource": ["ini File"],
+        "type": "release",
+        "file": avaDir / "REL" / "relAlr.shp",
+        "initializedFrom": "shapefile",
+    }
+    entLine = {
+        "fileName": (avaDir / "ENT" / "entAlr.shp"),
+        "Name": ["testEnt"],
+        "Start": np.asarray([0.0]),
+        "thickness": [0.3],
+        "thicknessSource": ["shp file"],
+        "Length": np.asarray([5]),
+        "x": np.asarray([3.0, 6.0, 6.0, 3.0, 3.0]),
+        "y": np.asarray([3.0, 3.0, 6.0, 6.0, 3.0]),
+        "type": "entrainment",
+        "initializedFrom": "shapefile",
+    }
+    inputSimLines = {
+        "releaseLine": releaseLine,
+        "entResInfo": {"flagSecondaryRelease": "No"},
+        "entLine": entLine,
+        "secondaryReleaseLine": None,
+        "resLine": "",
+        "relThFile": "",
+        "entThFile": "",
+        "relThField": "",
+        "damLine": None,
+        "muFile": None,
+        "xiFile": None,
+    }
+
+    # reference: entrainment rate model
+    particlesRate, fieldsRate, demRate, _ = com1DFA.initializeSimulation(
+        copy.deepcopy(cfg), outDir, copy.deepcopy(demOri), copy.deepcopy(inputSimLines), "simLog"
+    )
+    entMass = np.sum(fieldsRate["entrMassRaster"] * demRate["areaRaster"])
+    assert entMass > 0.0
+    # the particle origin is only tracked with a static layer
+    assert "origin" not in particlesRate
+
+    # static layer: the DEM is the ground below the layer and is not changed, the layer particles lie on top of it
+    cfg["GENERAL"]["entMethod"] = "staticParticles"
+    particles, fields, dem, reportAreaInfo = com1DFA.initializeSimulation(
+        copy.deepcopy(cfg), outDir, copy.deepcopy(demOri), copy.deepcopy(inputSimLines), "simLog"
+    )
+    assert np.array_equal(dem["rasterData"], demRate["rasterData"])
+    assert np.array_equal(dem["areaRaster"], demRate["areaRaster"])
+    assert np.allclose(particles["z"], 1.0)
+
+    # release particles are unchanged and come first
+    nRel = particlesRate["nPart"]
+    for key in ["x", "y", "m", "ID"]:
+        assert np.array_equal(particles[key][:nRel], particlesRate[key])
+    assert np.array_equal(particles["origin"][:nRel], np.zeros(nRel))
+    # layer particles: at rest, with the mass of the entrainment layer
+    layer = particles["origin"] == 1
+    nLayer = np.count_nonzero(layer)
+    assert nLayer == particles["nPart"] - nRel
+    assert nLayer > 0
+    for key in ["ux", "uy", "uz"]:
+        assert np.all(particles[key][layer] == 0.0)
+    assert np.sum(particles["m"][layer]) == pytest.approx(entMass, rel=1e-12)
+    assert particles["mTot"] == pytest.approx(particlesRate["mTot"] + entMass, rel=1e-12)
+    # unique IDs and release initialisation parameters (used for splitting and merging)
+    assert np.unique(particles["ID"]).size == particles["nPart"]
+    assert particles["massPerPart"] == particlesRate["massPerPart"]
+    assert particles["nPPK"] == particlesRate["nPPK"]
+    # no entrainment rate, the layer is part of the flow thickness instead
+    assert np.sum(fields["entrMassRaster"]) == 0.0
+    assert np.sum(fields["entrEnthRaster"]) == 0.0
+    assert np.sum(fields["FTAll"]) > np.sum(fieldsRate["FT"])
+    assert np.all(particles["h"][layer] > 0.0)
+    # entLayerInFields = False (default): the layer at rest is not part of the result fields
+    assert fields["excludeStaticLayer"]
+    layerOnly = (fields["FTAll"] > 0.0) & (fieldsRate["FT"] == 0.0)
+    assert np.any(layerOnly)
+    assert np.all(fields["FT"][layerOnly] == 0.0)
+    assert np.all(fields["pft"][layerOnly] == 0.0)
+    assert np.array_equal(fields["FT"] > 0.0, fieldsRate["FT"] > 0.0)
+    assert reportAreaInfo["Static entrainment layer info"]["Layer particles"] == "%d" % nLayer
+
+    # entLayerInFields = True: the layer at rest is part of the result fields, same particle thickness
+    cfg["GENERAL"]["entLayerInFields"] = "True"
+    particlesIn, fieldsIn, _, _ = com1DFA.initializeSimulation(
+        copy.deepcopy(cfg), outDir, copy.deepcopy(demOri), copy.deepcopy(inputSimLines), "simLog"
+    )
+    assert not fieldsIn["excludeStaticLayer"]
+    assert "FTAll" not in fieldsIn
+    assert np.array_equal(fieldsIn["FT"], fields["FTAll"])
+    assert np.all(fieldsIn["pft"][layerOnly] > 0.0)
+    assert np.array_equal(particlesIn["h"], particles["h"])
+    # flat dem: the layer is stable everywhere
+    assert reportAreaInfo["Static entrainment layer info"]["Cells thicker than hstart"] == "0"
+
+
+def test_checkStaticLayerStability(caplog):
+    """cells with a static layer thicker than hstart are counted and reported"""
+
+    cfgGen = cfgUtils.getModuleConfig(com1DFA, onlyDefault=True, toPrint=False)["GENERAL"]
+    # four cells: 35.5 deg (two thicknesses), 34 deg (below atan(mu3)) and 60 deg without layer
+    thetas = np.radians(np.array([[35.5, 35.5, 34.0, 60.0]]))
+    dem = {"Nx": np.sin(thetas), "Ny": np.zeros_like(thetas), "Nz": np.cos(thetas)}
+    hStart = com1DFATools.getHysteresisHStart(math.tan(thetas[0, 0]), cfgGen)
+    layerThickness = np.array([[0.5 * hStart, 2.0 * hStart, 1.0, 0.0]])
+
+    with caplog.at_level(logging.WARNING):
+        nUnstable = com1DFA.checkStaticLayerStability(cfgGen, layerThickness, dem)
+    assert nUnstable == 1
+    assert "thicker than hstart in 1 of 3 cells" in caplog.text
 
 
 def test_runCom1DFA(tmp_path, caplog):

@@ -49,3 +49,5 @@ cpdef (double, double, double) getVector(
   double[:, :], double[:, :], double[:, :])
 
 cpdef double SamosATfric(double , double , double, double , double , double, double , double , double, double)
+
+cpdef double hysteresisMu(double, double, double, double, double, double, double, double, double)

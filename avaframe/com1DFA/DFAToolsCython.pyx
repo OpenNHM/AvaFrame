@@ -861,3 +861,58 @@ cpdef double SamosATfric(double rho, double tau0, double Rs0, double mu, double 
   div = math.log(div) / kappa + B
   cdef double tau = tau0 + p * mu * (1.0 + Rs0 / (Rs0 + Rs)) + rho * v * v / (div * div)
   return tau
+
+
+cpdef double hysteresisMu(double h, double froude, double mu1, double mu2, double mu3, double lHyst,
+                          double beta, double betaStar, double gamma):
+  """ Get the basal friction coefficient of the hysteretic friction law
+
+  Friction law of Edwards et al. (2019) as used in Edwards et al. (2021, eq. 3.7 - 3.9), with
+  muStart(h) = mu3 + (mu2 - mu1) / (1 + h / L):
+
+  - dynamic regime (froude >= betaStar): mu = mu1 + (mu2 - mu1) / (1 + h * beta / (L * (froude + gamma)))
+  - intermediate regime (0 < froude < betaStar): linear in froude between muStart(h) and the dynamic value at betaStar
+  - static regime (froude = 0): muStart(h)
+
+  In the static regime the friction only balances the driving force up to muStart (yield condition). This is not
+  done here but by the explicit friction method (account4FrictionForce in DFAfunctionsCython).
+
+  Parameters
+  ----------
+      h: float
+          flow thickness [m], larger than 0
+      froude: float
+          Froude number uMag / sqrt(g_n h) >= 0, g_n is the normal component of the acceleration
+      mu1: float
+          tan(zeta1), friction coefficient of thick dynamic flows
+      mu2: float
+          tan(zeta2), friction coefficient of thin dynamic flows, larger than mu1
+      mu3: float
+          tan(zeta3), static friction coefficient of thick layers, larger than mu1
+      lHyst: float
+          characteristic length L of the friction law [m], larger than 0
+      beta: float
+          slope of the flow rule Fr = beta h / hstop - gamma, larger than 0
+      betaStar: float
+          Froude number of the transition between intermediate and dynamic regime, larger than 0
+      gamma: float
+          offset of the flow rule Fr = beta h / hstop - gamma, >= 0
+
+  Returns
+  -------
+      mu: float
+          basal friction coefficient
+  """
+  cdef double dMu = mu2 - mu1
+  cdef double muStart = mu3 + dMu / (1.0 + h / lHyst)
+  cdef double muDynBetaStar
+  if froude >= betaStar:
+    # dynamic regime
+    mu = mu1 + dMu / (1.0 + h * beta / (lHyst * (froude + gamma)))
+  else:
+    # intermediate regime, linear interpolation in froude (froude = 0 gives the static value muStart)
+    muDynBetaStar = mu1 + dMu / (1.0 + h * beta / (lHyst * (betaStar + gamma)))
+    mu = muStart + (froude / betaStar) * (muDynBetaStar - muStart)
+  return mu
+
+

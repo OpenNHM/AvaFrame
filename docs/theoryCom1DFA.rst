@@ -144,7 +144,8 @@ Entrainment
 
 The Snow entrainment processes are plowing at the front of the avalanche and erosion
 at the bottom. Please note: com1DFA uses one or the other process, not both at the same time (default: erosion). The
-other process is set to zero.
+other process is set to zero. This section describes the entrainment rate model (``entMethod = rate``, default);
+for the alternative of an entrainment layer of particles at rest see :ref:`hysteresis`.
 The entrainment rate at the front :math:`\dot{q}^{\text{plo}}` can be expressed as a function of the
 properties of the entrained snow (density :math:`\rho_{\text{ent}}` and
 snow thickness :math:`h_{\text{ent}}`), the velocity of the avalanche at the
@@ -955,6 +956,243 @@ For snow avalanches the following additional points apply:
 The ini file additionally contains the glass bead values of :cite:`JoFoPo2006` as a commented parameter block
 (:math:`\mu_s = \tan 20.9^\circ`, :math:`\mu_2 = \tan 32.76^\circ`, :math:`I_0 = 0.279`, :math:`d = 0.5` mm,
 :math:`\rho_g = 2500` kg/m³).
+
+.. _hysteresis:
+
+Hysteretic friction
+"""""""""""""""""""
+
+.. Note:: There is no parameter set for snow avalanches. The defaults are the laboratory values for sand on a rough
+    bed of :cite:`EdViJoGr2021` (their table 1), with a characteristic length of :math:`L = 0.56` mm.
+
+The hysteretic friction law of :cite:`EdRuJoGr2019`, as used by :cite:`EdViJoGr2021`, extends the friction law of
+:cite:`PoFo2002` by a static and an intermediate regime. It is selected with ``frictModel = hysteresis``. The friction
+coefficient depends on the flow thickness and on the Froude number
+
+.. math::
+    Fr = \frac{\overline{u}}{\sqrt{g_n\,\overline{h}}}, \qquad g_n\,\overline{h} = \sigma^{(b)} / \rho
+    :label: hysteresis-froude
+
+where :math:`g_n` is the normal component of the acceleration (gravity, plus the curvature acceleration if
+``curvAccInFriction = 1``). The bottom shear stress reads :math:`\tau^{(b)} = \mu_b(\overline{h}, Fr)\,\sigma^{(b)}` with
+
+.. math::
+    \mu_b(h, Fr) =
+    \begin{cases}
+    \mu_{dyn}(h, Fr), & Fr \geq \beta_*\\
+    \mu_{start}(h) + \dfrac{Fr}{\beta_*}\left(\mu_{dyn}(h, \beta_*) - \mu_{start}(h)\right), & 0 < Fr < \beta_*\\
+    \mu_{start}(h), & Fr = 0
+    \end{cases}
+    :label: hysteresis-mu
+
+.. math::
+    \mu_{dyn}(h, Fr) = \mu_1 + \frac{\mu_2 - \mu_1}{1 + \dfrac{h\,\beta}{L\,(Fr + \Gamma)}}, \qquad
+    \mu_{start}(h) = \mu_3 + \frac{\mu_2 - \mu_1}{1 + h / L}
+    :label: hysteresis-dyn-start
+
+:cite:`EdViJoGr2021` write the friction coefficients as angles, :math:`\mu_i = \tan\zeta_i`. The three regimes are
+dynamic (:math:`Fr \geq \beta_*`), intermediate (linear in :math:`Fr`) and static (:math:`Fr = 0`).
+:math:`\mu_b` is continuous in :math:`Fr`. Material that has come to rest is held by :math:`\mu_{start}`, which is
+larger than the friction of the slowest flow, :math:`\mu_{dyn}(h, \beta_*)`. This difference is the hysteresis:
+a layer that is too thin to start flowing keeps flowing once it moves.
+
+**Yield condition.** In the static regime the friction only balances the driving force (gravity and pressure
+gradient) up to :math:`\mu_{start}\,\sigma^{(b)}` :cite:`EdViJoGr2021` (eq. 3.9). In com1DFA this is done by the
+explicit friction method: the velocity of a particle at rest is first updated with the driving force; if the friction
+impulse :math:`\mu_{start}\,\sigma^{(b)} A\,\Delta t` is larger, the particle stays at rest. The implicit friction
+method divides by the velocity (bounded by ``velMagMin``) and cannot hold material exactly at rest, so the hysteresis
+model requires ``explicitFriction = 1``.
+
+**Deposition and erosion.** In the model of :cite:`EdViKoGr2017, EdViJoGr2021` the flow thickness includes the
+static material and there are no separate erosion or deposition rates: a particle is either moving or static through
+its whole depth, and the friction law decides which. Deposition is moving material that stops, erosion is static
+material that starts to move again. In com1DFA particles that come to rest stay in the simulation (as long as
+``adaptSfcStopped = 0``): they keep contributing to the flow thickness and its gradient, and they start to flow again if
+the driving force exceeds :math:`\mu_{start}(h)\,\sigma^{(b)} A`, for example when a following surge increases the
+flow thickness.
+
+**Erodible layer of static particles.** With ``entMethod = staticParticles`` the entrainment layer (ENT input) is
+initialised as particles at rest (``entPartDistType``, default ``uniform``) instead of an entrainable mass with an
+entrainment rate (:ref:`theoryCom1DFA:Entrainment`). The layer is part of the flow thickness from the start, as in
+the single layer model of :cite:`EdViJoGr2021`. Its mass is :math:`\rho_{ent}\,h_{ent}` per unit area; with the flow
+density :math:`\rho` its thickness in the flow is :math:`h_{ent}\,\rho_{ent}/\rho`. There is no entrainment rate:
+the layer is eroded when the avalanche reaches it, because
+
+- the flow thickness and its gradient increase, which reduces :math:`\mu_{start}(h)` and adds a pressure gradient
+  force on the layer particles,
+- the subgrid mixing (``viscOption = 1``) relaxes the velocity of each particle towards the mass averaged velocity
+  of its cell, which transfers momentum from the avalanche to the layer particles. This is the counterpart of the
+  single velocity of a column in :cite:`EdViJoGr2021`.
+
+The DEM is the ground below the erodible layer and is not changed: the layer particles lie on top of the DEM, so
+the surface of a layer that has not been eroded lies :math:`h_{ent}\,\rho_{ent}/\rho` above the DEM.
+
+Particles of the layer carry ``origin = 1`` until they move for the first time, then ``origin = 2`` (entrained);
+release particles carry ``origin = 0`` (this field only exists with ``entMethod = staticParticles``).
+``entMethod = staticParticles`` requires ``frictModel = hysteresis`` and is not
+compatible with ``entrainableDeposition``, ``snowSlide`` or ``adaptSfcStopped`` (the layer particles at rest would be
+removed in the first time step); ``adaptSfcEntrainment`` has no effect. At initialisation a warning reports cells
+where the layer is thicker than :math:`h_{start}(\theta)` :eq:`hysteresis-hStart`, with :math:`\theta` the slope of
+the topography below the layer: there the layer is not held by the static friction and starts to flow without being
+reached by the avalanche.
+
+**Result fields.** With ``entLayerInFields = False`` (default) the layer particles that have not moved yet
+(``origin = 1``) are left out of the result fields: ``FT``, ``FV``, ``FM``, ``P``, ``TA``, the kinetic energy and the
+peak fields ``pft``, ``pfv``, ``ppr``, ``pta``, ``pke`` as well as ``timeInfo``. These show the flowing avalanche,
+the entrained layer and the deposits, but not the layer where the avalanche never arrives. The velocity fields are
+the mass averaged velocities of these particles. The dynamics are not affected: the flow thickness of the particles,
+the grid velocity of the subgrid mixing, the depth-averaged viscous term, dams and resistance areas use the fields
+including the layer at rest (``FTAll``, ``FVAll``, ``VxAll``, ``VyAll``, ``VzAll``, internal only). Secondary release
+areas are triggered by the result field ``FT``, so the layer at rest does not trigger them. With
+``entLayerInFields = True`` the result fields include the layer at rest.
+
+**Depth-averaged viscous term.** The momentum balance of :cite:`EdViJoGr2021` (eq. 3.2) contains the in-plane
+deviatoric stresses of the depth-averaged :math:`\mu(I)` rheology :cite:`GrEd2014`,
+:math:`\nabla\cdot\left(\nu\,h^{3/2}\,\overline{\mathbf{D}}\right)` with the depth-averaged strain rate
+:math:`\overline{\mathbf{D}} = \frac{1}{2}\left(\nabla\overline{\mathbf{u}} + \nabla\overline{\mathbf{u}}^T\right)`. It
+is switched on with ``hysteresisViscosity`` (default 0, off). The particles get the acceleration
+
+.. math::
+    \mathbf{a}^{visc} = \frac{1}{\overline{h}}\,\nabla_s\cdot\left(\nu\,\overline{h}^{3/2}\,\overline{\mathbf{D}}\right)
+    :label: hysteresis-viscous
+
+computed on the grid nodes from the mass averaged velocity and the flow thickness, and interpolated bilinearly to
+the particles. :math:`\nabla_s` is the gradient on the topography: with the tangential projection
+:math:`\mathbf{P} = \mathbf{I} - \mathbf{n}\otimes\mathbf{n}` and the derivatives with respect to the horizontal
+coordinates (central differences), the velocity gradient is :math:`\mathbf{P}\,\mathbf{J}\,\mathbf{P}` with
+:math:`J_{kj} = \partial \overline{u}_k / \partial x_j` (:math:`j = x, y`), and the divergence of a tensor
+:math:`\mathbf{T}` is :math:`\left(\nabla_s\cdot\mathbf{T}\right)_k = \sum_{l} \sum_{j = x, y} P_{jl}\,\partial T_{kl}
+/ \partial x_j`; only the tangential part of :eq:`hysteresis-viscous` is used. The force is added to the driving force,
+so it also enters the yield condition of material at rest. The coefficient is
+
+- ``hysteresisViscosity = 1``: constant, :math:`\nu` = ``hysteresisNu``
+- ``hysteresisViscosity = 2``: from the local slope angle :math:`\zeta` :cite:`EdViJoGr2021` (eq. 3.6),
+
+  .. math::
+      \nu = \frac{2}{9}\,\frac{L\sqrt{g}}{\beta}\,\frac{\sin\zeta}{\sqrt{\cos\zeta}}\,
+      \frac{\mu_2 - \tan\zeta}{\tan\zeta - \mu_1}
+
+  limited to ``hysteresisNu`` (:math:`\nu \to \infty` for :math:`\tan\zeta \to \mu_1` and it is undefined below) and
+  0 for :math:`\tan\zeta \geq \mu_2`. :eq:`hysteresis-viscous` was derived for steady uniform flow on a constant slope;
+  with a varying slope this choice of :math:`\nu` is an assumption.
+
+The term is integrated explicitly. A warning is issued if the time step is larger than
+:math:`\Delta x^2 / (4\,\nu\,h^{1/2})`. With the laboratory value :math:`\nu \approx 10^{-3}` m\ :sup:`3/2`/s the
+effective kinematic viscosity :math:`\nu\,h^{1/2}` is about :math:`10^{-3}` m²/s for :math:`h = 1` m, which has no
+noticeable effect on grids with cell sizes of metres.
+
+Critical thicknesses
+++++++++++++++++++++
+
+In steady uniform flow :math:`\mu_b = \tan\theta`. In the dynamic regime this gives the flow rule of :cite:`PoFo2002`
+
+.. math::
+    Fr = \beta\,\frac{h}{h_{stop}(\theta)} - \Gamma, \qquad
+    h_{stop}(\theta) = L\,\frac{\mu_2 - \tan\theta}{\tan\theta - \mu_1}
+    :label: hysteresis-flowRule
+
+where :math:`h_{stop}` is the thickness of the deposit that a steady flow leaves behind. The slowest steady flow
+(:math:`Fr = \beta_*`) has the thickness :math:`h_* = h_{stop}\,(\beta_* + \Gamma) / \beta`. The thickest static
+layer that does not start to flow follows from :math:`\mu_{start}(h_{start}) = \tan\theta`:
+
+.. math::
+    h_{start}(\theta) = L\left(\frac{\mu_2 - \mu_1}{\tan\theta - \mu_3} - 1\right) \qquad \text{for } \tan\theta > \mu_3
+    :label: hysteresis-hStart
+
+On slopes with :math:`\tan\theta \leq \mu_3` static layers of any thickness are stable (without a thickness
+gradient). :cite:`EdViJoGr2021` recommend to regard :math:`h_{stop}(\theta)` and :math:`h_{start}(\theta)` as the
+quantities that parameterise the friction law. With the default parameters:
+
+.. list-table:: Critical thicknesses for the default parameters
+    :header-rows: 1
+    :widths: 25 25 25 25
+
+    * - :math:`\theta`
+      - :math:`h_{stop}`
+      - :math:`h_*`
+      - :math:`h_{start}`
+    * - :math:`33.5^\circ`
+      - 2.06 mm
+      - 2.85 mm
+      - undefined
+    * - :math:`34.5^\circ`
+      - 1.40 mm
+      - 1.94 mm
+      - undefined
+    * - :math:`35.5^\circ`
+      - 1.00 mm
+      - 1.38 mm
+      - 12.0 mm
+
+The unit tests compare these values with table 2 of :cite:`EdViJoGr2021` (:math:`h_{start}(35.5^\circ) = 11.3` mm
+there; :math:`h_{start}` is very sensitive to :math:`\tan\theta - \mu_3` and therefore to the rounding of
+:math:`\zeta_3`).
+
+Parameters
+++++++++++
+
+.. list-table:: Parameters of the hysteresis friction model
+    :header-rows: 1
+    :widths: 25 12 38 25
+
+    * - Parameter (ini file)
+      - Symbol
+      - Meaning
+      - Default
+    * - ``hysteresisMu1``
+      - :math:`\mu_1`
+      - friction coefficient of thick dynamic flows
+      - :math:`\tan 30.4^\circ`
+    * - ``hysteresisMu2``
+      - :math:`\mu_2`
+      - friction coefficient of thin dynamic flows
+      - :math:`\tan 43.2^\circ`
+    * - ``hysteresisMu3``
+      - :math:`\mu_3`
+      - static friction coefficient of thick layers
+      - :math:`\tan 34.9^\circ`
+    * - ``hysteresisL``
+      - :math:`L`
+      - characteristic length [m]
+      - 0.00056
+    * - ``hysteresisBeta``
+      - :math:`\beta`
+      - slope of the flow rule :eq:`hysteresis-flowRule`
+      - 0.63
+    * - ``hysteresisBetaStar``
+      - :math:`\beta_*`
+      - Froude number of the transition from the intermediate to the dynamic regime
+      - 0.47
+    * - ``hysteresisGamma``
+      - :math:`\Gamma`
+      - offset of the flow rule :eq:`hysteresis-flowRule`
+      - 0.40
+    * - ``hysteresisViscosity``
+      -
+      - viscous term :eq:`hysteresis-viscous`: 0 off, 1 constant :math:`\nu`, 2 :math:`\nu` from the local slope
+      - 0
+    * - ``hysteresisNu``
+      - :math:`\nu`
+      - viscosity coefficient (option 1) or its upper limit (option 2) [m\ :sup:`3/2`/s]
+      - 0.0014
+
+:math:`\mu_1`, :math:`L`, :math:`\beta` and :math:`\beta_*` must be larger than 0, :math:`\Gamma \geq 0`,
+:math:`\mu_2 > \mu_1` and :math:`\mu_3 > \mu_1`, and ``explicitFriction = 1`` is required. A warning is issued if
+:math:`\mu_{start}(h) < \mu_{dyn}(h, \beta_*)` for some thickness (the friction would then increase with :math:`Fr`
+in the intermediate regime) and if ``adaptSfcStopped = 1`` (particles at rest are removed and cannot flow again).
+``hysteresisViscosity`` must be 0, 1 or 2 and ``hysteresisNu`` must not be negative; a warning is issued if the
+viscous term is switched on with ``hysteresisNu = 0``.
+
+Applicability
++++++++++++++
+
+- The default parameters describe sand with flow thicknesses of millimetres. For flow thicknesses of metres
+  :math:`h / L` is of the order :math:`10^3`, so :math:`\mu_b \approx \mu_1` while moving and
+  :math:`\mu_{start} \approx \mu_3` at rest: the model then behaves like Coulomb friction with a larger static
+  coefficient. Parameters for snow (:math:`L`, :math:`\beta`, :math:`\beta_*`, :math:`\Gamma`, :math:`\mu_{1,2,3}`)
+  are not known.
+- The assumption that the flow is either moving or static through its whole depth is reasonable only for shallow
+  layers, with thicknesses of the order of :math:`h_{stop}` :cite:`EdViJoGr2021`.
 
 Dam
 ~~~

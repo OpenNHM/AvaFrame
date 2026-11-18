@@ -114,6 +114,13 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double muIGrainSize = cfg.getfloat('muIGrainSize')
   cdef double muIGrainDensity = cfg.getfloat('muIGrainDensity')
   cdef double muIShearFactor = cfg.getfloat('muIShearFactor')
+  cdef double hysteresisMu1 = cfg.getfloat('hysteresisMu1')
+  cdef double hysteresisMu2 = cfg.getfloat('hysteresisMu2')
+  cdef double hysteresisMu3 = cfg.getfloat('hysteresisMu3')
+  cdef double hysteresisL = cfg.getfloat('hysteresisL')
+  cdef double hysteresisBeta = cfg.getfloat('hysteresisBeta')
+  cdef double hysteresisBetaStar = cfg.getfloat('hysteresisBetaStar')
+  cdef double hysteresisGamma = cfg.getfloat('hysteresisGamma')
   cdef double curvAccInFriction = cfg.getfloat('curvAccInFriction')
   cdef double curvAccInTangent = cfg.getfloat('curvAccInTangent')
   cdef int curvAccInGradient = cfg.getint('curvAccInGradient')
@@ -151,9 +158,11 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double[:] uzArray = particles['uz']
   cdef long long[:] ID = particles['ID']
   cdef double[:] totalEnthalpyArray = particles['totalEnthalpy']
-  cdef double[:, :] VX = fields['Vx']
-  cdef double[:, :] VY = fields['Vy']
-  cdef double[:, :] VZ = fields['Vz']
+  # grid velocity including the static entrainment layer particles (VxAll, ... only exist if they are excluded from
+  # the result fields)
+  cdef double[:, :] VX = fields.get('VxAll', fields['Vx'])
+  cdef double[:, :] VY = fields.get('VyAll', fields['Vy'])
+  cdef double[:, :] VZ = fields.get('VzAll', fields['Vz'])
   cdef double[:, :] entrMassRaster = fields['entrMassRaster']
   cdef double[:, :] entrEnthRaster = fields['entrEnthRaster']
   cdef double[:, :] muRaster = fields['muField']
@@ -182,7 +191,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   #TODO: Influence on variable initiation?
   cdef double shearRate, etaObrienAndJulien, tauyObrienAndJulien, lmObrienAndJulien
   cdef double lambdaBagnold, cObrienAndJulien, tauyHerschelAndBulkley, etaBingham, tauyBingham
-  cdef double inertialNumber, muI
+  cdef double inertialNumber, muI, froude, muHysteresis
   # variables for interpolation
   cdef int Lx0, Ly0, LxEnd0, LyEnd0, iCell, iCellEnd
   cdef double w[4]
@@ -389,6 +398,20 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
               # rearranged form of mu(I), finite for I = 0
               muI = muIMuS + (muIMu2 - muIMuS) * inertialNumber / (muII0 + inertialNumber)
               tau = muI * sigmaB
+          elif frictType == 14:
+            ## hysteretic friction law (Edwards et al. 2019, 2021)
+            if sigmaB <= 0.0:
+              tau = 0.0
+            else:
+              # Froude number uMag / sqrt(g_n h), with sigmaB / rho = g_n h (g_n includes curvature if
+              # curvAccInFriction = 1)
+              froude = uMag / math.sqrt(sigmaB / rho)
+              muHysteresis = DFAtlsC.hysteresisMu(h, froude, hysteresisMu1, hysteresisMu2, hysteresisMu3,
+                                                  hysteresisL, hysteresisBeta, hysteresisBetaStar,
+                                                  hysteresisGamma)
+              # static particles (uMag = 0): tau = muStart * sigmaB, the yield condition (friction only balances
+              # the driving force) follows from the explicit friction method in account4FrictionForce
+              tau = muHysteresis * sigmaB
           else:
             tau = 0.0
 
@@ -820,7 +843,9 @@ def updatePositionC(cfg, particles, dem, force, fields, int typeStop=0):
   cdef double[:] yTangentArray = dam['yTangent']
   cdef double[:] zTangentArray = dam['zTangent']
   # read fields
-  cdef double[:, :] FD = fields['FT']
+  # flow thickness including the static entrainment layer particles (FTAll only exists if they are excluded from the
+  # result fields)
+  cdef double[:, :] FD = fields.get('FTAll', fields['FT'])
   # initialize outputs
   cdef double TotkinEneNew = 0
   cdef double TotpotEneNew = 0
@@ -1313,6 +1338,32 @@ def updateFieldsC(cfg, particles, dem, fields):
   cdef double[:, :] FTDetBilinear = np.zeros((nrows, ncols))
   cdef double[:, :] FTStopBilinear = np.zeros((nrows, ncols))
   cdef double[:, :] FTEntBilinear = np.zeros((nrows, ncols))
+  # static entrainment layer: track the entrained layer particles and optionally leave the layer particles at rest
+  # out of the result fields (the fields including them are used for the dynamics)
+  cdef bint hasLayer = 'origin' in particles
+  cdef bint excludeStaticLayer = hasLayer and fields.get('excludeStaticLayer', False)
+  cdef bint isStaticLayer = False
+  cdef double[:] originArray
+  cdef double[:, :] MassAllBilinear
+  cdef double[:, :] FTAllBilinear
+  cdef double[:, :] VXAllBilinear
+  cdef double[:, :] VYAllBilinear
+  cdef double[:, :] VZAllBilinear
+  cdef double[:, :] VAllBilinear
+  cdef double[:, :] hField
+  cdef double mAll
+  if hasLayer:
+    if np.size(particles['origin']) != nPart:
+      raise ValueError('particles["origin"] has %d values, but there are %d particles'
+                       % (np.size(particles['origin']), nPart))
+    originArray = particles['origin']
+  if excludeStaticLayer:
+    MassAllBilinear = np.zeros((nrows, ncols))
+    FTAllBilinear = np.zeros((nrows, ncols))
+    VXAllBilinear = np.zeros((nrows, ncols))
+    VYAllBilinear = np.zeros((nrows, ncols))
+    VZAllBilinear = np.zeros((nrows, ncols))
+    VAllBilinear = np.zeros((nrows, ncols))
   # declare intermediate step variables
   cdef double[:] hBB = np.zeros((nPart))
   cdef double m, dmDet, demEnt, h, x, y, z, s, ux, uy, uz, nx, ny, nz, hbb, hLim, areaPart, trajectoryAngle
@@ -1337,6 +1388,13 @@ def updateFieldsC(cfg, particles, dem, fields):
     m = mass[k]
     dmDet = massDet[k]
     dmEnt = massEnt[k]
+    # layer particle at rest that has never moved, or entrained as soon as it moves (origin = 2)
+    isStaticLayer = False
+    if hasLayer and originArray[k] == 1:
+      if ux != 0 or uy != 0 or uz != 0:
+        originArray[k] = 2
+      elif excludeStaticLayer:
+        isStaticLayer = True
     # find coordinates in normalized ref (origin (0,0) and cellsize 1)
     # find coordinates of the 4 nearest cornes on the raster
     # prepare for bilinear interpolation
@@ -1344,7 +1402,7 @@ def updateFieldsC(cfg, particles, dem, fields):
     # for the travel angle we simply do a nearest interpolation
     indx = <int>math.round(x / csz)
     indy = <int>math.round(y / csz)
-    if computeTA:
+    if computeTA and not isStaticLayer:
       trajectoryAngle = trajectoryAngleArray[k]
       travelAngleField[indy, indx] = max(travelAngleField[indy, indx], trajectoryAngle)
     # add the component of the points value to the 4 neighbour grid points
@@ -1355,12 +1413,18 @@ def updateFieldsC(cfg, particles, dem, fields):
       mwi = m * w[i]
       dmDetWi = dmDet * w[i]
       dmEntWi = dmEnt * w[i]
-      MassBilinear[indy, indx] = MassBilinear[indy, indx] + mwi
       MassDetBilinear[indy, indx] = MassDetBilinear[indy, indx] + dmDetWi
-      MassEntBilinear[indy, indx] = MassEntBilinear[indy, indx] + dmEntWi 
-      MomBilinearX[indy, indx] = MomBilinearX[indy, indx] + mwi * ux
-      MomBilinearY[indy, indx] = MomBilinearY[indy, indx] + mwi * uy
-      MomBilinearZ[indy, indx] = MomBilinearZ[indy, indx] + mwi * uz
+      MassEntBilinear[indy, indx] = MassEntBilinear[indy, indx] + dmEntWi
+      # mass of all particles summed in the same order as the mass of the result fields without a static layer, so
+      # that the dynamics do not depend on excludeStaticLayer (also not by round-off)
+      if excludeStaticLayer:
+        MassAllBilinear[indy, indx] = MassAllBilinear[indy, indx] + mwi
+      # static layer particles have zero velocity: no momentum
+      if not isStaticLayer:
+        MassBilinear[indy, indx] = MassBilinear[indy, indx] + mwi
+        MomBilinearX[indy, indx] = MomBilinearX[indy, indx] + mwi * ux
+        MomBilinearY[indy, indx] = MomBilinearY[indy, indx] + mwi * uy
+        MomBilinearZ[indy, indx] = MomBilinearZ[indy, indx] + mwi * uz
 
   for l in range(len(mStoppedArray)):
     xStop = xStoppedArray[l]
@@ -1416,6 +1480,16 @@ def updateFieldsC(cfg, particles, dem, fields):
       FTStopBilinear[j, i] = - MassStopBilinear[j, i] / (areaRaster[j, i] * rho)  # / m * FTBilinear[j, i] 
       FTEntBilinear[j, i] = - MassEntBilinear[j, i] / (areaRaster[j, i] * rhoEnt)
 
+      # fields including the static layer particles (used for the dynamics)
+      if excludeStaticLayer:
+        mAll = MassAllBilinear[j, i]
+        if mAll > 0:
+          FTAllBilinear[j, i] = mAll / (areaRaster[j, i] * rho)
+          VXAllBilinear[j, i] = MomBilinearX[j, i]/mAll
+          VYAllBilinear[j, i] = MomBilinearY[j, i]/mAll
+          VZAllBilinear[j, i] = MomBilinearZ[j, i]/mAll
+          VAllBilinear[j, i] = DFAtlsC.norm(VXAllBilinear[j, i], VYAllBilinear[j, i], VZAllBilinear[j, i])
+
   fields['FM'] = np.asarray(MassBilinear).copy()
   fields['FV'] = np.asarray(VBilinear).copy()
   fields['Vx'] = np.asarray(VXBilinear).copy()
@@ -1438,13 +1512,22 @@ def updateFieldsC(cfg, particles, dem, fields):
     fields['pta'] = np.asarray(PTA).copy()
   if computeKE:
     fields['pke'] = np.asarray(PKE).copy()
-
+  if excludeStaticLayer:
+    fields['FTAll'] = np.asarray(FTAllBilinear).copy()
+    fields['FVAll'] = np.asarray(VAllBilinear).copy()
+    fields['VxAll'] = np.asarray(VXAllBilinear).copy()
+    fields['VyAll'] = np.asarray(VYAllBilinear).copy()
+    fields['VzAll'] = np.asarray(VZAllBilinear).copy()
+    # flow thickness of the particles including the static layer
+    hField = FTAllBilinear
+  else:
+    hField = FTBilinear
 
   for k in range(nPart):
     x = xArray[k]
     y = yArray[k]
     Lx0, Ly0, iCell, w[0], w[1], w[2], w[3] = DFAtlsC.getCellAndWeights(x, y, ncols, nrows, csz, interpOption)
-    hbb = DFAtlsC.getScalar(Lx0, Ly0, w[0], w[1], w[2], w[3], FTBilinear)
+    hbb = DFAtlsC.getScalar(Lx0, Ly0, w[0], w[1], w[2], w[3], hField)
     hBB[k] = hbb
 
   particles['h'] = np.asarray(hBB)
@@ -2286,9 +2369,11 @@ def computeIniMovement(cfg, particles, dem, dT, fields):
   cdef double[:] uzArray = particles['uz']
   cdef int[:] indXDEM = particles['indXDEM']
   cdef int[:] indYDEM = particles['indYDEM']
-  cdef double[:, :] VX = fields['Vx']
-  cdef double[:, :] VY = fields['Vy']
-  cdef double[:, :] VZ = fields['Vz']
+  # grid velocity including the static entrainment layer particles (VxAll, ... only exist if they are excluded from
+  # the result fields)
+  cdef double[:, :] VX = fields.get('VxAll', fields['Vx'])
+  cdef double[:, :] VY = fields.get('VyAll', fields['Vy'])
+  cdef double[:, :] VZ = fields.get('VzAll', fields['Vz'])
   cdef double[:] forceX = np.zeros(nPart, dtype=np.float64)
   cdef double[:] forceY = np.zeros(nPart, dtype=np.float64)
   cdef double[:] forceZ = np.zeros(nPart, dtype=np.float64)
