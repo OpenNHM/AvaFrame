@@ -418,7 +418,7 @@ def test_findIntSectCoors():
     assert np.sum(intPointsArray) == 0
 
 
-def _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer=""):
+def _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="", sfcChangeAnalysis=None):
     """Create a minimal configparser section mimicking AIMECSETUP for checkAIMECinputs tests"""
     cfg = configparser.ConfigParser()
     cfg["AIMECSETUP"] = {
@@ -426,7 +426,90 @@ def _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer=
         "resTypes": resTypes,
         "runoutLayer": runoutLayer,
     }
+    if sfcChangeAnalysis is not None:
+        cfg["AIMECSETUP"]["sfcChangeAnalysis"] = str(sfcChangeAnalysis)
     return cfg["AIMECSETUP"]
+
+
+@pytest.mark.parametrize(
+    "sfcColumns, sfcChangeAnalysis, expected",
+    [
+        (["sfcChangeCum", "sfcChange"], True, "sfcChangeCum"),
+        (["sfcChange"], True, "sfcChange"),
+        (["sfcChangeCum"], False, None),
+        ([], None, None),
+    ],
+)
+def test_checkAIMECinputs_sfcChangeAnalysis(sfcColumns, sfcChangeAnalysis, expected):
+    """sfcChangeAnalysis selects sfcChangeCum, falls back to sfcChange, and is off by default"""
+    cfgSetup = _makeAimecCfgSetup(sfcChangeAnalysis=sfcChangeAnalysis)
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1", "sim2"],
+        "ppr": ["/path/ppr1.asc", "/path/ppr2.asc"],
+        "pft": ["/path/pft1.asc", "/path/pft2.asc"],
+        "pfv": ["/path/pfv1.asc", "/path/pfv2.asc"],
+    })
+    for col in sfcColumns:
+        inputsDF[col] = ["/path/%s1.asc" % col, "/path/%s2.asc" % col]
+
+    result = aT.checkAIMECinputs(cfgSetup, {}, inputsDF)
+
+    # the surface change is analysed separately, the general result types are unchanged
+    assert result["resTypeList"] == ["pft", "pfv", "ppr"]
+    assert result.get("sfcChangeResType") == expected
+
+
+def test_checkAIMECinputs_sfcChangeAnalysis_missing_errors():
+    """sfcChangeAnalysis without surface change result for all simulations raises an error"""
+    cfgSetup = _makeAimecCfgSetup(resTypes="ppr", sfcChangeAnalysis=True)
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1", "sim2"],
+        "ppr": ["/path/ppr1.asc", "/path/ppr2.asc"],
+        "sfcChangeCum": ["/path/sfc1.asc", np.nan],
+    })
+
+    with pytest.raises(FileNotFoundError, match="sfcChangeAnalysis requires the result type sfcChangeCum"):
+        aT.checkAIMECinputs(cfgSetup, {}, inputsDF)
+
+
+def test_analyzeSfcChange():
+    """largest and area weighted mean erosion / deposition in each cross section, as in analyzeField"""
+    # rows along s, columns along l; nan = out of the original raster
+    raster = np.array([
+        [0.0, -0.5, -0.8, -0.2, 0.0],
+        [0.0, 1.0, 2.0, -0.3, 0.0],
+        [np.nan, 0.5, 0.0, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+    ])
+    # cells at l = 0 have twice the area
+    rasterArea = np.ones(raster.shape)
+    rasterArea[:, 2] = 2.0
+    rasterTransfo = {"rasterArea": rasterArea}
+    resAnalysisDF = pd.DataFrame({"simName": ["sim1", "sim2"]}, index=["hashA", "hashB"])
+
+    with pytest.warns(RuntimeWarning, match="All-NaN slice"):
+        resAnalysisDF = aT.analyzeSfcChange("hashA", rasterTransfo, raster, "sfcChangeCum", resAnalysisDF)
+
+    assert np.array_equal(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMax"], [0.0, 2.0, 0.5, np.nan],
+                          equal_nan=True)
+    assert np.array_equal(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMin"], [-0.8, -0.3, 0.0, np.nan],
+                          equal_nan=True)
+    # mean over the cells with deposition / erosion only, weighted with the cell area
+    assert np.allclose(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMeanDeposition"], [0.0, 5.0 / 3.0, 0.5, 0.0])
+    assert np.allclose(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMeanErosion"], [-2.3 / 4.0, -0.3, 0.0, 0.0])
+    assert resAnalysisDF.loc["hashA", "minsfcChangeCumCrossMin"] == -0.8
+    assert resAnalysisDF.loc["hashA", "maxsfcChangeCumCrossMax"] == 2.0
+
+    # second simulation: columns exist already, first simulation is not changed
+    with pytest.warns(RuntimeWarning, match="All-NaN slice"):
+        resAnalysisDF = aT.analyzeSfcChange("hashB", rasterTransfo, -raster, "sfcChangeCum", resAnalysisDF)
+
+    assert resAnalysisDF.loc["hashB", "minsfcChangeCumCrossMin"] == -2.0
+    assert resAnalysisDF.loc["hashB", "maxsfcChangeCumCrossMax"] == 0.8
+    assert np.allclose(resAnalysisDF.loc["hashB", "sfcChangeCumCrossMeanErosion"], [0.0, -5.0 / 3.0, -0.5, 0.0])
+    assert np.allclose(resAnalysisDF.loc["hashB", "sfcChangeCumCrossMeanDeposition"], [2.3 / 4.0, 0.3, 0.0, 0.0])
+    assert np.array_equal(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMax"], [0.0, 2.0, 0.5, np.nan],
+                          equal_nan=True)
 
 
 def test_checkAIMECinputs_singleLayer_unchanged():
