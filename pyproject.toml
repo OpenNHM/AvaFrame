@@ -139,6 +139,12 @@ compilemot = "python avaframe/com9MoTVoellmy/_buildMoTVoellmy.py"
 numpy = "<2.0"
 qgis = "*"
 
+# Opt-in workaround for Wayland + AMD: conda Qt has no wayland plugin, so run on
+# xcb/Xwayland
+# Usage: `pixi run -e qgis qgis_wayland`
+[tool.pixi.feature.qgis.target.linux-64.tasks]
+qgis_wayland = "QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 qgis"
+
 #Environments
 [tool.pixi.environments]
 default = { features = ["dev"], solve-group = "default" }
