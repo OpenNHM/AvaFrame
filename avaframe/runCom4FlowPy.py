@@ -154,9 +154,14 @@ def main(avalancheDir="", cfg=None):
         if successToJSON is True:
             log.info("wrote config to {}/{}.json".format(cfgPath["outDir"], uid))
         else:
-            log.info("could not write  config to {}/{}.json".format(cfgPath["outDir"], uid))
+            log.info("could not write config to {}/{}.json".format(cfgPath["outDir"], uid))
             log.error("Exception occurred: %s", str(successToJSON), exc_info=True)
 
+        if cfgSetup["calcThalweg"] == "True":
+            cfgPath["thalwegDir"] = cfgPath["resDir"] / "thalwegData"
+            fU.makeADir(cfgPath["thalwegDir"])
+        else:
+            cfgPath["thalwegDir"] = ""
         cfgPath["deleteTemp"] = "False"
 
         cfgPath["uid"] = uid
@@ -250,6 +255,12 @@ def main(avalancheDir="", cfg=None):
             shutil.rmtree(temp_dir)
         fU.makeADir(temp_dir)
 
+        if cfgSetup["calcThalweg"] is True:
+            thalwegDir = workDir / res_dir / "thalwegData"
+            fU.makeADir(thalwegDir)
+        else:
+            thalwegDir = ""
+        
         # writing config to .json file
         successToJSON = writeCfgJSON(cfg, uid, workDir)
 
@@ -260,6 +271,10 @@ def main(avalancheDir="", cfg=None):
             log.error("Exception occurred: %s", str(successToJSON), exc_info=True)
 
         cfgPath["workDir"] = pathlib.Path(workDir)
+        if cfgSetup["calcThalweg"] is True:
+            cfgPath["thalwegDir"] = pathlib.Path(thalwegDir)
+        else:
+            cfgPath["thalwegDir"] = None
         cfgPath["outDir"] = pathlib.Path(res_dir)
         cfgPath["resDir"] = cfgPath["outDir"]
         cfgPath["tempDir"] = pathlib.Path(temp_dir)
@@ -408,9 +423,14 @@ def readFlowPyinputs(avalancheDir, cfgFlowPy, log):
     cfgPath["forestPath"] = forestPath
 
     # read release ID raster
-    if "relIdPolygon" in cfgFlowPy["PATHS"]["outputFiles"].split("|") or "relIdCount" in cfgFlowPy["PATHS"][
-        "outputFiles"
-    ].split("|"):
+    if (
+        "relIdPolygon" in cfgFlowPy["PATHS"]["outputFiles"].split("|")
+        or "relIdCount" in cfgFlowPy["PATHS"]["outputFiles"].split("|")
+        or (
+            cfgFlowPy.getboolean("GENERAL", "thalwegReleaseArea")
+            and cfgFlowPy.getboolean("GENERAL", "calcThalweg")
+        )
+    ):
         relIdPath, available, _ = gI.getAndCheckInputFiles(inputDir, "RELID", "release ID", fileExt="raster")
         if available == "No":
             message = f"There is no release id file in supported format provided in {avalancheDir}/RELID"
