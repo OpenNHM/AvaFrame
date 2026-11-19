@@ -134,12 +134,12 @@ def test_computeEntMassAndForceTjem():
     dt = 0.1
     areaPart = 1
     uMag = 10
-    entShearStrength = 500
+    bedShearStrength = 500
     velMagMin = 1e-3
 
     # no entrainable mass
     dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
-        dt, 0, areaPart, uMag, 1000, entShearStrength, velMagMin
+        dt, 0, areaPart, uMag, 1000, bedShearStrength, velMagMin
     )
     assert dm == 0
     assert areaEntrPart == 0
@@ -147,22 +147,22 @@ def test_computeEntMassAndForceTjem():
 
     # tau above shear strength: entrainment and tau limited to shear strength
     dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
-        dt, 200, areaPart, uMag, 1000, entShearStrength, velMagMin
+        dt, 200, areaPart, uMag, 1000, bedShearStrength, velMagMin
     )
     assert dm == pytest.approx(5.0)
     assert areaEntrPart == 1
-    assert tau == entShearStrength
+    assert tau == bedShearStrength
 
     # tau below shear strength: no entrainment, tau unchanged
     dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
-        dt, 200, areaPart, uMag, 400, entShearStrength, velMagMin
+        dt, 200, areaPart, uMag, 400, bedShearStrength, velMagMin
     )
     assert dm == 0
     assert tau == 400
 
     # resting particle: no division by 0, no entrainment
     dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
-        dt, 200, areaPart, 0, 1000, entShearStrength, velMagMin
+        dt, 200, areaPart, 0, 1000, bedShearStrength, velMagMin
     )
     assert dm == 0
     assert areaEntrPart == 0
@@ -170,7 +170,7 @@ def test_computeEntMassAndForceTjem():
 
     # entrained mass is capped by the mass available under the particle
     dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
-        dt, 1, areaPart, uMag, 1000, entShearStrength, velMagMin
+        dt, 1, areaPart, uMag, 1000, bedShearStrength, velMagMin
     )
     assert dm == pytest.approx(1.0)
 
@@ -1254,7 +1254,7 @@ def test_computeForceC():
         "Bsamosatmedium": "4.13",
         "Rsamosatmedium": "0.05",
         "entEroEnergy": "5000",
-        "entShearStrength": "500",
+        "bedShearStrength": "500",
         "entShearResistance": "0",
         "entDefResistance": "0",
         "xsivoellmy": "4000.",

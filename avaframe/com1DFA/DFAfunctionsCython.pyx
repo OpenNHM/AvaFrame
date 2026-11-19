@@ -75,7 +75,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
   cdef double BSamosAtMedium = cfg.getfloat('Bsamosatmedium')
   cdef double RSamosAtMedium = cfg.getfloat('Rsamosatmedium')
   cdef double entEroEnergy = cfg.getfloat('entEroEnergy')
-  cdef double entShearStrength = cfg.getfloat('entShearStrength')
+  cdef double bedShearStrength = cfg.getfloat('bedShearStrength')
   cdef double entShearResistance = cfg.getfloat('entShearResistance')
   cdef double entDefResistance = cfg.getfloat('entDefResistance')
   cdef double rho = cfg.getfloat('rho')
@@ -385,7 +385,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
         if entrType == 1:
             dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
         if entrType == 2:
-            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, entShearStrength, velMagMin)
+            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, bedShearStrength, velMagMin)
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
       forceBotTang = - areaPart * tau
@@ -553,7 +553,7 @@ cpdef (double, double) computeEntMassAndForce(double dt, double entrMassCell,
 
 cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entrMassCell,
                                               double areaPart, double uMag,
-                                              double tau, double entShearStrength,
+                                              double tau, double bedShearStrength,
                                               double velMagMin):
   """ compute force component due to entrained mass when TJEM entrainment model is used
 
@@ -569,7 +569,7 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
       particle speed (velocity magnitude)
   tau : float
       bottom shear stress
-  entShearStrength: float
+  bedShearStrength: float
     shear strength of the entrainable snow mass
   velMagMin : float
     minimum velocity magnitude, avoids division by 0 for resting particles
@@ -592,16 +592,15 @@ cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entr
 
       # erosion: erode according to shear strength of snow cover
 
-      # in contrast to MoTVoellmy tauC here is not scaled with the flow density
+      # in contrast to MoTVoellmy the bedShearStrength here is not scaled with the flow density
       # because com1DFA does not scale shear stress at the bottom of the avalanche with the flow density while MoTVoellmy does
-      tauC = entShearStrength
 
-      dm = max(0.0, tau - tauC) * areaPart * dt / uMag
+      dm = max(0.0, tau - bedShearStrength) * areaPart * dt / uMag
       # cannot entrain more than the mass available under the particle
       dm = min(dm, entrMassCell * areaPart)
       areaEntrPart = areaPart
       if dm > 0:
-        tau = min(tau, tauC)
+        tau = min(tau, bedShearStrength)
 
   return dm, areaEntrPart, tau
 
