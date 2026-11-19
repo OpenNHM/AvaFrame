@@ -105,9 +105,17 @@ def visuTransfo(rasterTransfo, inputData, cfgSetup, pathDict):
     gs = gridspec.GridSpec(1, 3)
     ax1 = fig.add_subplot(gs[0, 0])
 
-    ref0, im = pU.NonUnifIm(ax1, x, y, maskedArray, 'x (m)', 'y (m)',
-                            extent=[x.min(), x.max(), y.min(), y.max()],
-                            cmap=cmap, norm=norm)
+    ref0, im = pU.NonUnifIm(
+        ax1,
+        x,
+        y,
+        maskedArray,
+        "x (m)",
+        "y (m)",
+        extent=[x.min(), x.max(), y.min(), y.max()],
+        cmap=cmap,
+        norm=norm,
+    )
     plt.plot(xx, yy, 'r*', markersize=8, label=labelRunout, zorder=10)
     plt.plot(xPath, yPath, 'k--', label='flow path')
     plt.plot(DBXl, DBYl, 'k-', label='domain')
@@ -125,9 +133,17 @@ def visuTransfo(rasterTransfo, inputData, cfgSetup, pathDict):
 
     maskedArraySLTransposed = np.transpose(maskedArraySL)
 
-    ref0, im = pU.NonUnifIm(ax2, s, l, maskedArraySLTransposed, '$S_{XY}$ (thalweg) (m)', '$L_{XY}$ (thalweg) (m)',
-                            extent=[s.min(), s.max(), l.min(), l.max()],
-                            cmap=cmap, norm=norm)
+    ref0, im = pU.NonUnifIm(
+        ax2,
+        s,
+        l,
+        maskedArraySLTransposed,
+        "$S_{XY}$ (thalweg) (m)",
+        "$L_{XY}$ (thalweg) (m)",
+        extent=[s.min(), s.max(), l.min(), l.max()],
+        cmap=cmap,
+        norm=norm,
+    )
     ax2.axvline(x=s[indStartOfRunout], color='k', linestyle='--',
                 label=labelRunout)
 
@@ -643,9 +659,17 @@ def visuSimple(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, pathDict):
                                                     pU.cfgPlotUtils['unit' + runoutResType]))
 
         ax.axvline(x=s[indStartOfRunout], color='k', linestyle='--', label=rasterTransfo['labelRunout'])
-        ref3, im = pU.NonUnifIm(ax, s, l, maskedArrayTranspose, '$S_{XY}$ (thalweg) (m)', '$L_{XY}$ (thalweg) (m)',
-                                extent=[s.min(), s.max(), l.min(), l.max()],
-                                cmap=cmap, norm=norm)
+        ref3, im = pU.NonUnifIm(
+            ax,
+            s,
+            l,
+            maskedArrayTranspose,
+            "$S_{XY}$ (thalweg) (m)",
+            "$L_{XY}$ (thalweg) (m)",
+            extent=[s.min(), s.max(), l.min(), l.max()],
+            cmap=cmap,
+            norm=norm,
+        )
 
         ax.set_title(title)
         ax.legend(loc=4)
@@ -1739,7 +1763,7 @@ def plotSfcChangeAlongThalweg(
         l,
         np.transpose(maskedSfc),
         "",
-        "$L_{XY}$ (thalweg) [m]",
+        "$L_{XY}$ (thalweg) (m)",
         extent=[s.min(), s.max(), l.min(), l.max()],
         cmap=cmap,
         norm=norm,
@@ -1906,8 +1930,21 @@ def referenceLinePlot(refLineRasterXY, dem, refLine, rasterTransfo, refRasterSL,
 
     # second panel SL coordinates
     ax2.set_title('Raster SL reference %s' % refLineSL['type'])
-    pU.NonUnifIm(ax2, rasterTransfo['l'], rasterTransfo['s'], refRasterSL, '$L_{XY}$ (thalweg) (m)', '$S_{XY}$ (thalweg) (m)',
-                     extent=[rasterTransfo['l'].min(), rasterTransfo['l'].max(), rasterTransfo['s'].min(), rasterTransfo['s'].max()], aspect='equal')
+    pU.NonUnifIm(
+        ax2,
+        rasterTransfo["l"],
+        rasterTransfo["s"],
+        refRasterSL,
+        "$L_{XY}$ (thalweg) (m)",
+        "$S_{XY}$ (thalweg) (m)",
+        extent=[
+            rasterTransfo["l"].min(),
+            rasterTransfo["l"].max(),
+            rasterTransfo["s"].min(),
+            rasterTransfo["s"].max(),
+        ],
+        aspect="equal",
+    )
     if refLineSL['type'] == 'point':
         ax2.plot(refLineSL['l'], refLineSL['s'], 'b', linestyle='', marker='*', markersize=4, label='point in SL')
     else:
@@ -1951,11 +1988,22 @@ def compareRunoutLines(cfgSetup, refDataTransformed, newRaster, runoutLine, rast
     ax1 = fig.add_subplot(1, 1, 1)
     ax1.set_title('Runout lines')
 
-    pU.NonUnifIm(ax1, rasterTransfo['l'], rasterTransfo['s'], maskedArray,
-                '$L_{XY}$ (thalweg) (m)', '$S_{XY}$ (thalweg) (m)',
-                extent=[rasterTransfo['l'].min(), rasterTransfo['l'].max(),
-                 rasterTransfo['s'].min(), rasterTransfo['s'].max()], cmap=cmapTF,
-                 aspect='equal')
+    pU.NonUnifIm(
+        ax1,
+        rasterTransfo["l"],
+        rasterTransfo["s"],
+        maskedArray,
+        "$L_{XY}$ (thalweg) (m)",
+        "$S_{XY}$ (thalweg) (m)",
+        extent=[
+            rasterTransfo["l"].min(),
+            rasterTransfo["l"].max(),
+            rasterTransfo["s"].min(),
+            rasterTransfo["s"].max(),
+        ],
+        cmap=cmapTF,
+        aspect="equal",
+    )
 
     ax1.plot(runoutLine['l'], runoutLine['s'], 'k', label='simulation')
 
