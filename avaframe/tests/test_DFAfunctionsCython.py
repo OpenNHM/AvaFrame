@@ -11,6 +11,8 @@ import avaframe.com1DFA.DFAfunctionsCython as DFAfunC
 import avaframe.com1DFA.DFAtools as DFAtls
 import avaframe.com1DFA.DFAToolsCython as DFAtlsC
 import avaframe.in3Utils.geoTrans as geoTrans
+import avaframe.in3Utils.cfgUtils as cfgUtils
+from avaframe.com1DFA import com1DFA
 
 
 def test_getNeighborsC(capfd):
@@ -1229,6 +1231,12 @@ def test_computeForceC():
         "tauyBingham": "200",
         "alpha2TauyBingham": "0.00886",
         "beta2TauyBingham": "13.11",
+        "muIMuS": "0.3819",
+        "muIMu2": "0.6435",
+        "muII0": "0.279",
+        "muIGrainSize": "0.0005",
+        "muIGrainDensity": "2500",
+        "muIShearFactor": "2.5",
         "curvAccInFriction": "1",
         "curvAccInTangent": "0",
         "curvAccInGradient": "0",
@@ -1453,6 +1461,143 @@ def test_computeForceC():
     test_forceFrictArray = test_forceFrict - test_forceBotTang / test_uMagRes
 
     assert (forceFrictArray == test_forceFrictArray).all()
+
+
+def _getMuIDefaults():
+    """default flow density, gravity and mu(I) parameters of the com1DFA configuration as floats"""
+    cfg = cfgUtils.getModuleConfig(com1DFA)["GENERAL"]
+    names = ["rho", "gravAcc", "muIMuS", "muIMu2", "muII0"]
+    names = names + ["muIGrainSize", "muIGrainDensity", "muIShearFactor"]
+    return {name: cfg.getfloat(name) for name in names}
+
+
+def _computeMuITau(uMag, h, theta=0.0, dt=1.0e-4, **muIParams):
+    """compute the mu(I) bottom shear stress of a single particle via computeForceC (frictType 13)
+
+    The particle moves with speed uMag on a plane inclined by theta (radians) with constant normal vector.
+    The explicit friction formulation is used, so that forceFrict = areaPart * tau.
+    The default com1DFA configuration is used; muIParams override its entries (e.g. muIShearFactor="5").
+    """
+    cfg = cfgUtils.getModuleConfig(com1DFA)["GENERAL"]
+    cfg["explicitFriction"] = "1"
+    cfg["viscOption"] = "0"
+    for key, value in muIParams.items():
+        cfg[key] = str(value)
+
+    rho = float(cfg["rho"])
+    nrows = ncols = 2
+    particles = {
+        "nPart": 1,
+        "x": np.array([0.0]),
+        "y": np.array([0.0]),
+        "z": np.array([0.0]),
+        "ux": np.array([uMag]),
+        "uy": np.array([0.0]),
+        "uz": np.array([0.0]),
+        "m": np.array([1.0]),
+        "h": np.array([h]),
+        "dt": dt,
+        "ID": np.array([1], dtype=np.int64),
+        "totalEnthalpy": np.array([0.0]),
+        "indXDEM": np.array([0], dtype=np.int32),
+        "indYDEM": np.array([0], dtype=np.int32),
+    }
+    dem = {
+        "header": {"cellsize": 5, "nrows": nrows, "ncols": ncols},
+        "rasterData": np.ones((nrows, ncols)),
+        # rounded so that a vertical surface (theta = pi/2) has an exactly zero Nz
+        "Nx": np.full((nrows, ncols), round(math.sin(theta), 15)),
+        "Ny": np.zeros((nrows, ncols)),
+        "Nz": np.full((nrows, ncols), round(math.cos(theta), 15)),
+        "areaRaster": np.ones((nrows, ncols)),
+        "outOfDEM": np.zeros((nrows * ncols,), dtype=bool),
+    }
+    fieldNames = ["Vx", "Vy", "Vz", "entrMassRaster", "entrEnthRaster", "muField", "xiField"]
+    fieldNames = fieldNames + ["detRaster", "cResRaster"]
+    fields = {key: np.zeros((nrows, ncols)) for key in fieldNames}
+
+    particles, force, *_ = DFAfunC.computeForceC(cfg, particles, fields, dem, 13, 1)
+    # forceFrict = areaPart * tau with areaPart = m / (h * rho)
+    tau = force["forceFrict"][0] * h * rho / particles["m"][0]
+    return tau
+
+
+def test_computeForceCMuILimits():
+    """mu(I) tau is mu_s * sigmaB at rest and tends to mu_2 * sigmaB for large speed"""
+
+    p = _getMuIDefaults()
+    h = 1.0
+    theta = math.radians(25.0)
+    sigmaB = p["rho"] * p["gravAcc"] * math.cos(theta) * h
+    muS = p["muIMuS"]
+    mu2 = p["muIMu2"]
+
+    tauRest = _computeMuITau(0.0, h, theta)
+    assert tauRest == pytest.approx(muS * sigmaB, rel=1e-12)
+
+    # large grain size makes I huge at moderate speed (keeps the explicit projection step inside the dem)
+    tauFast = _computeMuITau(1.0e4, h, theta, muIGrainSize="0.1")
+    assert tauFast == pytest.approx(mu2 * sigmaB, rel=1e-3)
+    assert tauFast < mu2 * sigmaB
+
+
+def test_computeForceCMuIGuards():
+    """no nan or inf if sigmaB is zero, zero division error for zero flow thickness as for types 10 - 12"""
+
+    # surface normal perpendicular to gravity: effAccNorm = 0, sigmaB = 0, flow is not detached
+    tau = _computeMuITau(1.0, 1.0, theta=math.pi / 2.0)
+    assert tau == 0.0
+    assert np.isfinite(tau)
+
+    with pytest.raises(ZeroDivisionError):
+        _computeMuITau(1.0, 0.0, depMin="0")
+
+
+@pytest.mark.parametrize("thetaDeg", [25.0, 28.0, 31.0])
+@pytest.mark.parametrize("h", [0.5, 1.0, 3.0])
+def test_computeForceCMuISteadyState(thetaDeg, h):
+    """analytic steady uniform flow: tau = rho g h sin(theta) for the Bagnold-profile speed uMag*
+
+    uMag* follows from inverting mu(I) = tan(theta) and I = (5/2) uMag d / (h sqrt(phi g h cos(theta))),
+    independent of the shear rate closure implemented in the code.
+    """
+
+    p = _getMuIDefaults()
+    rho = p["rho"]
+    g = p["gravAcc"]
+    d = p["muIGrainSize"]
+    i0 = p["muII0"]
+    muS = p["muIMuS"]
+    mu2 = p["muIMu2"]
+    theta = math.radians(thetaDeg)
+    phi = rho / p["muIGrainDensity"]
+    # the test slopes must lie in the steady state range mu_s < tan(theta) < mu_2
+    assert muS < math.tan(theta) < mu2
+
+    iStar = i0 * (math.tan(theta) - muS) / (mu2 - math.tan(theta))
+    uMagStar = 0.4 * (iStar / d) * math.sqrt(phi * g * math.cos(theta)) * h**1.5
+
+    tau = _computeMuITau(uMagStar, h, theta)
+    assert tau == pytest.approx(rho * g * h * math.sin(theta), rel=1e-9)
+
+
+def test_computeForceCMuIShearFactor():
+    """I scales linearly with muIShearFactor"""
+
+    p = _getMuIDefaults()
+    h = 1.0
+    theta = math.radians(25.0)
+    uMag = 20.0
+    muS = p["muIMuS"]
+    mu2 = p["muIMu2"]
+    sigmaB = p["rho"] * p["gravAcc"] * math.cos(theta) * h
+
+    def getI(factor):
+        mu = _computeMuITau(uMag, h, theta, muIShearFactor=factor) / sigmaB
+        # invert mu(I) = mu_s + (mu_2 - mu_s) I / (I_0 + I)
+        return p["muII0"] * (mu - muS) / (mu2 - mu)
+
+    assert getI(5.0) / getI(2.5) == pytest.approx(2.0, rel=1e-9)
 
 
 def test_updateInitialVelocity():
