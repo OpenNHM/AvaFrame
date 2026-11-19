@@ -431,7 +431,59 @@ def postProcessAIMEC(cfg, rasterTransfo, pathDict, resAnalysisDF, newRasters, ti
                                        resAnalysisDF['pfvCrossMax'].loc[simRowHash], cfgPlots,
                                        resAnalysisDF['simName'].loc[simRowHash])
 
+    # surface change due to erosion and deposition along the thalweg
+    if cfgSetup.getboolean('sfcChangeAnalysis', fallback=False):
+        resAnalysisDF, newRasters = postProcessSfcChange(cfgSetup, rasterTransfo, pathDict, resAnalysisDF,
+                                                         newRasters, simRowHash, contourDict)
+
     return resAnalysisDF, newRasters, timeMass, contourDict
+
+
+def postProcessSfcChange(cfgSetup, rasterTransfo, pathDict, resAnalysisDF, newRasters, simRowHash, contourDict):
+    """ Transform the cumulated surface change of a simulation into the thalweg coordinate system,
+    analyze it along the thalweg and plot erosion and deposition
+
+    Parameters
+    ----------
+    cfgSetup: configparser section
+        AIMECSETUP section of the ana3AIMEC configuration
+    rasterTransfo: dict
+        transformation information
+    pathDict : dict
+        dictionary with paths and info for the Aimec analysis, used: sfcChangeResType, runoutResType,
+        runoutLayer (set in aimecTools.checkAIMECinputs)
+    resAnalysisDF : dataFrame
+        dataframe with simulations to analyze and associated path to raster data
+    newRasters: dict
+        dictionary with the transformed rasters, must contain the runoutResType raster of the current simulation
+    simRowHash: str
+        dataframe hash of the current simulation to analyze
+    contourDict: dict
+        contour lines of the runoutResType field for thresholdValue, one key per simName (see analyzeArea)
+
+    Returns
+    -------
+    resAnalysisDF: dataFrame
+        updated with the surface change along the thalweg (see aimecTools.analyzeSfcChange) and the plot path
+    newRasters: dict
+        updated with the transformed surface change raster ('newRaster' + sfcChangeResType.upper())
+    """
+    sfcResType = pathDict['sfcChangeResType']
+    sfcCol = aimecTools.resolveResTypeColumn(resAnalysisDF.loc[simRowHash], sfcResType,
+                                             pathDict.get('runoutLayer', ''))
+    sfcFile = resAnalysisDF.loc[simRowHash, sfcCol]
+    sfcRaster = IOf.readRaster(sfcFile)
+    newRasterSfc = aimecTools.transform(sfcRaster, sfcFile, rasterTransfo, cfgSetup['interpMethod'])
+    newRasters['newRaster' + sfcResType.upper()] = newRasterSfc
+
+    resAnalysisDF = aimecTools.analyzeSfcChange(simRowHash, rasterTransfo, newRasterSfc, sfcResType, resAnalysisDF)
+
+    runoutRaster = newRasters['newRaster' + pathDict['runoutResType'].upper()]
+    plotPath = outAimec.plotSfcChangeAlongThalweg(cfgSetup, pathDict, rasterTransfo, newRasterSfc, runoutRaster,
+                                                  contourDict, resAnalysisDF.loc[simRowHash], sfcResType)
+    resAnalysisDF.loc[simRowHash, 'sfcChangePlot'] = plotPath
+
+    return resAnalysisDF, newRasters
 
 
 def postProcessReference(cfg, rasterTransfo, pathDict, referenceDF, newRasters):

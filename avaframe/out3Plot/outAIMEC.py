@@ -18,7 +18,6 @@ from matplotlib.cm import ScalarMappable
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 import pathlib
 
@@ -1657,6 +1656,163 @@ def plotVelThAlongThalweg(pathDict, rasterTransfo, pftCrossMax, pfvCrossMax, cfg
     pU.putAvaNameOnPlot(ax2, simName, date=True, color='grey', fontsize=8)
     outFileName = pathDict['projectName'] + ('_%s_thalwegAltitude' % (simName))
     pU.saveAndOrPlot(pathDict, outFileName, fig)
+
+
+def plotSfcChangeAlongThalweg(
+    cfgSetup, pathDict, rasterTransfo, sfcRasterSL, runoutRasterSL, contourDict, resAnalysisRow, sfcResType
+):
+    """plot the cumulated surface change due to erosion (< 0) and deposition (> 0) along the thalweg
+
+    top panel: surface change in the thalweg-following (s, l) domain (colormap as for the peak field plots) with
+    the outline of the runoutResType field (thresholdValue) and the thalweg (l = 0)
+    bottom panel: mean (area weighted) and largest erosion and deposition in each cross section along the
+    thalweg
+
+    Parameters
+    -----------
+    cfgSetup: configparser section
+        AIMECSETUP section, used: runoutResType, thresholdValue, minValueField
+    pathDict: dict
+        info on avalancheDir, used: projectName, pathResult, displayRunoutResType (optional)
+    rasterTransfo: dict
+        info on domain transformation, used: s, l, cellSizeSL, indStartOfRunout, labelRunout
+    sfcRasterSL: 2D numpy array
+        surface change raster transformed into the (s, l) coordinate system (rows along s)
+    runoutRasterSL: 2D numpy array
+        runoutResType raster of the same simulation transformed into the (s, l) coordinate system
+    contourDict: dict
+        contour lines of the runoutResType field for thresholdValue in the (s, l) coordinate system, one key per
+        simName (see fetchContourLines)
+    resAnalysisRow: pandas Series
+        aimec results of the simulation, used: simName, sfcResType + CrossMin, CrossMax, CrossMeanErosion,
+        CrossMeanDeposition (see aimecTools.analyzeSfcChange)
+    sfcResType: str
+        result type of the surface change (sfcChangeCum or sfcChange)
+
+    Returns
+    --------
+    plotPath: pathlib path
+        path to the saved plot (None if plots are not saved)
+    """
+
+    s = rasterTransfo["s"]
+    l = rasterTransfo["l"]
+    indStartOfRunout = rasterTransfo["indStartOfRunout"]
+    simName = resAnalysisRow["simName"]
+    # mean erosion (<= 0) and mean deposition (>= 0) in each cross section
+    sfcMeanErosion = np.asarray(resAnalysisRow[sfcResType + "CrossMeanErosion"], dtype=float)
+    sfcMeanDeposition = np.asarray(resAnalysisRow[sfcResType + "CrossMeanDeposition"], dtype=float)
+    # largest erosion (<= 0) and largest deposition (>= 0) in each cross section
+    sfcErosion = np.minimum(np.asarray(resAnalysisRow[sfcResType + "CrossMin"], dtype=float), 0.0)
+    sfcDeposition = np.maximum(np.asarray(resAnalysisRow[sfcResType + "CrossMax"], dtype=float), 0.0)
+    runoutResType = cfgSetup["runoutResType"]
+    displayRunoutResType = pathDict.get("displayRunoutResType", runoutResType)
+    thresholdValue = cfgSetup.getfloat("thresholdValue")
+    minChange = cfgSetup.getfloat("minValueField")
+    unit = pU.cfgPlotUtils["unit" + sfcResType]
+    unitRunout = pU.cfgPlotUtils["unit" + runoutResType]
+
+    # only show cells where the surface changed
+    sfcNoNan = np.nan_to_num(sfcRasterSL)
+    changed = np.abs(sfcNoNan) > minChange
+    maskedSfc = np.ma.masked_where(~changed, sfcRasterSL)
+
+    # zoom to where the surface changed or the runoutResType exceeds the threshold
+    affected = changed | (np.nan_to_num(runoutRasterSL) > thresholdValue)
+    sIndMin, sIndMax, lIndMin, lIndMax = pU.constrainPlotsToData(affected, rasterTransfo["cellSizeSL"])
+
+    # colormap of the surface change as for the peak field plots, cells without change are masked (white)
+    vMin = np.min(sfcNoNan[changed]) if np.any(changed) else -minChange
+    vMax = np.max(sfcNoNan[changed]) if np.any(changed) else minChange
+    cmap, _, ticks, norm = pU.makeColorMap(pU.colorMaps[sfcResType], vMin, vMax, continuous=pU.contCmap)
+    # erosion beyond the lowest level is shown in the color of the lowest level (diverging colormap)
+    extend = "min" if ticks is not None and vMin < ticks[0] else "neither"
+    colorErosion = pU.colorMaps[sfcResType]["cmap"](0.1)
+    colorDeposition = pU.colorMaps[sfcResType]["cmap"](0.9)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(pU.figW * 2, pU.figH * 1.6), sharex=True)
+
+    # top: surface change in the thalweg coordinate system
+    ref0, im = pU.NonUnifIm(
+        ax1,
+        s,
+        l,
+        np.transpose(maskedSfc),
+        "",
+        "$L_{XY}$ (thalweg) [m]",
+        extent=[s.min(), s.max(), l.min(), l.max()],
+        cmap=cmap,
+        norm=norm,
+    )
+    # outline of the runoutResType field (contour lines computed in aimecTools.analyzeArea)
+    labelRunout = "%s > %s %s" % (displayRunoutResType, cfgSetup["thresholdValue"], unitRunout)
+    for key in contourDict.get(simName, {}):
+        addLinePlot(contourDict[simName][key], "k", labelRunout, ax1, key, zorder=3, linestyle="dashed")
+    ax1.axhline(0.0, color="grey", linestyle="-.", linewidth=1.0, label="thalweg (l = 0)")
+    # start of the runout area only if it was defined (defineRunoutArea), otherwise it is the start of the thalweg
+    showRunoutArea = not np.isnan(rasterTransfo.get("startOfRunoutAreaAngle", np.nan))
+    if showRunoutArea:
+        ax1.axvline(
+            s[indStartOfRunout], color="k", linestyle=":", linewidth=1.0, label=rasterTransfo["labelRunout"]
+        )
+    ax1.legend(loc="upper left", fontsize=8)
+    ax1.set_ylim([l[lIndMin], l[lIndMax]])
+    ax1.set_title("%s: erosion (< 0) and deposition (> 0) in the thalweg coordinate system" % sfcResType)
+    # colorbar in an axes of its own, the bottom panel gets an empty one of the same size, so s is aligned
+    cax1 = make_axes_locatable(ax1).append_axes("right", size="2%", pad=0.1)
+    pU.addColorBar(im, ax1, ticks, unit, title="surface change", extend=extend, cax=cax1)
+
+    # bottom: mean and extremes of erosion and deposition in each cross section
+    ax2.axhline(0.0, color="grey", linewidth=0.8)
+    ax2.plot(
+        s,
+        sfcMeanErosion,
+        color=colorErosion,
+        linestyle="-",
+        linewidth=1.5,
+        label="mean erosion in cross section",
+    )
+    ax2.plot(
+        s,
+        sfcMeanDeposition,
+        color=colorDeposition,
+        linestyle="-",
+        linewidth=1.5,
+        label="mean deposition in cross section",
+    )
+    minSfc = min(resAnalysisRow["min" + sfcResType + "CrossMin"], 0.0)
+    maxSfc = max(resAnalysisRow["max" + sfcResType + "CrossMax"], 0.0)
+    ax2.plot(
+        s,
+        sfcErosion,
+        color=colorErosion,
+        linestyle="--",
+        linewidth=1.0,
+        label="largest erosion in cross section (min %.2f %s)" % (minSfc, unit),
+    )
+    ax2.plot(
+        s,
+        sfcDeposition,
+        color=colorDeposition,
+        linestyle="--",
+        linewidth=1.0,
+        label="largest deposition in cross section (max %.2f %s)" % (maxSfc, unit),
+    )
+    if showRunoutArea:
+        ax2.axvline(s[indStartOfRunout], color="k", linestyle=":", linewidth=1.0)
+    ax2.set_xlim([s[sIndMin], s[sIndMax]])
+    ax2.set_xlabel("$S_{XY}$ (thalweg) (m)")
+    ax2.set_ylabel("surface change (%s)" % unit)
+    ax2.grid(axis="y", color="lightgrey", linewidth=0.5)
+    ax2.legend(loc="upper left", fontsize=8)
+    cax2 = make_axes_locatable(ax2).append_axes("right", size="2%", pad=0.1)
+    cax2.axis("off")
+
+    pU.putAvaNameOnPlot(ax2, simName, date=True, color="grey", fontsize=8)
+    outFileName = pathDict["projectName"] + ("_%s_%sAlongThalweg" % (simName, sfcResType))
+    plotPath = pU.saveAndOrPlot(pathDict, outFileName, fig)
+
+    return plotPath
 
 
 def getIndicesVel(pfvCM, velocityThreshold):
