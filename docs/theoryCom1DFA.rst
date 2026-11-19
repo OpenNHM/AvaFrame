@@ -802,13 +802,17 @@ Dense granular rheology: :math:`\mu(I)`
 
 .. Note:: There is no calibrated :math:`\mu(I)` parameter set for snow avalanches. The defaults are exploratory values
     and are not calibrated for snow: the friction angles and :math:`I_0` are taken from the ping-pong ball
-    avalanche fit of :cite:`TsMaNi2020`, :math:`\rho_g` is the density of ice, and :math:`d` is a fit parameter
-    chosen such that :math:`I / I_0` approximately equals that of the glass bead values of :cite:`JoFoPo2006` (see the
-    identifiability note below).
+    avalanche fit of :cite:`TsMaNi2020`, :math:`\rho_g` is the density of ice, and :math:`d` is a placeholder of the
+    order of millimetres, not a snow granule size (see the identifiability note below).
 
 The :math:`\mu(I)` rheology :cite:`GDRMiDi2004, JoFoPo2006` describes dense, dry, cohesionless granular flow with a
 friction coefficient that depends on the inertial number :math:`I`. It is selected with ``frictModel = muI``.
 In its thickness-averaged form :cite:`FoPo2003, GrEd2014` the bottom shear stress reads:
+
+.. Note:: The cited references formulate the model depth-averaged. The :math:`\mu(I)` closure is a local relation
+    between basal shear and normal stress and therefore carries over to the thickness-averaged equations of
+    com1DFA, where thickness is measured normal to the slope and depth vertically.
+
 
 .. math::
     \tau^{(b)} = \mu(I)\,\sigma^{(b)}
@@ -891,11 +895,9 @@ the flow density ``rho`` (probably the bulk density was entered) or if :math:`c_
     :math:`d`. :cite:`TsMaNi2020` observe this effect: the best fit for a ping-pong ball avalanche required
     :math:`d = 10` cm instead of the real 3.8 cm.
 
-    The default :math:`d = 0.9` mm follows from this: with :math:`\rho_g = 917` kg/m³ and :math:`I_0 = 0.3` it
-    gives approximately the same :math:`d\,\sqrt{\rho_g} / I_0` as the glass bead values (:math:`d = 0.5` mm,
-    :math:`\rho_g = 2500` kg/m³, :math:`I_0 = 0.279`). It is not a snow granule size: with the measured granule
-    sizes (:math:`d \approx 0.1` m, :cite:`BaMcA2009`) the flow runs at :math:`\mu \approx \mu_2` and the runout
-    is much shorter.
+    The default :math:`d = 0.9` mm is an exploratory placeholder, not a calibrated value. It is not a snow granule
+    size: with the measured granule sizes (:math:`d \approx 0.1` m, :cite:`BaMcA2009`) the flow runs at
+    :math:`\mu \approx \mu_2` and the runout is much shorter.
 
 Applicability
 +++++++++++++
@@ -908,12 +910,14 @@ In steady uniform flow :eq:`muI-mu` is solved by :math:`\mu(I) = \tan\theta`, wh
     \overline{u}^* = \frac{2}{5}\,\frac{I^*}{d}\,\sqrt{\frac{\rho}{\rho_g}\,g\cos\theta}\;\overline{h}^{3/2}
     :label: muI-steady
 
-which is the Pouliquen flow rule :math:`Fr = \beta\,h / h_{stop}(\theta)` with
+which is the Pouliquen flow rule describing the Froude number :math:`Fr = \overline{u} / \sqrt{g\,\overline{h}}` as
+:math:`Fr = \beta\,h / h_{stop}(\theta)` with
 :math:`h_{stop} = d\,(\mu_2 - \tan\theta) / (\tan\theta - \mu_s)` and
 :math:`\beta = \frac{2}{5}\,I_0\,\sqrt{(\rho / \rho_g)\cos\theta}` :cite:`GrEd2014`. Equation
 :eq:`muI-steady` is used as the analytic reference in the unit tests. Consequences:
 
-- Below :math:`\mu_s` the flow stops (the friction force equals the driving force at rest, as for Coulomb friction).
+- Below :math:`\arctan\mu_s` the flow stops (the friction force equals the driving force at rest, as for Coulomb
+  friction).
 - Above :math:`\arctan\mu_2` there is no steady state: the friction saturates at :math:`\mu_2\,\sigma^{(b)}` and the
   flow accelerates without a velocity limit. A turbulent (Voellmy-like) term is not included.
 - The model describes dense flow of dry, cohesionless grains only.
