@@ -563,6 +563,17 @@ def checkAIMECinputs(cfgSetup, pathDict, inputsDF):
         "Analyzing %s results types. Runout based on %s result type"
         % (pathDict["resTypeList"], runoutResType)
     )
+
+    # surface change along the thalweg: sfcChangeCum, or sfcChange (its peak file is also the cumulated change)
+    if cfgSetup.getboolean("sfcChangeAnalysis", fallback=False):
+        sfcResTypes = [rt for rt in ["sfcChangeCum", "sfcChange"] if rt in baseResTypeList]
+        if not sfcResTypes:
+            message = "sfcChangeAnalysis requires the result type sfcChangeCum (or sfcChange) for all simulations, "
+            log.error(message)
+            raise FileNotFoundError(message)
+        pathDict["sfcChangeResType"] = sfcResTypes[0]
+        log.info("Analyzing the surface change along the thalweg based on %s" % sfcResTypes[0])
+
     return pathDict
 
 
@@ -1381,6 +1392,75 @@ def analyzeField(simRowHash, rasterTransfo, transformedRaster, dataType, resAnal
     resAnalysisDF.loc[simRowHash, "max" + dataType + "CrossMax"] = maxaCrossMax
     resAnalysisDF.at[simRowHash, dataType + "CrossMax"] = aCrossMax
     resAnalysisDF.at[simRowHash, dataType + "CrossMean"] = aCrossMean
+
+    return resAnalysisDF
+
+
+def analyzeSfcChange(simRowHash, rasterTransfo, transformedRaster, resType, resAnalysisDF):
+    """analyze the transformed surface change field (erosion < 0, deposition > 0) in each cross section
+
+    Same as analyzeField: the max and the area weighted mean in each cross section and the overall max are
+    computed with getMaxMeanValues. As the surface change is signed and getMaxMeanValues only averages over
+    positive values, deposition (> 0) and erosion (< 0, analysed as the negated field) are analysed separately.
+    Cells outside of the original raster (nan) are ignored.
+
+    Parameters
+    ----------
+    simRowHash: str
+        simulation dataframe hash
+    rasterTransfo: dict
+        transformation information, used: rasterArea
+    transformedRaster: 2D numpy array
+        surface change raster after transformation (rows along s, columns along l)
+    resType: str
+        result type of the surface change (sfcChangeCum or sfcChange)
+    resAnalysisDF: dataFrame
+        result dataFrame to be updated
+
+    Returns
+    -------
+    resAnalysisDF: dataFrame
+        updated with:
+            -resTypeCrossMax: 1D numpy array
+                maximum (largest deposition) in each cross section
+            -resTypeCrossMeanDeposition: 1D numpy array
+                area weighted mean deposition (over the cells with deposition) in each cross section
+            -maxresTypeCrossMax: float
+                overall maximum (largest deposition)
+            -resTypeCrossMin: 1D numpy array
+                minimum (largest erosion) in each cross section
+            -resTypeCrossMeanErosion: 1D numpy array
+                area weighted mean erosion (over the cells with erosion, <= 0) in each cross section
+            -minresTypeCrossMin: float
+                overall minimum (largest erosion)
+    """
+    rasterArea = rasterTransfo["rasterArea"]
+    log.debug("Analyzing %s" % (resType))
+
+    # deposition: max and mean of the positive values in each cross section, as in analyzeField
+    maxCrossMax, sfcCrossMax, sfcCrossMeanDep = getMaxMeanValues(transformedRaster, rasterArea)
+    # erosion: same for the negated field, back to negative values
+    minCrossMin, sfcCrossMin, sfcCrossMeanEro = [
+        -values for values in getMaxMeanValues(-transformedRaster, rasterArea)
+    ]
+
+    for name, values in {
+        resType + "CrossMax": sfcCrossMax,
+        resType + "CrossMeanDeposition": sfcCrossMeanDep,
+        resType + "CrossMin": sfcCrossMin,
+        resType + "CrossMeanErosion": sfcCrossMeanEro,
+    }.items():
+        if name not in resAnalysisDF.columns:
+            resAnalysisDF[name] = np.nan
+            resAnalysisDF[name] = resAnalysisDF[name].astype(object)
+        resAnalysisDF.at[simRowHash, name] = values
+    resAnalysisDF.loc[simRowHash, "max" + resType + "CrossMax"] = maxCrossMax
+    resAnalysisDF.loc[simRowHash, "min" + resType + "CrossMin"] = minCrossMin
+
+    log.info(
+        "%s in the cross sections: largest erosion %.2f m, largest deposition %.2f m"
+        % (resType, minCrossMin, maxCrossMax)
+    )
 
     return resAnalysisDF
 

@@ -49,6 +49,39 @@ def discreteColorsFromCmap(cmap, levels):
     return colorRGB
 
 
+def discreteColorsFromDivergingCmap(cmap, levels, center=0.0):
+    """
+    get discrete colors from a diverging colormap
+
+    One color per level, the level being the lower bound of the class (as used in makeColorMap). Classes below
+    center get colors of the lower half of the colormap, the other classes colors of the upper half. The color
+    of the center of the colormap (white for most diverging colormaps) is not used, so that the classes next
+    to center can be distinguished from no data. The lightest colors on both sides have the same distance
+    to the center of the colormap.
+
+    Parameters
+    ----------
+    cmap: matplotlib colormap
+        diverging colormap
+    levels: list
+        levels for discrete colors (lower bounds of the classes)
+    center: float
+        value that separates the two sides of the colormap
+
+    Returns
+    -------
+    colorRGB: list
+        contains hex values for discrete colors
+    """
+    nBelow = int(np.sum(np.asarray(levels) < center))
+    nAbove = len(levels) - nBelow
+    # lowest class gets the end of the colormap, the class next to center is 0.5/n away from the center
+    posBelow = [0.5 - 0.5 * (nBelow - k) / nBelow for k in range(nBelow)]
+    posAbove = [0.5 + 0.5 * (j + 1) / nAbove for j in range(nAbove)]
+    colorRGB = [mplCol.to_hex(cmap(pos)) for pos in posBelow + posAbove]
+    return colorRGB
+
+
 # create local logger
 log = logging.getLogger(__name__)
 
@@ -231,9 +264,9 @@ levSfcCCum = list(fU.splitIniValueToArraySteps(cfgPlotUtils["surfaceChangeCumLev
 
 cmapSfcChange = copy.copy(cmapCrameri.vik.reversed())
 
-# colors extracted from colormap
-colorsSfcCCum = discreteColorsFromCmap(cmapSfcChange, levSfcCCum)
-colorsSfcC = discreteColorsFromCmap(cmapSfcChange, levSfcC)
+# colors extracted from colormap: erosion (< 0) and deposition (> 0) colors, no white class
+colorsSfcCCum = discreteColorsFromDivergingCmap(cmapSfcChange, levSfcCCum)
+colorsSfcC = discreteColorsFromDivergingCmap(cmapSfcChange, levSfcC)
 
 levEntrDepth = list(fU.splitIniValueToArraySteps(cfgPlotUtils["entrDepthLevels"]))
 colorsEntrDepth = [
@@ -293,9 +326,15 @@ cmapProb = {"cmap": cmapProbmap, "colors": colorsProb, "levels": levProb}
 
 cmapEnergy = {"cmap": cmapE, "colors": colorsE, "levels": levE}
 
-cmapSfcChange = {"cmap": cmapSfcChange, "colors": colorsSfcC, "levels": levSfcC}
+# diverging: centered at 0 for continuous colormaps, values below the lowest level in the lowest color
+cmapSfcChange = {"cmap": cmapSfcChange, "colors": colorsSfcC, "levels": levSfcC, "diverging": True}
 
-cmapSfcChangeCum = {"cmap": cmapSfcChange, "colors": colorsSfcCCum, "levels": levSfcCCum}
+cmapSfcChangeCum = {
+    "cmap": cmapSfcChange["cmap"],
+    "colors": colorsSfcCCum,
+    "levels": levSfcCCum,
+    "diverging": True,
+}
 
 cmapEntrDepth = {"cmap": cmapEntrDepth, "colors": colorsEntrDepth, "levels": levEntrDepth}
 
@@ -372,6 +411,9 @@ def makeColorMap(colormapDict, levMin, levMax, continuous=False):
                     list of hex or rgb or dec colors
                 levels: list
                     levels corresponding to the colors (same number of levels as colors)
+                diverging: bool (optional)
+                    if True, the continuous colormap is centered at 0 (if levMin < 0 < levMax) and for
+                    discrete colormaps values below the lowest level get the lowest color instead of white
         levMin : float
             minimum value of the colormap
         levMax: float
@@ -415,7 +457,10 @@ def makeColorMap(colormapDict, levMin, levMax, continuous=False):
             log.error(message)
             raise FileNotFoundError(message)
 
-        norm = mplCol.Normalize(vmin=levMin, vmax=levMax, clip=False)
+        if colormapDict.get("diverging", False) and levMin < 0.0 < levMax:
+            norm = mplCol.TwoSlopeNorm(vmin=levMin, vcenter=0.0, vmax=levMax)
+        else:
+            norm = mplCol.Normalize(vmin=levMin, vmax=levMax, clip=False)
         levelsNew = None
     else:
         # make a discrete color map
@@ -454,7 +499,8 @@ def makeColorMap(colormapDict, levMin, levMax, continuous=False):
             colorsNew.append(colors[indEnd - 1])
             cmap = mplCol.ListedColormap(colorsNew)
             cmap.set_bad(color="w")
-            cmap.set_under(color="w")
+            # values below the lowest level are not shown, for diverging colormaps they get the lowest color
+            cmap.set_under(color=colorsNew[0] if colormapDict.get("diverging", False) else "w")
         # check if a cmap is provided
         elif "cmap" in colormapDict.keys():
             cmap = colormapDict["cmap"]

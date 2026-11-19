@@ -416,7 +416,15 @@ Analysis on simulation level plots
         :width: 90%
 
         Thalweg altitude plot
-    
+
+  * "sfcChangeCumAlongThalweg" (only if *sfcChangeAnalysis* = True in aimecCfg.ini section AIMECSETUP) shows the
+    cumulated surface change due to erosion (< 0) and deposition (> 0). The top panel shows it in
+    the thalweg-following coordinate system,
+    the bottom panel the mean (area weighted) and the largest erosion and deposition in each cross section along the
+    thalweg. This requires the sfcChangeCum (or sfcChange) result of all simulations, e.g. com1DFA with
+    sfcChangeCum in *resType* and an adaptive surface (*adaptSfcEntrainment*, *adaptSfcStopped* and/or
+    *adaptSfcDetrainment* = 1).
+
 Comparison to reference simulation plots
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -480,6 +488,15 @@ The result variables listed below are partly included in the above described plo
 - deltaZ: altitude difference between *zRelease* and *zRunout*
 - runoutAngle: corresponding runout angle based on *deltaSXY* and *deltaZ*
 - runoutFound: flag if runout point was found (boolean)
+
+If *sfcChangeAnalysis* is True, additionally these outputs are provided (here resType is sfcChangeCum or sfcChange):
+
+- resTypeCrossMax: maximum (largest deposition) of the surface change in each cross section
+- resTypeCrossMeanDeposition: area weighted mean deposition in each cross section, averaged over the cells with
+  deposition (> 0), analogous to resTypeCrossMean of the other result types
+- resTypeCrossMin: minimum (largest erosion) of the surface change in each cross section
+- resTypeCrossMeanErosion: area weighted mean erosion in each cross section, averaged over the cells with erosion (< 0)
+- minresTypeCrossMin, maxresTypeCrossMax: overall largest erosion and largest deposition
 
 If reference data sets are included in analysis, additionally these outputs are provided:
 
