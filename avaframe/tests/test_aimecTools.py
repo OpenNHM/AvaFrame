@@ -418,13 +418,16 @@ def test_findIntSectCoors():
     assert np.sum(intPointsArray) == 0
 
 
-def _makeAimecCfgSetup(runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="", sfcChangeAnalysis=None):
+def _makeAimecCfgSetup(
+    runoutResType="ppr", resTypes="ppr|pft|pfv", runoutLayer="", sfcChangeAnalysis=None, sfcChangeCrossType="Mean"
+):
     """Create a minimal configparser section mimicking AIMECSETUP for checkAIMECinputs tests"""
     cfg = configparser.ConfigParser()
     cfg["AIMECSETUP"] = {
         "runoutResType": runoutResType,
         "resTypes": resTypes,
         "runoutLayer": runoutLayer,
+        "sfcChangeCrossType": sfcChangeCrossType,
     }
     if sfcChangeAnalysis is not None:
         cfg["AIMECSETUP"]["sfcChangeAnalysis"] = str(sfcChangeAnalysis)
@@ -472,6 +475,23 @@ def test_checkAIMECinputs_sfcChangeAnalysis_missing_errors():
         aT.checkAIMECinputs(cfgSetup, {}, inputsDF)
 
 
+@pytest.mark.parametrize("sfcChangeCrossType, valid", [("Max", True), ("mean", True), ("Median", False)])
+def test_checkAIMECinputs_sfcChangeCrossType(sfcChangeCrossType, valid):
+    """sfcChangeCrossType has to be Max or Mean (case insensitive)"""
+    cfgSetup = _makeAimecCfgSetup(resTypes="ppr", sfcChangeAnalysis=True, sfcChangeCrossType=sfcChangeCrossType)
+    inputsDF = pd.DataFrame({
+        "simName": ["sim1"],
+        "ppr": ["/path/ppr1.asc"],
+        "sfcChangeCum": ["/path/sfc1.asc"],
+    })
+
+    if valid:
+        assert aT.checkAIMECinputs(cfgSetup, {}, inputsDF)["sfcChangeResType"] == "sfcChangeCum"
+    else:
+        with pytest.raises(ValueError, match="sfcChangeCrossType must be Max or Mean, got: Median"):
+            aT.checkAIMECinputs(cfgSetup, {}, inputsDF)
+
+
 def test_analyzeSfcChange():
     """largest and area weighted mean erosion / deposition in each cross section, as in analyzeField"""
     # rows along s, columns along l; nan = out of the original raster
@@ -497,6 +517,12 @@ def test_analyzeSfcChange():
     # mean over the cells with deposition / erosion only, weighted with the cell area
     assert np.allclose(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMeanDeposition"], [0.0, 5.0 / 3.0, 0.5, 0.0])
     assert np.allclose(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMeanErosion"], [-2.3 / 4.0, -0.3, 0.0, 0.0])
+    # total (net) change: erosion and deposition with their sign, mean over all changed cells, area weighted
+    # row 1: (1.0 * 1 + 2.0 * 2 - 0.3 * 1) / (1 + 2 + 1)
+    assert np.allclose(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMeanTotal"], [-2.3 / 4.0, 4.7 / 4.0, 0.5, 0.0])
+    # largest erosion or deposition, whichever is larger in magnitude
+    assert np.array_equal(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMaxTotal"], [-0.8, 2.0, 0.5, np.nan],
+                          equal_nan=True)
     assert resAnalysisDF.loc["hashA", "minsfcChangeCumCrossMin"] == -0.8
     assert resAnalysisDF.loc["hashA", "maxsfcChangeCumCrossMax"] == 2.0
 
@@ -508,6 +534,9 @@ def test_analyzeSfcChange():
     assert resAnalysisDF.loc["hashB", "maxsfcChangeCumCrossMax"] == 0.8
     assert np.allclose(resAnalysisDF.loc["hashB", "sfcChangeCumCrossMeanErosion"], [0.0, -5.0 / 3.0, -0.5, 0.0])
     assert np.allclose(resAnalysisDF.loc["hashB", "sfcChangeCumCrossMeanDeposition"], [2.3 / 4.0, 0.3, 0.0, 0.0])
+    assert np.allclose(resAnalysisDF.loc["hashB", "sfcChangeCumCrossMeanTotal"], [2.3 / 4.0, -4.7 / 4.0, -0.5, 0.0])
+    assert np.array_equal(resAnalysisDF.loc["hashB", "sfcChangeCumCrossMaxTotal"], [0.8, -2.0, -0.5, np.nan],
+                          equal_nan=True)
     assert np.array_equal(resAnalysisDF.loc["hashA", "sfcChangeCumCrossMax"], [0.0, 2.0, 0.5, np.nan],
                           equal_nan=True)
 

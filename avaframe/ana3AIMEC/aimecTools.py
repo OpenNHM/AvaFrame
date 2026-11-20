@@ -571,6 +571,10 @@ def checkAIMECinputs(cfgSetup, pathDict, inputsDF):
             message = "sfcChangeAnalysis requires the result type sfcChangeCum (or sfcChange) for all simulations, "
             log.error(message)
             raise FileNotFoundError(message)
+        if cfgSetup["sfcChangeCrossType"].lower() not in ["max", "mean"]:
+            message = "sfcChangeCrossType must be Max or Mean, got: %s" % cfgSetup["sfcChangeCrossType"]
+            log.error(message)
+            raise ValueError(message)
         pathDict["sfcChangeResType"] = sfcResTypes[0]
         log.info("Analyzing the surface change along the thalweg based on %s" % sfcResTypes[0])
 
@@ -1402,6 +1406,7 @@ def analyzeSfcChange(simRowHash, rasterTransfo, transformedRaster, resType, resA
     Same as analyzeField: the max and the area weighted mean in each cross section and the overall max are
     computed with getMaxMeanValues. As the surface change is signed and getMaxMeanValues only averages over
     positive values, deposition (> 0) and erosion (< 0, analysed as the negated field) are analysed separately.
+    Additionally the total (net) change, erosion and deposition together with their sign, is analysed.
     Cells outside of the original raster (nan) are ignored.
 
     Parameters
@@ -1433,6 +1438,12 @@ def analyzeSfcChange(simRowHash, rasterTransfo, transformedRaster, resType, resA
                 area weighted mean erosion (over the cells with erosion, <= 0) in each cross section
             -minresTypeCrossMin: float
                 overall minimum (largest erosion)
+            -resTypeCrossMeanTotal: 1D numpy array
+                area weighted mean total (net) change, erosion and deposition with their sign, over all changed
+                cells in each cross section
+            -resTypeCrossMaxTotal: 1D numpy array
+                largest total change in each cross section: largest erosion or largest deposition, whichever is
+                larger in magnitude (with its sign)
     """
     rasterArea = rasterTransfo["rasterArea"]
     log.debug("Analyzing %s" % (resType))
@@ -1443,12 +1454,22 @@ def analyzeSfcChange(simRowHash, rasterTransfo, transformedRaster, resType, resA
     minCrossMin, sfcCrossMin, sfcCrossMeanEro = [
         -values for values in getMaxMeanValues(-transformedRaster, rasterArea)
     ]
+    # total (net) change: erosion and deposition with their sign, area weighted mean over all changed cells
+    sfcNoNan = np.nan_to_num(transformedRaster)
+    changedArea = np.where(sfcNoNan != 0, rasterArea, 0.0)
+    areaSum = np.nansum(changedArea, axis=1)
+    areaSum = np.where(areaSum > 0, areaSum, 1)
+    sfcCrossMeanTotal = np.nansum(sfcNoNan * changedArea, axis=1) / areaSum
+    # largest total change: largest erosion or largest deposition, whichever is larger in magnitude
+    sfcCrossMaxTotal = np.where(np.abs(sfcCrossMin) > np.abs(sfcCrossMax), sfcCrossMin, sfcCrossMax)
 
     for name, values in {
         resType + "CrossMax": sfcCrossMax,
         resType + "CrossMeanDeposition": sfcCrossMeanDep,
         resType + "CrossMin": sfcCrossMin,
         resType + "CrossMeanErosion": sfcCrossMeanEro,
+        resType + "CrossMeanTotal": sfcCrossMeanTotal,
+        resType + "CrossMaxTotal": sfcCrossMaxTotal,
     }.items():
         if name not in resAnalysisDF.columns:
             resAnalysisDF[name] = np.nan

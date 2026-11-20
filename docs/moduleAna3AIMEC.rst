@@ -420,10 +420,8 @@ Analysis on simulation level plots
   * "sfcChangeCumAlongThalweg" (only if *sfcChangeAnalysis* = True in aimecCfg.ini section AIMECSETUP) shows the
     cumulated surface change due to erosion (< 0) and deposition (> 0). The top panel shows it in
     the thalweg-following coordinate system,
-    the bottom panel the mean (area weighted) and the largest erosion and deposition in each cross section along the
-    thalweg. This requires the sfcChangeCum (or sfcChange) result of all simulations, e.g. com1DFA with
-    sfcChangeCum in *resType* and an adaptive surface (*adaptSfcEntrainment*, *adaptSfcStopped* and/or
-    *adaptSfcDetrainment* = 1).
+    the bottom panel the mean (area weighted) or the largest erosion, deposition and total (net) change in each
+    cross section along the thalweg (*sfcChangeCrossType* = Mean or Max). This requires the sfcChangeCum (or sfcChange) result of all simulations.
 
 Comparison to reference simulation plots
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -497,6 +495,10 @@ If *sfcChangeAnalysis* is True, additionally these outputs are provided (here re
 - resTypeCrossMin: minimum (largest erosion) of the surface change in each cross section
 - resTypeCrossMeanErosion: area weighted mean erosion in each cross section, averaged over the cells with erosion (< 0)
 - minresTypeCrossMin, maxresTypeCrossMax: overall largest erosion and largest deposition
+- resTypeCrossMeanTotal: area weighted mean total (net) change in each cross section, erosion and deposition with
+  their sign, averaged over all changed cells (< 0 net erosion, > 0 net deposition)
+- resTypeCrossMaxTotal: largest total change in each cross section, i.e. the largest erosion or the largest
+  deposition, whichever is larger in magnitude (with its sign)
 
 If reference data sets are included in analysis, additionally these outputs are provided:
 

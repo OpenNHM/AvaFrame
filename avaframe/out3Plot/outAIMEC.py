@@ -1689,13 +1689,13 @@ def plotSfcChangeAlongThalweg(
 
     top panel: surface change in the thalweg-following (s, l) domain (colormap as for the peak field plots) with
     the outline of the runoutResType field (thresholdValue) and the thalweg (l = 0)
-    bottom panel: mean (area weighted) and largest erosion and deposition in each cross section along the
-    thalweg
+    bottom panel: mean (area weighted) or largest (sfcChangeCrossType) erosion, deposition and total (net) change
+    in each cross section along the thalweg
 
     Parameters
     -----------
     cfgSetup: configparser section
-        AIMECSETUP section, used: runoutResType, thresholdValue, minValueField
+        AIMECSETUP section, used: runoutResType, thresholdValue, minValueField, sfcChangeCrossType (Max or Mean)
     pathDict: dict
         info on avalancheDir, used: projectName, pathResult, displayRunoutResType (optional)
     rasterTransfo: dict
@@ -1709,7 +1709,7 @@ def plotSfcChangeAlongThalweg(
         simName (see fetchContourLines)
     resAnalysisRow: pandas Series
         aimec results of the simulation, used: simName, sfcResType + CrossMin, CrossMax, CrossMeanErosion,
-        CrossMeanDeposition (see aimecTools.analyzeSfcChange)
+        CrossMeanDeposition, CrossMeanTotal, CrossMaxTotal (see aimecTools.analyzeSfcChange)
     sfcResType: str
         result type of the surface change (sfcChangeCum or sfcChange)
 
@@ -1723,18 +1723,30 @@ def plotSfcChangeAlongThalweg(
     l = rasterTransfo["l"]
     indStartOfRunout = rasterTransfo["indStartOfRunout"]
     simName = resAnalysisRow["simName"]
-    # mean erosion (<= 0) and mean deposition (>= 0) in each cross section
-    sfcMeanErosion = np.asarray(resAnalysisRow[sfcResType + "CrossMeanErosion"], dtype=float)
-    sfcMeanDeposition = np.asarray(resAnalysisRow[sfcResType + "CrossMeanDeposition"], dtype=float)
-    # largest erosion (<= 0) and largest deposition (>= 0) in each cross section
-    sfcErosion = np.minimum(np.asarray(resAnalysisRow[sfcResType + "CrossMin"], dtype=float), 0.0)
-    sfcDeposition = np.maximum(np.asarray(resAnalysisRow[sfcResType + "CrossMax"], dtype=float), 0.0)
     runoutResType = cfgSetup["runoutResType"]
     displayRunoutResType = pathDict.get("displayRunoutResType", runoutResType)
     thresholdValue = cfgSetup.getfloat("thresholdValue")
     minChange = cfgSetup.getfloat("minValueField")
     unit = pU.cfgPlotUtils["unit" + sfcResType]
     unitRunout = pU.cfgPlotUtils["unit" + runoutResType]
+
+    # erosion (<= 0), deposition (>= 0) and total (net) change in each cross section: max or mean
+    if cfgSetup["sfcChangeCrossType"].lower() == "max":
+        sfcErosion = np.minimum(np.asarray(resAnalysisRow[sfcResType + "CrossMin"], dtype=float), 0.0)
+        sfcDeposition = np.maximum(np.asarray(resAnalysisRow[sfcResType + "CrossMax"], dtype=float), 0.0)
+        sfcTotal = np.asarray(resAnalysisRow[sfcResType + "CrossMaxTotal"], dtype=float)
+        minSfc = min(resAnalysisRow["min" + sfcResType + "CrossMin"], 0.0)
+        maxSfc = max(resAnalysisRow["max" + sfcResType + "CrossMax"], 0.0)
+        labelErosion = "largest erosion in cross section (min %.2f %s)" % (minSfc, unit)
+        labelDeposition = "largest deposition in cross section (max %.2f %s)" % (maxSfc, unit)
+        labelTotal = "largest total change in cross section (erosion or deposition)"
+    else:
+        sfcErosion = np.asarray(resAnalysisRow[sfcResType + "CrossMeanErosion"], dtype=float)
+        sfcDeposition = np.asarray(resAnalysisRow[sfcResType + "CrossMeanDeposition"], dtype=float)
+        sfcTotal = np.asarray(resAnalysisRow[sfcResType + "CrossMeanTotal"], dtype=float)
+        labelErosion = "mean erosion in cross section"
+        labelDeposition = "mean deposition in cross section"
+        labelTotal = "mean total (net) change in cross section"
 
     # only show cells where the surface changed
     sfcNoNan = np.nan_to_num(sfcRasterSL)
@@ -1786,42 +1798,16 @@ def plotSfcChangeAlongThalweg(
     cax1 = make_axes_locatable(ax1).append_axes("right", size="2%", pad=0.1)
     pU.addColorBar(im, ax1, ticks, unit, title="surface change", extend=extend, cax=cax1)
 
-    # bottom: mean and extremes of erosion and deposition in each cross section
+    # bottom: max or mean of erosion, deposition and the total (net) change in each cross section
+    # the total change coincides with erosion or deposition where only one of them occurs (mean) or with the
+    # larger one (max): erosion and deposition are drawn wider and transparent below the total
     ax2.axhline(0.0, color="grey", linewidth=0.8)
-    ax2.plot(
-        s,
-        sfcMeanErosion,
-        color=colorErosion,
-        linestyle="-",
-        linewidth=1.5,
-        label="mean erosion in cross section",
-    )
-    ax2.plot(
-        s,
-        sfcMeanDeposition,
-        color=colorDeposition,
-        linestyle="-",
-        linewidth=1.5,
-        label="mean deposition in cross section",
-    )
-    minSfc = min(resAnalysisRow["min" + sfcResType + "CrossMin"], 0.0)
-    maxSfc = max(resAnalysisRow["max" + sfcResType + "CrossMax"], 0.0)
-    ax2.plot(
-        s,
-        sfcErosion,
-        color=colorErosion,
-        linestyle="--",
-        linewidth=1.0,
-        label="largest erosion in cross section (min %.2f %s)" % (minSfc, unit),
-    )
-    ax2.plot(
-        s,
-        sfcDeposition,
-        color=colorDeposition,
-        linestyle="--",
-        linewidth=1.0,
-        label="largest deposition in cross section (max %.2f %s)" % (maxSfc, unit),
-    )
+    for values, color, label in [
+        (sfcErosion, colorErosion, labelErosion),
+        (sfcDeposition, colorDeposition, labelDeposition),
+    ]:
+        ax2.plot(s, values, color=color, linestyle="-", linewidth=2.5, alpha=0.4, label=label)
+    ax2.plot(s, sfcTotal, color="k", linestyle="-", linewidth=1.0, label=labelTotal)
     if showRunoutArea:
         ax2.axvline(s[indStartOfRunout], color="k", linestyle=":", linewidth=1.0)
     ax2.set_xlim([s[sIndMin], s[sIndMax]])
