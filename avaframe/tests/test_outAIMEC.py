@@ -58,8 +58,9 @@ def test_getIndicesVel():
     assert 'No peak flow velocity max along thalweg found exceeding' in str(e.value)
 
 
-def test_plotSfcChangeAlongThalweg(tmp_path):
-    """plot of the surface change along the thalweg is saved"""
+@pytest.mark.parametrize("sfcChangeCrossType", ["Mean", "Max"])
+def test_plotSfcChangeAlongThalweg(tmp_path, sfcChangeCrossType):
+    """plot of the surface change along the thalweg (mean or max in the cross sections) is saved"""
 
     s = np.arange(0.0, 100.0, 5.0)
     l = np.linspace(-20.0, 20.0, 9)
@@ -78,7 +79,12 @@ def test_plotSfcChangeAlongThalweg(tmp_path):
         "rasterArea": np.full(sGrid.shape, 25.0),
     }
     cfg = configparser.ConfigParser()
-    cfg["AIMECSETUP"] = {"runoutResType": "ppr", "thresholdValue": "1", "minValueField": "1.e-6"}
+    cfg["AIMECSETUP"] = {
+        "runoutResType": "ppr",
+        "thresholdValue": "1",
+        "minValueField": "1.e-6",
+        "sfcChangeCrossType": sfcChangeCrossType,
+    }
     resAnalysisDF = pd.DataFrame({"simName": ["simTest"]}, index=["hashA"])
     resAnalysisDF = aT.analyzeSfcChange("hashA", rasterTransfo, sfc, "sfcChangeCum", resAnalysisDF)
     pathDict = {"projectName": "avaTest", "pathResult": tmp_path}
