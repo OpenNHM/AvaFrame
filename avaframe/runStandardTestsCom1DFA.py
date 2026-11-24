@@ -261,6 +261,9 @@ if __name__ == "__main__":
 
     testList = tU.filterBenchmarks(testDictList, filterType, valuesList, condition="or")
 
+    # com4FlowPy benchmarks share the standardTest tag but are run by runStandardTestsCom4FlowPy.py
+    testList = [test for test in testList if "com4FlowPy" not in test["TAGS"]]
+
     # Create system temporary directory for parallel test execution (auto-cleaned on exit)
     tmpTestsDirObj = tempfile.TemporaryDirectory(prefix="avaframe_stdTests_")
     tmpTestsDir = pathlib.Path(tmpTestsDirObj.name)
