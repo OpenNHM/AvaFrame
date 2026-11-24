@@ -42,8 +42,10 @@
     "Final mass [kg]": "20170262.91",
     "Entrained mass [kg]": "0.00",
     "Entrained volume [m3]": "0.00",
+    "Detrained mass [kg]": "0.00",
+    "Total initialized mass [kg]": "20170262.91",
     "Stop criterion": "< 1.00 percent of PKE",
-    "Avalanche run time [s]": "191.90",
-    "Computation time [s]": "95.82"
+    "Process run time [s]": "191.90",
+    "Computation time [s]": "747.50"
   }
 }
