@@ -42,8 +42,10 @@
     "Final mass [kg]": "9970597.11",
     "Entrained mass [kg]": "0.00",
     "Entrained volume [m3]": "0.00",
+    "Detrained mass [kg]": "0.00",
+    "Total initialized mass [kg]": "9970597.11",
     "Stop criterion": "end Time reached: 400.00",
-    "Avalanche run time [s]": "400.00",
-    "Computation time [s]": "73.02"
+    "Process run time [s]": "400.00",
+    "Computation time [s]": "725.02"
   }
 }
