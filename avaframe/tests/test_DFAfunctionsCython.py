@@ -129,6 +129,52 @@ def test_computeEntMassAndForce(capfd):
     assert areaEntrPart == 1
 
 
+def test_computeEntMassAndForceTjem():
+    """Test the computeEntMassAndForceTjem function"""
+    dt = 0.1
+    areaPart = 1
+    uMag = 10
+    bedShearStrength = 500
+    velMagMin = 1e-3
+
+    # no entrainable mass
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 0, areaPart, uMag, 1000, bedShearStrength, velMagMin
+    )
+    assert dm == 0
+    assert areaEntrPart == 0
+    assert tau == 1000
+
+    # tau above shear strength: entrainment and tau limited to shear strength
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 200, areaPart, uMag, 1000, bedShearStrength, velMagMin
+    )
+    assert dm == pytest.approx(5.0)
+    assert areaEntrPart == 1
+    assert tau == bedShearStrength
+
+    # tau below shear strength: no entrainment, tau unchanged
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 200, areaPart, uMag, 400, bedShearStrength, velMagMin
+    )
+    assert dm == 0
+    assert tau == 400
+
+    # resting particle: no division by 0, no entrainment
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 200, areaPart, 0, 1000, bedShearStrength, velMagMin
+    )
+    assert dm == 0
+    assert areaEntrPart == 0
+    assert tau == 1000
+
+    # entrained mass is capped by the mass available under the particle
+    dm, areaEntrPart, tau = DFAfunC.computeEntMassAndForceTjem(
+        dt, 1, areaPart, uMag, 1000, bedShearStrength, velMagMin
+    )
+    assert dm == pytest.approx(1.0)
+
+
 def test_computeDetMass(capfd):
     """Test the computeDetMass function"""
     dt = 0.1
@@ -1162,9 +1208,9 @@ def test_computeCohesionForceC():
     assert force["forceSPHY"][1] == -force["forceSPHY"][2]
 
 
-def test_computeForceC():
-    cfg = configparser.ConfigParser()
-    cfg["GENERAL"] = {
+def _getForceCfgDict():
+    """Return the configuration used for computeForceC tests"""
+    return {
         "etaObrienAndJulien": "20",
         "alpha1EtaObrienAndJulien": "0.650",
         "beta1EtaObrienAndJulien": "16.81",
@@ -1208,6 +1254,7 @@ def test_computeForceC():
         "Bsamosatmedium": "4.13",
         "Rsamosatmedium": "0.05",
         "entEroEnergy": "5000",
+        "bedShearStrength": "500",
         "entShearResistance": "0",
         "entDefResistance": "0",
         "xsivoellmy": "4000.",
@@ -1235,6 +1282,11 @@ def test_computeForceC():
         "mu0wetsnow": "0.155",
         "xsiwetsnow": "4000.",
     }
+
+
+def test_computeForceC():
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = _getForceCfgDict()
 
     # set particles-parameters; dictionary at t - see 'com1DFA.DFAfunctionsCython.pyx.computeForceC()'
     # Minimal particles setup
@@ -1298,6 +1350,9 @@ def test_computeForceC():
     # resistanceType
     resistanceType = 1  # default; since cResRaster = 0 there is no resistance
 
+    # entrainment model (1 = samosAT)
+    entrType = 1
+
     # apply function
     # initialize array function fricition force
     forceFrictArray = np.zeros_like(test_tauArray, dtype=np.float64)
@@ -1305,7 +1360,7 @@ def test_computeForceC():
     # i = index of result in array, j = frictType
     for i, j in enumerate(range(10, 13)):
         particles, force, *_ = DFAfunC.computeForceC(
-            cfg["GENERAL"], particles, fields, dem, j, resistanceType
+            cfg["GENERAL"], particles, fields, dem, j, entrType, resistanceType
         )
         forceFrictArray[i] = force["forceFrict"][0]
 
@@ -1367,7 +1422,7 @@ def test_computeForceC():
     cfg["GENERAL"]["etaObrienAndJulien"] = "0"
     cfg["GENERAL"]["tauyObrienAndJulien"] = "0"
 
-    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 10, resistanceType)
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 10, entrType, resistanceType)
     forceFrictArray[3] = force["forceFrict"][0]
     # compute tauy and eta via alpha, beta and cv
     test_etaObrienAndJulien = test_alpha1EtaObrienAndJulien * math.exp(
@@ -1402,7 +1457,7 @@ def test_computeForceC():
     # set tauyCfg = 0
     cfg["GENERAL"]["tauyHerschelAndBulkley"] = "0"
 
-    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 11, resistanceType)
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 11, entrType, resistanceType)
     forceFrictArray[4] = force["forceFrict"][0]
     # compute tauy via alpha, beta and cv
     test_tauyHerschelandBulkley = test_alpha2TauyHerschelAndBulkley * math.exp(
@@ -1430,7 +1485,7 @@ def test_computeForceC():
     cfg["GENERAL"]["etaBingham"] = "0"
     cfg["GENERAL"]["tauyBingham"] = "0"
 
-    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 12, resistanceType)
+    particles, force, *_ = DFAfunC.computeForceC(cfg["GENERAL"], particles, fields, dem, 12, entrType, resistanceType)
     forceFrictArray[5] = force["forceFrict"][0]
     # compute tauy and eta via alpha, beta and cv
     test_etaBingham = test_alpha1EtaBingham * math.exp(test_beta1EtaBingham * test_cvSediment)
@@ -1520,6 +1575,339 @@ def test_updateInitialVelocity():
     particlesVelocity = DFAfunC.updateInitialVelocity(cfg["GENERAL"], particles, dem, velocityMag)
     for key in particlesTest:
         assert np.isclose(particlesTest[key], particlesVelocity[key], atol=1e-3)
+
+
+def _setupEntrainment(xPart, yPart, mPart, uMagPart, entrMass, detRate, **cfgOverrides):
+    """Set up computeForceC inputs for entrainment tests on a flat 4x4 DEM (cellsize 5, cell area 25 m2)
+
+    Particles move in x direction, have h = 1 m and rho = 2000 kg/m3 (particle area = m / 2000).
+    entrMass and detRate are dictionaries {(row, col): value} for the entrainment and detrainment rasters.
+    """
+    cfg = configparser.ConfigParser()
+    cfg["GENERAL"] = _getForceCfgDict()
+    for key, value in cfgOverrides.items():
+        cfg["GENERAL"][key] = str(value)
+
+    nrows = 4
+    ncols = 4
+    csz = 5
+    nPart = len(xPart)
+    uMag = np.array(uMagPart, dtype=np.float64)
+    particles = {
+        "nPart": nPart,
+        "x": np.array(xPart, dtype=np.float64),
+        "y": np.array(yPart, dtype=np.float64),
+        "z": np.zeros(nPart, dtype=np.float64),
+        "ux": uMag.copy(),
+        "uy": np.zeros(nPart, dtype=np.float64),
+        "uz": np.zeros(nPart, dtype=np.float64),
+        "m": np.array(mPart, dtype=np.float64),
+        "h": np.ones(nPart, dtype=np.float64),
+        "dt": 0.1,
+        "ID": np.arange(nPart, dtype=np.int64),
+        # specific enthalpy of 5000 J/kg for the wet snow friction model
+        "totalEnthalpy": 0.5 * uMag * uMag + 5000.0,
+        "indXDEM": np.round(np.array(xPart) / csz).astype(np.int32),
+        "indYDEM": np.round(np.array(yPart) / csz).astype(np.int32),
+    }
+    dem = {
+        "header": {"cellsize": csz, "nrows": nrows, "ncols": ncols},
+        "rasterData": np.ones((nrows, ncols)),
+        "Nx": np.zeros((nrows, ncols)),
+        "Ny": np.zeros((nrows, ncols)),
+        "Nz": np.ones((nrows, ncols)),
+        "areaRaster": csz * csz * np.ones((nrows, ncols)),
+        "outOfDEM": np.zeros((nrows * ncols,), dtype=bool),
+    }
+    fields = {
+        "Vx": np.zeros((nrows, ncols), dtype=np.float64),
+        "Vy": np.zeros((nrows, ncols), dtype=np.float64),
+        "Vz": np.zeros((nrows, ncols), dtype=np.float64),
+        "entrMassRaster": np.zeros((nrows, ncols), dtype=np.float64),
+        "entrEnthRaster": 30000.0 * np.ones((nrows, ncols), dtype=np.float64),
+        "muField": np.zeros((nrows, ncols), dtype=np.float64),
+        "xiField": np.zeros((nrows, ncols), dtype=np.float64),
+        "detRaster": np.zeros((nrows, ncols), dtype=np.float64),
+        "cResRaster": np.zeros((nrows, ncols), dtype=np.float64),
+    }
+    for (row, col), value in entrMass.items():
+        fields["entrMassRaster"][row, col] = value
+    for (row, col), value in detRate.items():
+        fields["detRaster"][row, col] = value
+    return cfg["GENERAL"], particles, fields, dem
+
+
+# three particles in three different cells: one with entrainment, one with entrainment and detrainment,
+# one with detrainment only. The available mass is never exhausted, so nothing is rationed.
+UNCONTENDED = {
+    "xPart": [5.0, 10.0, 15.0],
+    "yPart": [5.0, 10.0, 5.0],
+    "mPart": [20000.0, 10000.0, 20000.0],
+    "uMagPart": [10.0, 20.0, 10.0],
+    "entrMass": {(1, 1): 10.0, (2, 2): 5.0},
+    "detRate": {(2, 2): 30.0, (1, 3): 20.0},
+}
+
+
+# reference values recorded from the implementation before the per-cell rationing of entrained mass was
+# introduced. With enough entrainable mass the results must not change.
+@pytest.mark.parametrize(
+    "entrType, frictType, cfgOverrides, expected",
+    [
+        (
+            1,
+            2,
+            {"entEroEnergy": 2000},
+            {
+                "dM": [15.2055, 15.2055, 0.0],
+                "dMDet": [0.0, -0.7500000000000001, -2.0],
+                "m": [20015.2055, 10014.4555, 19998.0],
+                "ux": [9.992403025789567, 19.96963517124037, 10.0],
+                "totalEnthalpy": [5050.0, 5200.0, 5050.0],
+                "forceFrict": [3041.1, 760.275, 3041.1],
+                "entrMassRaster": [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 9.39178, 0.0, 0.0],
+                    [0.0, 0.0, 4.39178, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                ],
+            },
+        ),
+        (
+            2,
+            2,
+            {},
+            {
+                "dM": [100.0, 25.0, 0.0],
+                "dMDet": [0.0, -0.7500000000000001, -2.0],
+                "m": [20100.0, 10024.25, 19998.0],
+                "ux": [9.950248756218905, 19.950124688279303, 10.0],
+                "totalEnthalpy": [5050.0, 5200.0, 5050.0],
+                "forceFrict": [500.0, 125.0, 3041.1],
+                "entrMassRaster": [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 6.0, 0.0, 0.0],
+                    [0.0, 0.0, 4.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                ],
+            },
+        ),
+        (
+            2,
+            2,
+            {"bedShearStrength": 2900},
+            {
+                "dM": [14.10999999999999, 3.5274999999999976, 0.0],
+                "dMDet": [0.0, -0.7500000000000001, -2.0],
+                "m": [20014.11, 10002.7775, 19998.0],
+                "ux": [9.992949973793488, 19.992947487773687, 10.0],
+                "totalEnthalpy": [5050.0, 5200.0, 5050.0],
+                "forceFrict": [2900.0, 725.0, 3041.1],
+                "entrMassRaster": [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 9.4356, 0.0, 0.0],
+                    [0.0, 0.0, 4.8589, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                ],
+            },
+        ),
+        (
+            1,
+            4,
+            {"entEroEnergy": 2000},
+            {
+                "dM": [14.294555306992246, 21.652055306992246, 0.0],
+                "dMDet": [0.0, -0.7500000000000001, -2.0],
+                "m": [20014.29455530699, 10020.902055306993, 19998.0],
+                "ux": [9.992857827055813, 19.956789449109785, 10.0],
+                "totalEnthalpy": [5067.81972149575, 5253.5810831038625, 5050.0],
+                "forceFrict": [2858.9110613984494, 1082.6027653496124, 2858.9110613984494],
+                "entrMassRaster": [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 9.42821778772031, 0.0, 0.0],
+                    [0.0, 0.0, 4.133917787720311, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                ],
+            },
+        ),
+        (
+            2,
+            4,
+            {},
+            {
+                "dM": [100.0, 25.0, 0.0],
+                "dMDet": [0.0, -0.7500000000000001, -2.0],
+                "m": [20100.0, 10024.25, 19998.0],
+                "ux": [9.950248756218905, 19.950124688279303, 10.0],
+                "totalEnthalpy": [5174.12935323383, 5261.845386533666, 5050.0],
+                "forceFrict": [500.0, 125.0, 2858.9110613984494],
+                "entrMassRaster": [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 6.0, 0.0, 0.0],
+                    [0.0, 0.0, 4.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                ],
+            },
+        ),
+        (
+            1,
+            2,
+            {"entEroEnergy": 0, "entShearResistance": 100, "entDefResistance": 10},
+            {
+                "dM": [31.6227766016838, 22.360679774997898, 0.0],
+                "dMDet": [0.0, -0.7500000000000001, -2.0],
+                "m": [20031.622776601685, 10021.610679774998, 19998.0],
+                "ux": [9.980961586417603, 19.95310253878801, 10.0],
+                "totalEnthalpy": [5050.0, 5200.0, 5050.0],
+                "forceFrict": [3041.1, 760.275, 3041.1],
+                "entrMassRaster": [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.0, 8.735088935932648, 0.0, 0.0],
+                    [0.0, 0.0, 4.105572809000084, 0.0],
+                    [0.0, 0.0, 0.0, 0.0],
+                ],
+            },
+        ),
+    ],
+)
+def test_computeForceCEntrainmentUncontended(entrType, frictType, cfgOverrides, expected):
+    """Entrainment and detrainment results if the available mass is not exhausted"""
+    cfg, particles, fields, dem = _setupEntrainment(**UNCONTENDED, **cfgOverrides)
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, frictType, entrType, 1)
+    result = {
+        "dM": force["dM"],
+        "dMDet": force["dMDet"],
+        "m": particles["m"],
+        "ux": particles["ux"],
+        "totalEnthalpy": particles["totalEnthalpy"],
+        "forceFrict": force["forceFrict"],
+        "entrMassRaster": fields["entrMassRaster"],
+    }
+    for key, value in expected.items():
+        assert np.allclose(result[key], value, rtol=1e-10, atol=1e-12), key
+
+
+# rationing of the entrained mass per cell is only applied to the TJEM model (entrType 2) for now,
+# see TODO in computeForceC. Extend these tests to samosAT (entrType 1) when it is enabled there.
+# three overlapping particles (10 m2 each) in one 25 m2 cell with 10 kg/m2 (250 kg) of entrainable mass
+CONTESTED = {
+    "xPart": [5.0, 5.5, 6.0],
+    "yPart": [5.0, 5.0, 5.0],
+    "mPart": [20000.0, 20000.0, 20000.0],
+    "uMagPart": [10.0, 10.0, 10.0],
+    "entrMass": {(1, 1): 10.0},
+    "detRate": {},
+}
+
+
+def test_computeForceCEntrainmentRationing():
+    """Particles in one cell together cannot entrain more than the cell holds"""
+    cfg, particles, fields, dem = _setupEntrainment(**CONTESTED)
+    mIni = particles["m"].copy()
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, 2, 2, 1)
+
+    available = 10.0 * 25.0
+    dM = np.asarray(force["dM"])
+    # each particle requests 100 kg (mass under the particle), so the available mass is shared equally
+    assert np.allclose(dM, available / 3, rtol=1e-12)
+    assert np.sum(dM) == pytest.approx(available, rel=1e-12)
+    assert np.allclose(particles["m"], mIni + dM, rtol=1e-12)
+    assert np.allclose(fields["entrMassRaster"], 0.0, atol=1e-12)
+
+
+def test_computeForceCEntrainmentRationingProportional():
+    """The entrained mass is rationed proportionally to the requested mass, independent of particle order"""
+    kwargs = {
+        "xPart": [5.0, 5.5, 6.0],
+        "yPart": [5.0, 5.0, 5.0],
+        "mPart": [20000.0, 10000.0, 30000.0],
+        "uMagPart": [10.0, 20.0, 5.0],
+        "detRate": {},
+    }
+    # requested mass with plenty of entrainable mass: nothing is rationed, cap under the particle inactive
+    cfg, particles, fields, dem = _setupEntrainment(entrMass={(1, 1): 1e6}, **kwargs)
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, 2, 2, 1)
+    # requested mass is capped by the mass available under each particle (10 kg/m2 * particle area)
+    requested = np.minimum(np.asarray(force["dM"]), 10.0 * np.array(kwargs["mPart"]) / 2000.0)
+    available = 10.0 * 25.0
+    assert np.sum(requested) > available
+
+    dMByOrder = []
+    for order in [np.arange(3), np.arange(3)[::-1]]:
+        orderedKwargs = dict(kwargs)
+        for key in ["xPart", "yPart", "mPart", "uMagPart"]:
+            orderedKwargs[key] = [kwargs[key][i] for i in order]
+        cfg, particles, fields, dem = _setupEntrainment(entrMass={(1, 1): 10.0}, **orderedKwargs)
+        particles["ID"] = order.astype(np.int64)
+        particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, 2, 2, 1)
+        dM = np.asarray(force["dM"])
+        dMByOrder.append(dM[np.argsort(particles["ID"])])
+        assert np.sum(dM) == pytest.approx(available, rel=1e-12)
+
+    for dM in dMByOrder:
+        assert np.allclose(dM, requested * available / np.sum(requested), rtol=1e-12)
+
+
+def test_computeForceCEntrainmentSingleParticleCappedAtCell():
+    """The footprint of a large particle (30 m2) exceeds the cell area (25 m2)"""
+    cfg, particles, fields, dem = _setupEntrainment(
+        xPart=[5.0],
+        yPart=[5.0],
+        mPart=[60000.0],
+        uMagPart=[10.0],
+        entrMass={(1, 1): 10.0},
+        detRate={},
+    )
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, 2, 2, 1)
+    # the mass under the particle (300 kg) is requested, only 250 kg are in the cell
+    assert force["dM"][0] == pytest.approx(250.0, rel=1e-12)
+    assert fields["entrMassRaster"][1, 1] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_computeForceCEntrainmentRationedEnergyLossAndEnthalpy():
+    """Energy loss and wet snow enthalpy use the rationed mass, enthalpy is computed before detrainment"""
+    mIni = 60000.0
+    uIni = 10.0
+    areaPart = mIni / 2000.0
+    cfg, particles, fields, dem = _setupEntrainment(
+        xPart=[5.0],
+        yPart=[5.0],
+        mPart=[mIni],
+        uMagPart=[uIni],
+        entrMass={(1, 1): 10.0},
+        detRate={(1, 1): 10.0},
+        entShearResistance=1000,
+        entDefResistance=0,
+    )
+    enthalpyIni = particles["totalEnthalpy"][0]
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, 4, 2, 1)
+
+    # 300 kg (mass under the particle) are requested but only 250 kg are available
+    scale = 250.0 / (10.0 * areaPart)
+    dm = 250.0
+    # energy loss area is rationed in the same way as the mass
+    dEnergy = areaPart * scale * 1000.0
+    mAfterEnt = mIni + dm
+    dis = 1.0 - dEnergy / (0.5 * mAfterEnt * (uIni * uIni + 1e-6))
+    uxExpected = uIni * mIni / mAfterEnt * dis
+    # detrained mass: detCell / uMag * dt * areaPart
+    dmDet = -10.0 / uIni * 0.1 * areaPart
+
+    assert force["dM"][0] == pytest.approx(dm, rel=1e-12)
+    assert force["dMDet"][0] == pytest.approx(dmDet, rel=1e-12)
+    assert particles["ux"][0] == pytest.approx(uxExpected, rel=1e-12)
+    assert particles["m"][0] == pytest.approx(mAfterEnt + dmDet, rel=1e-12)
+    # enthalpy is averaged with the mass after entrainment, before detrainment
+    enthalpyExpected = (enthalpyIni * mIni + 30000.0 * dm) / mAfterEnt
+    assert particles["totalEnthalpy"][0] == pytest.approx(enthalpyExpected, rel=1e-12)
+
+
+def test_computeForceCEntrainmentRationingOnlyTjem():
+    """samosAT is not rationed yet (remove this part once it is enabled, see TODO in computeForceC)"""
+    available = 10.0 * 25.0
+    cfg, particles, fields, dem = _setupEntrainment(**CONTESTED, entEroEnergy=100)
+    particles, force, fields = DFAfunC.computeForceC(cfg, particles, fields, dem, 2, 1, 1)
+    assert np.sum(force["dM"]) > available
 
 
 """

@@ -27,10 +27,15 @@ import avaframe.in3Utils.geoTrans as geoTrans
 log = logging.getLogger(__name__)
 
 
-def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType):
+def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int resistanceType):
   """ compute forces acting on the particles (without the SPH component)
 
   Cython implementation implementation
+
+  Entrainment is computed in two passes. First, the forces and the requested entrained mass of every particle are
+  computed and summed per cell. Second, mass, velocity and enthalpy of the particles are updated. For the TJEM
+  entrainment model (entrType == 2) the requested mass is rationed in cells where it exceeds the entrainable mass
+  (same factor for all particles of a cell, so the result does not depend on the particle order).
 
   Parameters
   ----------
@@ -44,6 +49,8 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
       dictionary with dem information
   frictType: int
     identifier for friction law to be used
+  entrType: int
+    identifier for entrainment law to be used
   resistanceType: int
     identifier for resistance model to be used
 
@@ -73,6 +80,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double BSamosAtMedium = cfg.getfloat('Bsamosatmedium')
   cdef double RSamosAtMedium = cfg.getfloat('Rsamosatmedium')
   cdef double entEroEnergy = cfg.getfloat('entEroEnergy')
+  cdef double bedShearStrength = cfg.getfloat('bedShearStrength')
   cdef double entShearResistance = cfg.getfloat('entShearResistance')
   cdef double entDefResistance = cfg.getfloat('entDefResistance')
   cdef double rho = cfg.getfloat('rho')
@@ -165,8 +173,14 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   cdef double[:] dMDet = np.zeros(nPart, dtype=np.float64)
   cdef double[:] gEff = np.zeros(nPart, dtype=np.float64)
   cdef double[:] curvAcc = np.zeros(nPart, dtype=np.float64)
+  # requested entrainment (dM, areaEntrArray, uMagArray) and total requested mass per cell, passed on to the
+  # second pass where entrainment is rationed
+  cdef double[:] areaEntrArray = np.zeros(nPart, dtype=np.float64)
+  cdef double[:] uMagArray = np.zeros(nPart, dtype=np.float64)
+  cdef double[:, :] entrDemand = np.zeros((nrows, ncols), dtype=np.float64)
   # declare intermediate step variables
   cdef int indCellX, indCellY
+  cdef double entrAvailable, entrScale
   cdef double areaPart, areaCell, areaEntrPart, cResCell, cResPart, uMag, uMagRes, m, dm, h, entrMassCell, entrEnthCell, dEnergyEntr, dis
   cdef double dmDet, detCell, areaDetPart
   cdef double x, y, z, xEnd, yEnd, zEnd, ux, uy, uz, uxDir, uyDir, uzDir, totalEnthalpy, enthalpy, dTotalEnthalpy
@@ -375,6 +389,20 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           else:
             tau = 0.0
 
+      # select entrainment model
+      # compute requested entrained mass and update tau (in case of TJEM)
+      # the mass is rationed in the second pass if the particles of a cell request more than the cell holds
+      entrMassCell = entrMassRaster[indCellY, indCellX]
+      if entrMassCell > 0.0:
+        dm = 0.0
+        areaEntrPart = 0.0
+        if entrType == 1:
+            dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
+        if entrType == 2:
+            dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, bedShearStrength, velMagMin)
+        dM[k] = dm
+        areaEntrArray[k] = areaEntrPart
+        entrDemand[indCellY, indCellX] = entrDemand[indCellY, indCellX] + dm
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
       forceBotTang = - areaPart * tau
@@ -389,19 +417,61 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           uMagRes = uMag
         forceFrict[k] = forceFrict[k] - forceBotTang/uMagRes
 
-      # compute entrained mass and if wetSnow case compute total enthalpy of particles with entrainment
+      # requested detrained mass (applied in the second pass after entrainment)
+      detCell = detRaster[indCellY, indCellX]
+      if detCell > 0:
+        dMDet[k] = computeDetMass(dt, detCell, areaPart, uMag)
+
+      # speed before entrainment, needed for the energy loss due to entrainment in the second pass
+      uMagArray[k] = uMag
+
+      # adding resistance force due to obstacles
+      cResCell = cResRaster[indCellY][indCellX]
+      cResPart = computeResForce(areaPart, rho, cResCell, uMag, explicitFriction, resistanceType)
+      forceFrict[k] = forceFrict[k] - cResPart
+
+      uxArray[k] = ux
+      uyArray[k] = uy
+      uzArray[k] = uz
+
+  # second pass: ration entrained mass per cell and update mass, velocity and enthalpy of the particles
+  for k in range(nPart):
+      m = mass[k]
+      z = zArray[k]
+      ux = uxArray[k]
+      uy = uyArray[k]
+      uz = uzArray[k]
+      uMag = uMagArray[k]
+      indCellX = indXDEM[k]
+      indCellY = indYDEM[k]
+
+      # entrainment
       entrMassCell = entrMassRaster[indCellY, indCellX]
       if entrMassCell > 0.0:
-        # compute entrained mass
-        dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
+        dm = dM[k]
+        areaEntrPart = areaEntrArray[k]
+
+        # all particles of a cell are scaled with the same factor, so the result does not depend on the order
+        # of the particles and the cell is never emptied more than once
+        # TODO: rationing is only applied to the TJEM entrainment model for now because it changes the samosAT
+        # results too much. To enable it for samosAT as well: use (entrType == 1 or entrType == 2) in the check
+        # below, extend the rationing tests in test_DFAfunctionsCython.py to entrType 1 (adapt
+        # test_computeForceCEntrainmentRationingOnlyTjem), rerun the standard tests and update the benchmarks
+        entrAvailable = entrMassCell * areaRatser[indCellY, indCellX]
+        if entrType == 2 and entrDemand[indCellY, indCellX] > entrAvailable:
+          entrScale = entrAvailable / entrDemand[indCellY, indCellX]
+          dm = dm * entrScale
+          areaEntrPart = areaEntrPart * entrScale
+
         # speed loss due to energy loss due to entrained mass
         dEnergyEntr = areaEntrPart * entShearResistance + dm * entDefResistance
 
+        # if wetSnow case compute total enthalpy of particles with entrainment
         if frictType == 4 and dm > 0.0:
           # enthalpy change due to entrained mass
           entrEnthCell = entrEnthRaster[indCellY, indCellX]
           dTotalEnthalpy = (entrEnthCell + gravAcc * z) * dm
-          totalEnthalpy = (totalEnthalpy * m + dTotalEnthalpy)
+          totalEnthalpy = (totalEnthalpyArray[k] * m + dTotalEnthalpy)
 
         # update velocity
         ux = ux * m / (m + dm)
@@ -428,24 +498,16 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
           totalEnthalpyArray[k] = totalEnthalpy / m
 
       # adding detrainment analogous to entrainment
-      detCell = detRaster[indCellY, indCellX]
-      
-      if detCell > 0:
-        # compute detrained mass
-        dmDet = computeDetMass(dt, detCell, areaPart, uMag)
+      if detRaster[indCellY, indCellX] > 0:
+        dmDet = dMDet[k]
         if abs(dmDet) > m:
           # mass of a particle can't be negative
           dmDet = - 1 * m
-      
+
         # update mass
         m = m + dmDet
         mass[k] = m
         dMDet[k] = dmDet
-
-      # adding resistance force due to obstacles
-      cResCell = cResRaster[indCellY][indCellX]
-      cResPart = computeResForce(areaPart, rho, cResCell, uMag, explicitFriction, resistanceType)
-      forceFrict[k] = forceFrict[k] - cResPart
 
       uxArray[k] = ux
       uyArray[k] = uy
@@ -469,7 +531,8 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int resistanceType
   particles['totalEnthalpy'] = np.asarray(totalEnthalpyArray)
 
   # update mass available for entrainement
-  # TODO: this allows to entrain more mass then available...
+  # with rationing (TJEM) the entrained mass never exceeds the available mass (the check for < 0 only guards
+  # against rounding), without it (samosAT) the raster is clamped at 0
   for k in range(nPart):
     indCellX = indXDEM[k]
     indCellY = indYDEM[k]
@@ -490,7 +553,7 @@ cpdef (double, double) computeEntMassAndForce(double dt, double entrMassCell,
                                               double areaPart, double uMag,
                                               double tau, double entEroEnergy,
                                               double rhoEnt):
-  """ compute force component due to entrained mass
+  """ compute force component due to entrained mass when samosAT entrainment model is used
 
   Parameters
   ----------
@@ -541,6 +604,59 @@ cpdef (double, double) computeEntMassAndForce(double dt, double entrMassCell,
           areaEntrPart = entrMassCell / rhoEnt
 
   return dm, areaEntrPart
+
+cpdef (double, double, double) computeEntMassAndForceTjem(double dt, double entrMassCell,
+                                              double areaPart, double uMag,
+                                              double tau, double bedShearStrength,
+                                              double velMagMin):
+  """ compute force component due to entrained mass when TJEM entrainment model is used
+
+  Parameters
+  ----------
+  dt: float
+    time step
+  entrMassCell : float
+      available mass for entrainement
+  areaPart : float
+      particle area
+  uMag : float
+      particle speed (velocity magnitude)
+  tau : float
+      bottom shear stress
+  bedShearStrength: float
+    shear strength of the entrainable snow mass
+  velMagMin : float
+    minimum velocity magnitude, avoids division by 0 for resting particles
+
+  Returns
+  -------
+  dm : float
+      entrained mass
+  areaEntrPart : float
+      Area for entrainment energy loss computation
+  tau : float
+      updated bottom shear stress, limited by the shear strength of the snow cover if entrainment occurs
+  """
+  # compute entrained mass
+  cdef double dm = 0.0
+  cdef double areaEntrPart = 0.0
+
+  # avoid very small uMag so as not to divide by 0
+  if entrMassCell > 0 and uMag > velMagMin:
+
+      # erosion: erode according to shear strength of snow cover
+
+      # in contrast to MoTVoellmy the bedShearStrength here is not scaled with the flow density
+      # because com1DFA does not scale shear stress at the bottom of the avalanche with the flow density while MoTVoellmy does
+
+      dm = max(0.0, tau - bedShearStrength) * areaPart * dt / uMag
+      # cannot entrain more than the mass available under the particle
+      dm = min(dm, entrMassCell * areaPart)
+      areaEntrPart = areaPart
+      if dm > 0:
+        tau = min(tau, bedShearStrength)
+
+  return dm, areaEntrPart, tau
 
 
 cpdef double computeDetMass(double dt, double detCell,
