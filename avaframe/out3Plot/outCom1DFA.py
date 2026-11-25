@@ -271,8 +271,7 @@ def addDem2Plot(ax, dem, what="slope", extent="", origHeader=False, cmap=None):
     yArray = np.linspace(yllc, yllc + (nrows - 1) * csz, nrows)
 
     if cmap is None:
-        cmap = pU.cmapGreys
-        cmap.set_bad(color="white")
+        cmap = pU.cmapGreys.with_extremes(bad="white")
 
     if what == "slope":
         value = dem["Nz"] / DFAtls.norm(dem["Nx"], dem["Ny"], dem["Nz"])
@@ -386,7 +385,7 @@ def addResult2Plot(ax, header, rasterData, resType, colorbar=True, contour=False
         np.amax(rasterData),
         continuous=pU.contCmap,
     )
-    cmap.set_bad(alpha=0)
+    cmap = cmap.with_extremes(bad="none")
     rasterData = np.ma.masked_where(rasterData == 0, rasterData)
 
     ref0, im = pU.NonUnifIm(
@@ -553,7 +552,7 @@ def plotReleaseScenarioView(
         np.amax(releaseLine["rasterData"]),
         continuous=pU.contCmap,
     )
-    cmap1.set_bad(alpha=0.0)
+    cmap1 = cmap1.with_extremes(bad="none")
     # extent taking into account the 0.5*cellSize for imshow plot if meters is used
     extentCells = [
         xL - originCells,
@@ -720,12 +719,8 @@ def plotResFields(fields, cfg, tPlot, dem, totalMass):
     # fetch colormaps for FV and FT colorcode values below and above thresholds, mask 0 values
     cmap1, col, ticks, norm = pU.makeColorMap(pU.colorMaps["FV"], vMin, vMax, continuous=pU.contCmap)
     cmap2, col, ticks, norm = pU.makeColorMap(pU.colorMaps["FV"], thMin, thMax, continuous=pU.contCmap)
-    cmap1.set_under(color="lightblue")
-    cmap1.set_over(color="red")
-    cmap2.set_under(color="lightblue")
-    cmap2.set_over(color="red")
-    cmap1.set_bad(color="k", alpha=0.0)
-    cmap2.set_bad(color="k", alpha=0.0)
+    cmap1 = cmap1.with_extremes(bad="none", under="lightblue", over="red")
+    cmap2 = cmap2.with_extremes(bad="none", under="lightblue", over="red")
 
     # add FV and FT fields
     im3 = ax[1, 0].imshow(fv, cmap=cmap1, vmin=vMin, vmax=vMax, extent=extentCellCenters, zorder=4)
@@ -759,8 +754,8 @@ def plotResFields(fields, cfg, tPlot, dem, totalMass):
     cmap6, col, ticks, norm = pU.makeColorMap(
         pU.colorMaps["FTDet"], FTDetMin, FTDetMax, continuous=pU.contCmap
     )
-    cmap5.set_bad(color="k", alpha=0.0)
-    cmap6.set_bad(color="k", alpha=0.0)
+    cmap5 = cmap5.with_extremes(bad="none")
+    cmap6 = cmap6.with_extremes(bad="none")
     # add FV and FT fields
     im5 = ax[0, 2].imshow(dmDet, cmap=cmap5, vmin=dmMin, vmax=dmMax, extent=extentCellCenters, zorder=4)
     im6 = ax[1, 2].imshow(

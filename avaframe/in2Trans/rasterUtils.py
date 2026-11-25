@@ -71,8 +71,8 @@ def getHeaderFromRaster(raster):
     header["ncols"] = raster.width
     header["nrows"] = raster.height
     header["cellsize"] = raster.transform[0]
-    header["xllcenter"] = (raster.transform * (0, 0))[0] + header["cellsize"] / 2.0
-    header["yllcenter"] = (raster.transform * (0, raster.height))[1] + header["cellsize"] / 2.0
+    header["xllcenter"] = (raster.transform @ (0, 0))[0] + header["cellsize"] / 2.0
+    header["yllcenter"] = (raster.transform @ (0, raster.height))[1] + header["cellsize"] / 2.0
     header["nodata_value"] = raster.nodata
     header["crs"] = raster.crs
     header["driver"] = raster.driver

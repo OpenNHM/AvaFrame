@@ -135,22 +135,17 @@ discreteLevels = cfg.getint("discreteLevels")
 # Color maps
 ############################
 # hell white/green to dark blue
-cmapGB = copy.copy(sns.cubehelix_palette(8, start=0.5, rot=-0.75, as_cmap=True))
-cmapGB.set_bad(color="k")
+cmapGB = sns.cubehelix_palette(8, start=0.5, rot=-0.75, as_cmap=True).with_extremes(bad="k")
 
-cmapReds = copy.copy(matplotlib.cm.Reds)
-cmapReds.set_bad(color="k")
+cmapReds = matplotlib.cm.Reds.with_extremes(bad="k")
 
-cmapBlues = copy.copy(matplotlib.cm.Blues)
-cmapBlues.set_bad(color="k")
+cmapBlues = matplotlib.cm.Blues.with_extremes(bad="k")
 
 cmapGreys = copy.copy(matplotlib.colormaps["Greys"])
 
-cmapPlasma = copy.copy(matplotlib.cm.plasma)
-cmapPlasma.set_bad(color="k")
+cmapPlasma = matplotlib.cm.plasma.with_extremes(bad="k")
 
-cmapViridis = copy.copy(matplotlib.cm.viridis)
-cmapViridis.set_bad(color="k")
+cmapViridis = matplotlib.cm.viridis.with_extremes(bad="k")
 
 # divergent color map
 cmapdiv = copy.copy(cmapCrameri.broc)
@@ -171,8 +166,7 @@ colorAvaframe = [
     "#523E58",
     "#483045",
 ]
-cmapAvaframe = mplCol.ListedColormap(colorAvaframe)
-cmapAvaframe.set_bad(color="k")
+cmapAvaframe = mplCol.ListedColormap(colorAvaframe).with_extremes(bad="k")
 # add a continuous version
 cmapAvaframeCont = mplCol.LinearSegmentedColormap.from_list("cmapAvaframeCont", colorAvaframe, N=256)
 
@@ -452,9 +446,7 @@ def makeColorMap(colormapDict, levMin, levMax, continuous=False):
             colors = colormapDict["colors"]
             colorsNew = colors[:indEnd]
             colorsNew.append(colors[indEnd - 1])
-            cmap = mplCol.ListedColormap(colorsNew)
-            cmap.set_bad(color="w")
-            cmap.set_under(color="w")
+            cmap = mplCol.ListedColormap(colorsNew).with_extremes(bad="w", under="w")
         # check if a cmap is provided
         elif "cmap" in colormapDict.keys():
             cmap = colormapDict["cmap"]

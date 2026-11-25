@@ -266,9 +266,9 @@ def addConstrainedDataField(fileName, resType, demField, ax, cellSize, alpha=1.0
         np.amax(dataConstrained),
         continuous=pU.contCmap,
     )
-    cmap.set_bad(alpha=0)
+    cmap = cmap.with_extremes(bad="none")
     # uncomment this to set the under value for discrete cmap transparent
-    # cmap.set_under(alpha=0)
+    # cmap = cmap.with_extremes(under="none")
 
     # set extent in meters using cellSize and llcenter location
     extentCellCentersIm, extentCellCornersIm = pU.createExtentMinMax(
@@ -381,7 +381,7 @@ def plotAllFields(avaDir, inputDir, outDir, unit="", constrainData=True):
         cmap, _, ticks, norm = pU.makeColorMap(
             pU.cmapNN, np.amin(data), np.amax(data), continuous=pU.contCmap
         )
-        cmap.set_bad("w")
+        cmap = cmap.with_extremes(bad="w")
 
         if constrainData:
             rowsMin, rowsMax, colsMin, colsMax = pU.constrainPlotsToData(data, cellSize)

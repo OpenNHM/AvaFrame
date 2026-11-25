@@ -953,7 +953,7 @@ def addContour2Plot(ax1, fieldFT, simiDict, fieldHeader, limits, nLevels=9):
     cmap, _, ticks, norm = pU.makeColorMap(
         pU.cmapThickness, np.nanmin(fieldFT), np.nanmax(fieldFT), continuous=True
     )
-    cmap.set_under(color="w")
+    cmap = cmap.with_extremes(under="w")
     cs1 = ax1.contour(X, Y, fieldFT, levels=contourLevels, origin="lower", cmap=cmap, linewidths=2)
     cs2 = ax1.contour(
         X,

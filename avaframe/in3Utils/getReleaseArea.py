@@ -146,7 +146,7 @@ def writeReleaseArea(xyPoints, demType, cfgR, outDir):
 
     # Add vertical coordinate
     z = np.zeros((lenp, 1))
-    p_mat = np.matrix(np.append(xyPoints, z, axis=1))
+    p_mat = np.asarray(np.append(xyPoints, z, axis=1))
 
     # Save elevation data to .asc file and add header lines
     releaseFile = outDir / ('release%d%s.nxyz' % (relNo, demType))
@@ -155,8 +155,7 @@ def writeReleaseArea(xyPoints, demType, cfgR, outDir):
         f.write('d0=%.2f\n' % (relH))
         f.write('rho=None\n')
         f.write('%d\n' % (lenp))
-        for line in p_mat:
-            np.savetxt(f, line, fmt='%f')
+        np.savetxt(f, p_mat, fmt='%f')
 
     # Log info here
     log.info('Release Area written to: %s/release_%d%s as .nxyz and .shp' % (outDir, relNo, demType))

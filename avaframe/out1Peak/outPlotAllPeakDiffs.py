@@ -155,8 +155,7 @@ def plotAreaDiff(
         refRaster, rasterHeader, originLLCenter=True
     )
     cmapTF, _, ticks, normTF = pU.makeColorMap(cmapCrameri.hawaii, -0.5, 0.5, continuous=pU.contCmap)
-    cmapTF.set_under(color="b")
-    cmapTF.set_over(color="r")
+    cmapTF = cmapTF.with_extremes(under="b", over="r")
     im1 = ax[0].imshow(
         data,
         cmap=cmapTF,
@@ -254,7 +253,7 @@ def plotAreaDiff(
         np.nanmax(refRaster),
         continuous=True,
     )
-    cmap1.set_bad(alpha=0)
+    cmap1 = cmap1.with_extremes(bad="none")
     im2 = ax[1].imshow(
         np.ma.masked_where(simRaster == 0.0, simRaster),
         cmap=cmap1,

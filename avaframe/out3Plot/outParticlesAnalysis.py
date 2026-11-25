@@ -876,7 +876,7 @@ def plotParticlesAssets(dem, assets, particleAssets, outDir, plotName, title):
     )
     # set all cells that have been affected by particles but don't belong to the identified trajectories affecting assets
     # to white
-    cmap1.set_under("white")
+    cmap1 = cmap1.with_extremes(under="white")
     ax.imshow(
         np.where(assets["rasterData"] != 0, assets["rasterData"], np.nan),
         alpha=1.0,

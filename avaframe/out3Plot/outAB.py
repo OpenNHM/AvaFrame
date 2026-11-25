@@ -5,7 +5,6 @@
 import pickle
 import pathlib
 import logging
-import copy
 import datetime
 import shapefile
 import matplotlib
@@ -171,8 +170,7 @@ def plotPath(avaProfile, dem, splitPoint, flags):
         fig, ax = plt.subplots(figsize=(pU.figW, pU.figH))
         titleText = avaProfile['name']
         plt.title(titleText)
-        cmap = copy.copy(mpl.cm.get_cmap("Greys"))
-        cmap.set_bad(color='white')
+        cmap = mpl.cm.get_cmap("Greys").with_extremes(bad='white')
         im = plt.imshow(rasterdata, cmap, origin='lower')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.1)

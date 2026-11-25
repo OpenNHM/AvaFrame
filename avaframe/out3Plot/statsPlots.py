@@ -364,9 +364,9 @@ def plotProbMap(avaDir, inDir, cfgFull, demPlot=False):
             # add DEM hillshade with contour lines
             pU.addHillShadeContours(ax1, demConstrained, cellSize, extentCellCenters)
             dataPlot = np.ma.masked_where(dataConstrained == 0.0, dataConstrained)
-            cmap.set_bad(alpha=0)
+            cmap = cmap.with_extremes(bad="none")
         else:
-            cmap.set_bad(colorBackGround)
+            cmap = cmap.with_extremes(bad=colorBackGround)
 
         # add data plot
         pU.checkExtentFormat(extentCellCorners, cellSize, dataPlot, plotName='probMap left panel')

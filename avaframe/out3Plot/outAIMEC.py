@@ -96,7 +96,7 @@ def visuTransfo(rasterTransfo, inputData, cfgSetup, pathDict):
 
     cmap, _, ticks, norm = pU.makeColorMap(pU.colorMaps[runoutResType], np.nanmin(
         maskedArray), np.nanmax(maskedArray), continuous=pU.contCmap)
-    cmap.set_under(color='w')
+    cmap = cmap.with_extremes(under='w')
 
     labelRunout = rasterTransfo['labelRunout']
 
@@ -311,7 +311,7 @@ def visuRunoutStat(rasterTransfo, inputsDF, resAnalysisDF, newRasters, cfgSetup,
             np.nanmax(maskedArrayTransposed[indYMin:indYMax, indXMin:]),
             continuous=pU.contCmap,
         )
-        cmap.set_bad("w", 1.0)
+        cmap = cmap.with_extremes(bad="w")
 
         # Get colors for colorcoding runout points and crossMax values along thalweg for all sims
         unitSC = cfgSetup["unit"]
@@ -638,7 +638,7 @@ def visuSimple(cfgSetup, rasterTransfo, resAnalysisDF, newRasters, pathDict):
         maskedArrayTranspose = np.transpose(maskedArray)
         cmap, _, ticks, norm = pU.makeColorMap(cmap, np.nanmin(maskedArray), np.nanmax(maskedArray),
                                                continuous=pU.contCmap)
-        cmap.set_bad('w', 1.)
+        cmap = cmap.with_extremes(bad='w')
         ax.axvline(x=runout, color='k', linestyle='-',
                    label='runout (%s < %.1f %s)' % (runoutResType, cfgSetup.getfloat('thresholdValue'),
                                                     pU.cfgPlotUtils['unit' + runoutResType]))
@@ -711,11 +711,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
         cmapTF, _, ticks, normTF = pU.makeColorMap(
             pU.colorMaps[baseRunoutResType], np.nanmin((refData)), np.nanmax((refData)), continuous=pU.contCmap
         )
-        cmapTF.set_bad(color="w")
-
-        cmapTF.set_under(color="b")
-        cmapTF.set_over(color="r")
-        cmapTF.set_bad(alpha=0)
+        cmapTF = cmapTF.with_extremes(bad="none", under="b", over="r")
         dataTF = compRasterMask - refRasterMask
         dataTF = np.ma.masked_where(dataTF == 0.0, dataTF)
 
@@ -768,8 +764,7 @@ def visuComparison(rasterTransfo, inputs, pathDict):
                 ax2 = fig.add_subplot(gs[:, 1])
                 ax1 = fig.add_subplot(gs[:, 0])
 
-            cmap = pU.cmapdiv
-            cmap.set_bad(color="w")
+            cmap = pU.cmapdiv.with_extremes(bad="w")
             elev_max = inputs["diffLim"]
             ref0, im3 = pU.NonUnifIm(
                 ax2,

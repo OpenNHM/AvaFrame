@@ -195,7 +195,7 @@ def plotPosition(fig, ax, particles, dem, data, Cmap, unit, plotPart=False, last
     ax.clear()
     ax.set_title('t=%.2f s' % particles['t'])
     cmap, _, ticks, norm = pU.makeColorMap(Cmap, np.nanmin(data), np.nanmax(data), continuous=True)
-    cmap.set_under(color='w')
+    cmap = cmap.with_extremes(under='w')
     ref0, im = pU.NonUnifIm(ax, xx, yy, data, 'x (m)', 'y (m)',
                          extent=[x.min(), x.max(), y.min(), y.max()],
                          cmap=cmap, norm=norm)
@@ -244,7 +244,7 @@ def plotContours(fig, ax, t, header, data, Cmap, unit, last=False):
     ax.clear()
     ax.set_title('t=%.2f s' % t)
     cmap, _, ticks, norm = pU.makeColorMap(Cmap, np.nanmin(data), np.nanmax(data), continuous=True)
-    cmap.set_under(color='w')
+    cmap = cmap.with_extremes(under='w')
 
     CS = ax.contour(X, Y, data, levels=8, origin='lower', cmap=cmap,
                     linewidths=2)

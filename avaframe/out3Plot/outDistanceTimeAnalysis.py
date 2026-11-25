@@ -172,8 +172,7 @@ def radarFieldOfViewPlot(radarFov, radarRange, cfgRangeTime, rangeGates, dem):
     # create plot of radar range values and field of view
     fig = plt.figure(figsize=(pU.figW, pU.figH))
     ax1 = plt.subplot(111)
-    cmapRadar = pU.cmapRadarFOV
-    cmapRadar.set_bad("w", alpha=0.0)
+    cmapRadar = pU.cmapRadarFOV.with_extremes(bad="none")
     pc = plt.pcolormesh(X, Y, radarRange, cmap=cmapRadar)
     ax1.plot(radarFov[0], radarFov[1], marker="o", color="k", zorder=1)
     ax1.contour(X, Y, radarRange, rangeGates[::gateContours], colors=["brown"], alpha=0.5, linewidths=0.5)
@@ -298,7 +297,7 @@ def plotRangeRaster(slRaster, rasterTransfo, cfgRangeTime, rangeRaster, cLower):
     cmapRes, _, ticksRes, normRes = pU.makeColorMap(
         pU.colorMaps[resType], np.nanmin(maskResType), np.nanmax(maskResType), continuous=True
     )
-    cmapRes.set_bad(alpha=0.0)
+    cmapRes = cmapRes.with_extremes(bad="none")
     ref2, im2 = pU.NonUnifIm(
         ax1, l, s, maskResType, "l (m)", "s (m)", extent=[l.min(), l.max(), s.min(), s.max()], cmap=cmapRes
     )
@@ -741,9 +740,9 @@ def animationPlot(demData, data, cellSize, resType, cfgRangeTime, mtiInfo, timeS
     data = np.ma.masked_where(data == 0.0, data)
 
     # set alpha to zero
-    cmapRes.set_bad(alpha=0)
+    cmapRes = cmapRes.with_extremes(bad="none")
     # uncomment this to set the under value for discrete cmap transparent
-    # cmap.set_under(alpha=0)
+    # cmap = cmap.with_extremes(under="none")
 
     # add DEM hillshade with contour lines
     ls, CS = pU.addHillShadeContours(
@@ -859,7 +858,7 @@ def animationPlot(demData, data, cellSize, resType, cfgRangeTime, mtiInfo, timeS
     maskResType = np.ma.array(slRaster, mask=bmaskRes)
 
     # plot masked result type, add norm res to scale to colorbar
-    cmapRes.set_bad(alpha=0.0)
+    cmapRes = cmapRes.with_extremes(bad="none")
     ref2, im3 = pU.NonUnifIm(
         ax2,
         l,

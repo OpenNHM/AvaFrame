@@ -86,7 +86,7 @@ def generateCom1DFAEnergyPlot(avalancheDir, energyLineTestCfg, com1DFACfg, avaPr
     fig = plt.figure(figsize=(pU.figW*3, pU.figH*2))
     cmap, _, ticks, norm = pU.makeColorMap(pU.colorMaps['pfv'], np.amin(u2Path/(2*g)), np.amax(u2Path/(2*g)),
                                            continuous=pU.contCmap)
-    cmap.set_under(color='w')
+    cmap = cmap.with_extremes(under='w')
     # make the bird view plot
     ax1 = plt.subplot2grid((2, 2), (1, 0))
     rowsMin, rowsMax, colsMin, colsMax = pU.constrainPlotsToData(fieldsList[-1]['pfv'], 5, extentOption=True,
@@ -202,7 +202,7 @@ def generateCom1DFAEnergyPlot(avalancheDir, energyLineTestCfg, com1DFACfg, avaPr
     ax3.hlines(y=zIntersection-z0, color='b', xmin=sMin, xmax=sIntersection, linestyle='--')
 
     ax3.set_xlabel('s (m)')
-    ax3.set_ylabel('$\Delta z$ (m)')
+    ax3.set_ylabel(r'$\Delta z$ (m)')
     ax3.yaxis.set_label_coords(0, 0.9)
     ax3.set_xlim([sMin, sMax])
     ax3.set_ylim([zMin, zMax])

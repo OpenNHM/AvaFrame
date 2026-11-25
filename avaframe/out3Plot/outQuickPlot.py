@@ -120,7 +120,7 @@ def generatePlot(dataDict, avaName, outDir, cfg, plotDict, crossProfile=True):
     ax1 = fig.add_subplot(221)
     cmap, _, ticks, norm = pU.makeColorMap(cmapType, minVal, maxVal, continuous=pU.contCmap)
 
-    cmap.set_bad('w')
+    cmap = cmap.with_extremes(bad='w')
     data1P = ma.masked_where(data1 == 0.0, data1)
     im1 = plt.imshow(data1P, cmap=cmap, extent=extentCellCorners, origin='lower',
                      aspect=nx/ny, norm=norm)
@@ -137,7 +137,7 @@ def generatePlot(dataDict, avaName, outDir, cfg, plotDict, crossProfile=True):
     ax2 = fig.add_subplot(222)
     cmap, _, ticks, norm = pU.makeColorMap(cmapType, minVal, maxVal, continuous=pU.contCmap)
 
-    cmap.set_bad('w')
+    cmap = cmap.with_extremes(bad='w')
     data2P = ma.masked_where(data2 == 0.0, data2)
     im2 = plt.imshow(data2P, cmap=cmap, extent=extentCellCorners, origin='lower',
                      aspect=nx/ny, norm=norm)
@@ -513,7 +513,7 @@ def generateOnePlot(dataDict, outDir, cfg, plotDict):
     ax1 = fig.add_subplot(121)
 
     cmap, _, ticks, norm = pU.makeColorMap(cmapType, np.nanmin(data1), np.nanmax(data1), continuous=pU.contCmap)
-    cmap.set_bad('w')
+    cmap = cmap.with_extremes(bad='w')
     data1P = ma.masked_where(data1 == 0.0, data1)
     im1 = plt.imshow(data1P, cmap=cmap, extent=extentCellCorners, origin='lower', aspect=nx/ny, norm=norm)
     pU.addColorBar(im1, ax1, ticks, unit)
