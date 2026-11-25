@@ -32,6 +32,11 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
 
   Cython implementation implementation
 
+  Entrainment is computed in two passes. First, the forces and the requested entrained mass of every particle are
+  computed and summed per cell. Second, mass, velocity and enthalpy of the particles are updated. For the TJEM
+  entrainment model (entrType == 2) the requested mass is rationed in cells where it exceeds the entrainable mass
+  (same factor for all particles of a cell, so the result does not depend on the particle order).
+
   Parameters
   ----------
   cfg: configparser
@@ -168,8 +173,14 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
   cdef double[:] dMDet = np.zeros(nPart, dtype=np.float64)
   cdef double[:] gEff = np.zeros(nPart, dtype=np.float64)
   cdef double[:] curvAcc = np.zeros(nPart, dtype=np.float64)
+  # requested entrainment (dM, areaEntrArray, uMagArray) and total requested mass per cell, passed on to the
+  # second pass where entrainment is rationed
+  cdef double[:] areaEntrArray = np.zeros(nPart, dtype=np.float64)
+  cdef double[:] uMagArray = np.zeros(nPart, dtype=np.float64)
+  cdef double[:, :] entrDemand = np.zeros((nrows, ncols), dtype=np.float64)
   # declare intermediate step variables
   cdef int indCellX, indCellY
+  cdef double entrAvailable, entrScale
   cdef double areaPart, areaCell, areaEntrPart, cResCell, cResPart, uMag, uMagRes, m, dm, h, entrMassCell, entrEnthCell, dEnergyEntr, dis
   cdef double dmDet, detCell, areaDetPart
   cdef double x, y, z, xEnd, yEnd, zEnd, ux, uy, uz, uxDir, uyDir, uzDir, totalEnthalpy, enthalpy, dTotalEnthalpy
@@ -379,13 +390,19 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
             tau = 0.0
 
       # select entrainment model
-      # compute entrained mass and update tau (in case of TJEM)
+      # compute requested entrained mass and update tau (in case of TJEM)
+      # the mass is rationed in the second pass if the particles of a cell request more than the cell holds
       entrMassCell = entrMassRaster[indCellY, indCellX]
       if entrMassCell > 0.0:
+        dm = 0.0
+        areaEntrPart = 0.0
         if entrType == 1:
             dm, areaEntrPart = computeEntMassAndForce(dt, entrMassCell, areaPart, uMag, tau, entEroEnergy, rhoEnt)
         if entrType == 2:
             dm, areaEntrPart, tau = computeEntMassAndForceTjem(dt, entrMassCell, areaPart, uMag, tau, bedShearStrength, velMagMin)
+        dM[k] = dm
+        areaEntrArray[k] = areaEntrPart
+        entrDemand[indCellY, indCellX] = entrDemand[indCellY, indCellX] + dm
       # adding bottom shear resistance contribution
       # norm of the friction force >=0 (if 0 -> detatchment)
       forceBotTang = - areaPart * tau
@@ -400,8 +417,52 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
           uMagRes = uMag
         forceFrict[k] = forceFrict[k] - forceBotTang/uMagRes
 
-      # continue calculating entrainment
+      # requested detrained mass (applied in the second pass after entrainment)
+      detCell = detRaster[indCellY, indCellX]
+      if detCell > 0:
+        dMDet[k] = computeDetMass(dt, detCell, areaPart, uMag)
+
+      # speed before entrainment, needed for the energy loss due to entrainment in the second pass
+      uMagArray[k] = uMag
+
+      # adding resistance force due to obstacles
+      cResCell = cResRaster[indCellY][indCellX]
+      cResPart = computeResForce(areaPart, rho, cResCell, uMag, explicitFriction, resistanceType)
+      forceFrict[k] = forceFrict[k] - cResPart
+
+      uxArray[k] = ux
+      uyArray[k] = uy
+      uzArray[k] = uz
+
+  # second pass: ration entrained mass per cell and update mass, velocity and enthalpy of the particles
+  for k in range(nPart):
+      m = mass[k]
+      z = zArray[k]
+      ux = uxArray[k]
+      uy = uyArray[k]
+      uz = uzArray[k]
+      uMag = uMagArray[k]
+      indCellX = indXDEM[k]
+      indCellY = indYDEM[k]
+
+      # entrainment
+      entrMassCell = entrMassRaster[indCellY, indCellX]
       if entrMassCell > 0.0:
+        dm = dM[k]
+        areaEntrPart = areaEntrArray[k]
+
+        # all particles of a cell are scaled with the same factor, so the result does not depend on the order
+        # of the particles and the cell is never emptied more than once
+        # TODO: rationing is only applied to the TJEM entrainment model for now because it changes the samosAT
+        # results too much. To enable it for samosAT as well: use (entrType == 1 or entrType == 2) in the check
+        # below, extend the rationing tests in test_DFAfunctionsCython.py to entrType 1 (adapt
+        # test_computeForceCEntrainmentRationingOnlyTjem), rerun the standard tests and update the benchmarks
+        entrAvailable = entrMassCell * areaRatser[indCellY, indCellX]
+        if entrType == 2 and entrDemand[indCellY, indCellX] > entrAvailable:
+          entrScale = entrAvailable / entrDemand[indCellY, indCellX]
+          dm = dm * entrScale
+          areaEntrPart = areaEntrPart * entrScale
+
         # speed loss due to energy loss due to entrained mass
         dEnergyEntr = areaEntrPart * entShearResistance + dm * entDefResistance
 
@@ -410,7 +471,7 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
           # enthalpy change due to entrained mass
           entrEnthCell = entrEnthRaster[indCellY, indCellX]
           dTotalEnthalpy = (entrEnthCell + gravAcc * z) * dm
-          totalEnthalpy = (totalEnthalpy * m + dTotalEnthalpy)
+          totalEnthalpy = (totalEnthalpyArray[k] * m + dTotalEnthalpy)
 
         # update velocity
         ux = ux * m / (m + dm)
@@ -437,24 +498,16 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
           totalEnthalpyArray[k] = totalEnthalpy / m
 
       # adding detrainment analogous to entrainment
-      detCell = detRaster[indCellY, indCellX]
-      
-      if detCell > 0:
-        # compute detrained mass
-        dmDet = computeDetMass(dt, detCell, areaPart, uMag)
+      if detRaster[indCellY, indCellX] > 0:
+        dmDet = dMDet[k]
         if abs(dmDet) > m:
           # mass of a particle can't be negative
           dmDet = - 1 * m
-      
+
         # update mass
         m = m + dmDet
         mass[k] = m
         dMDet[k] = dmDet
-
-      # adding resistance force due to obstacles
-      cResCell = cResRaster[indCellY][indCellX]
-      cResPart = computeResForce(areaPart, rho, cResCell, uMag, explicitFriction, resistanceType)
-      forceFrict[k] = forceFrict[k] - cResPart
 
       uxArray[k] = ux
       uyArray[k] = uy
@@ -478,7 +531,8 @@ def computeForceC(cfg, particles, fields, dem, int frictType, int entrType, int 
   particles['totalEnthalpy'] = np.asarray(totalEnthalpyArray)
 
   # update mass available for entrainement
-  # TODO: this allows to entrain more mass then available...
+  # with rationing (TJEM) the entrained mass never exceeds the available mass (the check for < 0 only guards
+  # against rounding), without it (samosAT) the raster is clamped at 0
   for k in range(nPart):
     indCellX = indXDEM[k]
     indCellY = indYDEM[k]
