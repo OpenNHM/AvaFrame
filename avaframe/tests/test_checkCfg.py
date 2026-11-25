@@ -281,3 +281,68 @@ def test_checkCfgFrictionModel():
     assert float(cfg["GENERAL"]["Bsamosat"]) == 9.13
     assert float(cfg["GENERAL"]["muvoellmy"]) == 4000.0
     assert np.isnan(float(cfg["GENERAL"]["xsivoellmy"]))
+
+
+def _getMuICfg(**overrides):
+    """mu(I) friction model configuration with the default parameter values"""
+
+    cfg = {
+        "GENERAL": {
+            "frictModel": "muI",
+            "rho": "200",
+            "muIMuS": "0.3640",
+            "muIMu2": "0.6249",
+            "muII0": "0.3",
+            "muIGrainSize": "0.0009",
+            "muIGrainDensity": "917",
+            "muIShearFactor": "2.5",
+            "explicitFriction": "0",
+        }
+    }
+    cfg["GENERAL"].update({key: str(value) for key, value in overrides.items()})
+    return cfg
+
+
+def test_checkCfgFrictionModelMuI(caplog):
+    """test mu(I) parameter checks: valid defaults, errors and warnings"""
+
+    inputSimFiles = {}
+
+    # default parameters: pass without warning
+    with caplog.at_level(logging.WARNING):
+        cfg = checkCfg.checkCfgFrictionModel(_getMuICfg(), inputSimFiles)
+    assert cfg["GENERAL"]["frictModel"] == "muI"
+    assert caplog.records == []
+
+    # nan values are caught by the generic parameter check
+    cfg = _getMuICfg(muIGrainSize="nan")
+    with pytest.raises(ValueError) as e:
+        checkCfg.checkCfgFrictionModel(cfg, inputSimFiles)
+    assert "Friction model used muI, but muIGrainSize is nan - not valid" in str(e.value)
+
+    # every parameter must be positive
+    for name in ["muIMuS", "muIMu2", "muII0", "muIGrainSize", "muIGrainDensity", "muIShearFactor"]:
+        for value in ["0", "-1"]:
+            with pytest.raises(ValueError) as e:
+                checkCfg.checkCfgFrictionModel(_getMuICfg(**{name: value}), inputSimFiles)
+            assert "%s must be larger than 0" % name in str(e.value)
+
+    # mu_2 must be larger than mu_s
+    for muS, mu2 in [("0.6", "0.6"), ("0.7", "0.6")]:
+        with pytest.raises(ValueError) as e:
+            checkCfg.checkCfgFrictionModel(_getMuICfg(muIMuS=muS, muIMu2=mu2), inputSimFiles)
+        assert "muIMu2 must be larger than muIMuS" in str(e.value)
+
+    # grain density below the flow density: probably bulk density entered as grain density
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgFrictionModel(_getMuICfg(muIGrainDensity="150"), inputSimFiles)
+    assert "muIGrainDensity" in caplog.text
+    assert "bulk density" in caplog.text
+
+    # non-default shear rate closure
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        checkCfg.checkCfgFrictionModel(_getMuICfg(muIShearFactor="3"), inputSimFiles)
+    assert "muIShearFactor" in caplog.text
+    assert "2.5" in caplog.text
