@@ -654,6 +654,10 @@ def postProcessSimiSol(avalancheDir, cfgMain, cfgSimi, simDF, solSimi, outDirTes
     simDF: pandas dataFrame
         configuration DF appended with the analysis results
     """
+    # add all result columns at once, inserting them one by one into the wide simDF fragments it
+    resCols = ["timeError", "hErrorL2", "vhErrorL2", "hErrorLMax", "vhErrorLMax"]
+    simDF = pd.concat([simDF, pd.DataFrame(np.nan, index=simDF.index, columns=resCols)], axis=1)
+
     # loop on all the simulations and make the comparison to reference
     for simHash, simDFrow in simDF.iterrows():
         simName = simDFrow["simName"]

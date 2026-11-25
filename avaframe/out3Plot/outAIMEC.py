@@ -1295,7 +1295,8 @@ def addLinePlot(contourDict, colorStr, labelStr, ax, key, zorder='', linestyle='
             between 0 and 1 to define how opaque the line
     """
 
-    if key.split('.')[1] == '0_1':
+    # contour keys are named line<level>_<segmentNumber>, only label the first segment
+    if key.endswith('_1'):
         ax.plot(contourDict['y'], contourDict['x'], c=colorStr, label=labelStr,
             zorder=zorder, linestyle=linestyle, alpha=alpha)
     else:

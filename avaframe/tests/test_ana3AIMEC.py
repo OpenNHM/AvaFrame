@@ -18,6 +18,9 @@ from unittest.mock import Mock, patch
 import numpy as np
 from avaframe.ana3AIMEC.ana3AIMEC import postProcessReference
 
+# the test DEM is flat (z=0), which makes the thalweg-altitude plot ylims identical
+pytestmark = pytest.mark.filterwarnings("ignore:Attempting to set identical low and high ylims:UserWarning")
+
 
 def test_getAimecInputs(capfd):
     """test readAIMECinputs and fetchReferenceSimNo"""

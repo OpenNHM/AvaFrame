@@ -175,7 +175,7 @@ def test_missingMuFieldRaises():
         # Shapefile with wrong field name instead of 'mu'
         shpPath = polyDir / "zones_spatialVoellmy.shp"
         with shapefile.Writer(shpPath, shapeType=shapefile.POLYGON) as w:
-            w.field("friction_mu", "F", decimal=6)
+            w.field("fric_mu", "F", decimal=6)
             w.field("xi", "F", decimal=6)
             w.poly([[(2, 7), (5, 7), (5, 9), (2, 9), (2, 7)]])
             w.record(0.3, 3000.0)

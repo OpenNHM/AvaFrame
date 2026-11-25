@@ -5,6 +5,7 @@ Main logic for AIMEC post processing
 import logging
 import pathlib
 import re
+import warnings
 import numpy as np
 import pandas as pd
 import copy
@@ -1629,7 +1630,10 @@ def getMaxMeanValues(rasterdataA, rasterArea):
     areaSum = np.where(areaSum > 0, areaSum, 1)
     aCrossMean = np.nansum(rasterdataA * rasterArea, axis=1) / areaSum
     # aCrossMean = np.nanmean(rasterdataA, axis=1)
-    aCrossMax = np.nanmax(rasterdataA, 1)
+    # cross sections without any valid value (e.g. at the domain edge) are all-NaN and result in NaN on purpose
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered", category=RuntimeWarning)
+        aCrossMax = np.nanmax(rasterdataA, 1)
     # maximum of field a
     maxaCrossMax = np.nanmax(aCrossMax)
 

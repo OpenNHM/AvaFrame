@@ -925,7 +925,9 @@ def convertDF2numerics(simDF):
         else:
             log.debug("Not converted to numeric: %s" % name)
 
-    return simDF
+    # the column-wise conversion above fragments the frame into one block per column, copy consolidates
+    # the numeric columns again and avoids pandas PerformanceWarnings on later column insertions
+    return simDF.copy()
 
 
 def setStrnanToNan(simDF, simDFTest, name):
